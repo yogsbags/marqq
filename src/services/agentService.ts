@@ -22,7 +22,8 @@ export class AgentService {
       tools: [
         this.createLeadScoringTool(),
         this.createDataEnrichmentTool(),
-        this.createICPAnalysisTool()
+        this.createICPAnalysisTool(),
+        this.createLookalikeAudienceTool()
       ]
     });
 
@@ -35,12 +36,14 @@ export class AgentService {
         'Social media content creation',
         'Email campaign writing',
         'Ad copy optimization',
-        'Brand voice adaptation'
+        'Brand voice adaptation',
+        'Personalized outreach campaigns'
       ],
       tools: [
         this.createContentGenerationTool(),
         this.createBrandVoiceAnalysisTool(),
-        this.createSEOOptimizationTool()
+        this.createSEOOptimizationTool(),
+        this.createAIOutreachTool()
       ]
     });
 

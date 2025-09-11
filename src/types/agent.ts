@@ -17,7 +17,7 @@ export interface AgentMemory {
 
 export interface AgentTask {
   id: string;
-  type: 'lead_analysis' | 'content_generation' | 'campaign_optimization' | 'customer_segmentation';
+  type: 'lead_analysis' | 'content_generation' | 'campaign_optimization' | 'customer_segmentation' | 'lookalike_audience_generation' | 'ai_outreach';
   description: string;
   input: any;
   status: 'pending' | 'processing' | 'completed' | 'failed';
