@@ -83,14 +83,6 @@ function Dashboard() {
       return <HelpPanel />;
     }
     
-    if (selectedModule === 'agent-dashboard') {
-      return <AgentDashboard />;
-    }
-    
-    if (selectedModule === 'workflow-builder') {
-      return <AgentWorkflowBuilder />;
-    }
-    
     if (currentModule) {
       return (
         <ModuleDetail 
