@@ -204,6 +204,59 @@ export class AgentService {
     };
   }
 
+  private static createLookalikeAudienceTool(): AgentTool {
+    return {
+      name: 'lookalike_audience_generation',
+      description: 'Generates lookalike audiences based on ICP and best customer profiles',
+      parameters: {
+        icpProfile: 'object',
+        bestCustomers: 'array',
+        targetPlatform: 'string',
+        audienceSize: 'number'
+      },
+      execute: async (params) => {
+        const { icpProfile, targetPlatform = 'facebook', audienceSize = 10000 } = params;
+        
+        // Simulate lookalike audience generation
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        return {
+          audienceId: `lookalike_${Date.now()}`,
+          platform: targetPlatform,
+          size: audienceSize,
+          matchScore: Math.random() * 0.3 + 0.7, // 70-100% match
+          segments: [
+            {
+              name: 'High-Intent Prospects',
+              size: Math.floor(audienceSize * 0.4),
+              characteristics: icpProfile?.industry || ['Technology', 'SaaS'],
+              matchScore: 0.92
+            },
+            {
+              name: 'Growth Companies',
+              size: Math.floor(audienceSize * 0.35),
+              characteristics: ['Scaling businesses', 'Tech adoption'],
+              matchScore: 0.87
+            },
+            {
+              name: 'Similar Profiles',
+              size: Math.floor(audienceSize * 0.25),
+              characteristics: ['Similar demographics', 'Behavioral patterns'],
+              matchScore: 0.78
+            }
+          ],
+          targetingInsights: [
+            'Focus on companies with 50-500 employees',
+            'Target decision makers in technology roles',
+            'Emphasize ROI and efficiency benefits'
+          ],
+          estimatedReach: audienceSize * 1.2,
+          confidence: 0.89
+        };
+      }
+    };
+  }
+
   private static createContentGenerationTool(): AgentTool {
     return {
       name: 'content_generation',
@@ -285,6 +338,42 @@ export class AgentService {
             'Optimize meta description',
             'Include target keywords in headings'
           ]
+        };
+      }
+    };
+  }
+
+  private static createAIOutreachTool(): AgentTool {
+    return {
+      name: 'ai_outreach',
+      description: 'Generates personalized outreach campaigns using AI',
+      parameters: {
+        prospects: 'array',
+        campaignType: 'string',
+        personalizationLevel: 'string'
+      },
+      execute: async (params) => {
+        const { prospects, campaignType = 'email', personalizationLevel = 'medium' } = params;
+        
+        // Simulate AI outreach generation
+        const campaigns = prospects?.map((prospect: any, index: number) => ({
+          prospectId: prospect.id || `prospect_${index}`,
+          subject: `Personalized ${campaignType} for ${prospect.company || 'your company'}`,
+          content: `Hi ${prospect.name || 'there'},\n\nI noticed your company is in the ${prospect.industry || 'technology'} space...`,
+          personalizationScore: Math.random() * 0.4 + 0.6, // 60-100%
+          estimatedOpenRate: Math.random() * 0.3 + 0.2, // 20-50%
+          estimatedResponseRate: Math.random() * 0.1 + 0.05 // 5-15%
+        })) || [];
+
+        return {
+          campaigns,
+          totalProspects: prospects?.length || 0,
+          averagePersonalizationScore: 0.78,
+          estimatedPerformance: {
+            openRate: 0.35,
+            responseRate: 0.08,
+            conversionRate: 0.02
+          }
         };
       }
     };
