@@ -9,8 +9,6 @@ import { DashboardContent } from '@/components/dashboard/DashboardContent';
 import { ModuleDetail } from '@/components/modules/ModuleDetail';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { HelpPanel } from '@/components/help/HelpPanel';
-import { AgentDashboard } from '@/components/agents/AgentDashboard';
-import { AgentWorkflowBuilder } from '@/components/agents/AgentWorkflowBuilder';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { dashboardData } from '@/data/dashboardData';
 import './App.css';
