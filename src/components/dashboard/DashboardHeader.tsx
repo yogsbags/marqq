@@ -17,7 +17,7 @@ import { dashboardData } from '@/data/dashboardData';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
 
 interface DashboardHeaderProps {
-  selectedModule?: string | null;
+  selectedModule: string | null;
   onModuleSelect: (moduleId: string | null) => void;
 }
 
