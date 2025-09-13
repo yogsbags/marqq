@@ -21,6 +21,7 @@ interface Notification {
 interface NotificationsPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onModuleSelect?: (moduleId: string | null) => void;
 }
 
 export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps) {
