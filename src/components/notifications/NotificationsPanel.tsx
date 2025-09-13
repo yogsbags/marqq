@@ -24,7 +24,7 @@ interface NotificationsPanelProps {
   onModuleSelect?: (moduleId: string | null) => void;
 }
 
-export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps) {
+export function NotificationsPanel({ isOpen, onClose, onModuleSelect }: NotificationsPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: '1',
