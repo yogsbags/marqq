@@ -18,9 +18,10 @@ import { NotificationsPanel } from '@/components/notifications/NotificationsPane
 
 interface DashboardHeaderProps {
   selectedModule?: string | null;
+  onModuleSelect: (moduleId: string | null) => void;
 }
 
-export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
+export function DashboardHeader({ selectedModule, onModuleSelect }: DashboardHeaderProps) {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
