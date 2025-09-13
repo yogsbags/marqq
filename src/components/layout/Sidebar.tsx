@@ -128,7 +128,7 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
           onClick={onToggleCollapse}
           className="h-8 w-8 transition-all duration-200 hover:scale-110 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-600"
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {collapsed ? <ChevronRight className="h-4 w-4 text-gray-900 dark:text-gray-100" /> : <ChevronLeft className="h-4 w-4 text-gray-900 dark:text-gray-100" />}
         </Button>
       </div>
 

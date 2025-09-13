@@ -41,7 +41,7 @@ export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             className="transition-all duration-200 hover:scale-105 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
           >
-            {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            {theme === 'light' ? <Moon className="h-4 w-4 text-gray-900 dark:text-gray-100" /> : <Sun className="h-4 w-4 text-gray-900 dark:text-gray-100" />}
           </Button>
 
           <Button 
@@ -49,7 +49,7 @@ export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
             size="sm" 
             className="relative transition-all duration-200 hover:scale-105 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
           >
-            <Bell className="h-4 w-4" />
+            <Bell className="h-4 w-4 text-gray-900 dark:text-gray-100" />
             <span className="absolute -top-1 -right-1 h-3 w-3 bg-orange-500 rounded-full animate-pulse" />
           </Button>
 
@@ -60,7 +60,7 @@ export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
                 size="sm"
                 className="relative hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-200 text-gray-600 dark:text-gray-300 bg-transparent"
               >
-                <User className="h-4 w-4" />
+                <User className="h-4 w-4 text-gray-900 dark:text-gray-100" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
