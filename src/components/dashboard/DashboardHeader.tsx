@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Badge } from '@/components/ui/badge';
 import { dashboardData } from '@/data/dashboardData';
+import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
 
 interface DashboardHeaderProps {
   selectedModule?: string | null;
@@ -22,9 +23,11 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <>
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center space-x-4">
           {/* Only show badge on dashboard, not on module pages */}
@@ -48,7 +51,8 @@ export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
           <Button 
             variant="ghost" 
             size="sm" 
-            className="relative transition-all duration-200 hover:scale-105 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="relative transition-all duration-200 hover:scale-105 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
           >
             <Bell className="h-4 w-4 text-gray-900 dark:text-gray-100" />
             <span className="absolute -top-1 -right-1 h-3 w-3 bg-orange-500 rounded-full animate-pulse" />
@@ -89,6 +93,13 @@ export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
           </DropdownMenu>
         </div>
       </div>
-    </header>
+      </header>
+      
+      {/* Notifications Panel */}
+      <NotificationsPanel 
+        isOpen={notificationsOpen} 
+        onClose={() => setNotificationsOpen(false)} 
+      />
+    </>
   );
 }
