@@ -39,7 +39,7 @@ export function MainLayout({ children, selectedModule, onModuleSelect }: MainLay
         sidebarCollapsed ? "ml-16" : "ml-72"
       )}>
         {/* Header - Only show on dashboard */}
-        <DashboardHeader selectedModule={selectedModule} />
+        <DashboardHeader selectedModule={selectedModule} onModuleSelect={onModuleSelect} />
         
         {/* Main Content Area */}
         <main className={cn(

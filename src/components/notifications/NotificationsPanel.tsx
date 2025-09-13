@@ -385,6 +385,10 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => {
+                  onModuleSelect?.('settings');
+                  onClose();
+                }}
                 className="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 <Settings className="h-4 w-4 mr-2" />

@@ -99,6 +99,7 @@ export function DashboardHeader({ selectedModule }: DashboardHeaderProps) {
       <NotificationsPanel 
         isOpen={notificationsOpen} 
         onClose={() => setNotificationsOpen(false)} 
+        onModuleSelect={onModuleSelect}
       />
     </>
   );
