@@ -171,7 +171,7 @@ export function PerformanceScorecard() {
     event.stopPropagation();
   };
 
-  const handleDragEnter = (event: React.DragEvent<HTMLDivEvent>) => {
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
   };
