@@ -208,3 +208,22 @@ button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px #f97316;
 }
+
+/* Fix dropdown and select field colors */
+select {
+  background-color: white !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.dark select {
+  background-color: white !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+/* Ensure dropdown options are also readable */
+select option {
+  background-color: white !important;
+  color: #1f2937 !important;
+}
