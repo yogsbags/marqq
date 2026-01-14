@@ -1,5 +1,12 @@
-const GROQ_API_KEY = 'gsk_REDACTED_USE_VITE_GROQ_API_KEY';
+// Get API key from environment variables (secure)
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+if (!GROQ_API_KEY) {
+  console.warn(
+    '⚠️ Groq API key not set. Please set VITE_GROQ_API_KEY in your .env file'
+  );
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -8,6 +15,10 @@ export interface ChatMessage {
 
 export class GroqService {
   private static async makeRequest(messages: ChatMessage[]): Promise<string> {
+    if (!GROQ_API_KEY) {
+      throw new Error('Groq API key is not configured. Please set VITE_GROQ_API_KEY in your .env file');
+    }
+
     try {
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -19,7 +30,7 @@ export class GroqService {
           messages: [
             {
               role: 'system',
-              content: 'You are a helpful AI assistant for Torqq AI, a marketing intelligence platform. You help users with marketing campaigns, lead intelligence, AI voice bots, user engagement, budget optimization, performance analytics, AI content generation, and customer insights. Always format your responses using bullet points when providing lists, steps, or multiple pieces of information. Keep responses concise, helpful, and focused on marketing solutions. Use clear bullet points to organize information for better readability.'
+              content: 'You are a helpful AI assistant for Torqq AI, a marketing intelligence platform. You help users with marketing campaigns, lead intelligence, AI voice bots, user engagement, budget optimization, performance analytics, AI content generation, and customer insights. Format your responses in plain text with clear structure. Use bullet points (•) for lists, bold text (**text**) for emphasis, and headings (## Heading) for sections. Keep responses concise, helpful, and focused on marketing solutions. The response will be automatically converted to rich text formatting, so use standard markdown syntax for best results.'
             },
             ...messages
           ],

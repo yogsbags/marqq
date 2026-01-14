@@ -28,7 +28,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect }: DashboardHea
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-40 w-full border-b bg-white dark:bg-gray-950 backdrop-blur supports-[backdrop-filter]:bg-white/95 dark:supports-[backdrop-filter]:bg-gray-950/95">
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center space-x-4">
           {/* Only show badge on dashboard, not on module pages */}
@@ -49,9 +49,9 @@ export function DashboardHeader({ selectedModule, onModuleSelect }: DashboardHea
             {theme === 'light' ? <Moon className="h-4 w-4 text-gray-900 dark:text-gray-100" /> : <Sun className="h-4 w-4 text-gray-900 dark:text-gray-100" />}
           </Button>
 
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
               onClick={() => setNotificationsOpen(!notificationsOpen)}
               className="relative transition-all duration-200 hover:scale-105 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
           >
@@ -61,8 +61,8 @@ export function DashboardHeader({ selectedModule, onModuleSelect }: DashboardHea
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 className="relative hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-200 text-gray-600 dark:text-gray-300 bg-transparent"
               >
@@ -81,7 +81,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect }: DashboardHea
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 className="cursor-pointer"
                 onClick={() => onModuleSelect('settings')}
               >
@@ -89,7 +89,16 @@ export function DashboardHeader({ selectedModule, onModuleSelect }: DashboardHea
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-red-600" onClick={logout}>
+              <DropdownMenuItem
+                className="cursor-pointer text-red-600"
+                onClick={async () => {
+                  try {
+                    await logout();
+                  } catch (error) {
+                    console.error('Logout error:', error);
+                  }
+                }}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>
@@ -98,11 +107,11 @@ export function DashboardHeader({ selectedModule, onModuleSelect }: DashboardHea
         </div>
       </div>
       </header>
-      
+
       {/* Notifications Panel */}
-      <NotificationsPanel 
-        isOpen={notificationsOpen} 
-        onClose={() => setNotificationsOpen(false)} 
+      <NotificationsPanel
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
         onModuleSelect={onModuleSelect}
       />
     </>

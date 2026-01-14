@@ -1,27 +1,21 @@
-import { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Target, 
-  Bot, 
-  Video,
-  Users, 
-  DollarSign, 
-  TrendingUp, 
-  PenTool, 
-  Eye, 
-  Search,
-  Brain,
-  Workflow,
-  Settings, 
-  HelpCircle,
-  ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import {
+  HiChat as Bot,
+  HiCurrencyDollar as DollarSign,
+  HiEye as Eye,
+  HiQuestionMarkCircle as HelpCircle,
+  HiHome as LayoutDashboard,
+  HiPencil as PenTool,
+  HiSearch as Search,
+  HiCog as Settings,
+  HiChartBar as Target,
+  HiTrendingUp as TrendingUp,
+  HiUsers as Users,
+  HiVideoCamera as Video
+} from 'react-icons/hi';
 
 interface SidebarProps {
   selectedModule: string | null;
@@ -99,13 +93,13 @@ const bottomItems = [
 export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCollapse }: SidebarProps) {
   return (
     <div className={cn(
-      "fixed left-0 top-0 z-30 flex flex-col h-full bg-card border-r transition-all duration-300",
+      "fixed left-0 top-0 z-30 flex flex-col h-full bg-white dark:bg-gray-950 border-r transition-all duration-300",
       collapsed ? "w-16" : "w-72"
     )}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         {!collapsed && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-1">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-700 opacity-80"></div>
               <div className="relative">
@@ -122,14 +116,6 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
             </h1>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggleCollapse}
-          className="h-8 w-8 transition-all duration-200 hover:scale-110 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-600"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4 text-gray-900 dark:text-gray-100" /> : <ChevronLeft className="h-4 w-4 text-gray-900 dark:text-gray-100" />}
-        </Button>
       </div>
 
       {/* Navigation */}
@@ -142,8 +128,8 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
               className={cn(
                 "w-full justify-start transition-all duration-200 hover:scale-[1.02]",
                 collapsed ? "px-2" : "px-3 py-2.5",
-                selectedModule === item.id 
-                  ? "bg-orange-500 text-white hover:bg-orange-600" 
+                selectedModule === item.id
+                  ? "bg-orange-500 text-white hover:bg-orange-600"
                   : "bg-transparent text-gray-700 hover:bg-orange-50 hover:text-orange-700 dark:text-gray-300 dark:hover:bg-orange-900/20 dark:hover:text-orange-400 focus:outline-none focus:ring-0"
               )}
               onClick={() => onModuleSelect(item.id)}
@@ -171,8 +157,8 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
               className={cn(
                 "w-full justify-start transition-all duration-200 hover:scale-[1.02]",
                 collapsed ? "px-2" : "px-3 py-2.5",
-                selectedModule === item.id 
-                  ? "bg-orange-500 text-white hover:bg-orange-600" 
+                selectedModule === item.id
+                  ? "bg-orange-500 text-white hover:bg-orange-600"
                   : "bg-transparent text-gray-700 hover:bg-orange-50 hover:text-orange-700 dark:text-gray-300 dark:hover:bg-orange-900/20 dark:hover:text-orange-400"
               )}
               onClick={() => onModuleSelect(item.id)}

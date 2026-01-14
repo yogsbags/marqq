@@ -4,7 +4,17 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
-import { X, Send, Bot, User, Trash2, Paperclip, FileText, Image, FileSpreadsheet } from 'lucide-react';
+import {
+  HiX as X,
+  HiPaperAirplane as Send,
+  HiChat as Bot,
+  HiUser as User,
+  HiTrash as Trash2,
+  HiPaperClip as Paperclip,
+  HiDocumentText as FileText,
+  HiPhotograph as Image,
+  HiTable as FileSpreadsheet
+} from 'react-icons/hi';
 import { cn } from '@/lib/utils';
 import { GroqService, ChatMessage } from '@/services/groqService';
 import { toast } from 'sonner';
@@ -74,58 +84,92 @@ const SLASH_COMMANDS = [
   }
 ];
 
-// Component to format AI responses with proper typography
+// Convert markdown to rich text HTML
+function markdownToRichText(markdown: string): string {
+  let html = markdown;
+
+  // Escape HTML to prevent XSS
+  const escapeHtml = (text: string) => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
+  // Code blocks (```code```)
+  html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
+    return `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto my-2"><code class="text-xs font-mono">${escapeHtml(code.trim())}</code></pre>`;
+  });
+
+  // Inline code (`code`)
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
+
+  // Headings (## Heading)
+  html = html.replace(/^### (.*$)/gm, '<h3 class="text-base font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h3>');
+  html = html.replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h2>');
+  html = html.replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h1>');
+
+  // Bold (**text** or __text__)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>');
+  html = html.replace(/__(.*?)__/g, '<strong class="font-semibold">$1</strong>');
+
+  // Italic (*text* or _text_)
+  html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
+  html = html.replace(/_(.*?)_/g, '<em class="italic">$1</em>');
+
+  // Links [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-orange-600 dark:text-orange-400 hover:underline">$1</a>');
+
+  // Unordered lists (- item or * item)
+  html = html.replace(/^[\*\-\+]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
+
+  // Ordered lists (1. item)
+  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li class="ml-4 list-decimal">$1</li>');
+
+  // Wrap consecutive list items in <ul> or <ol>
+  html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, (match) => {
+    if (match.includes('list-decimal')) {
+      return `<ol class="space-y-1 my-2">${match}</ol>`;
+    }
+    return `<ul class="space-y-1 my-2">${match}</ul>`;
+  });
+
+  // Horizontal rules (---)
+  html = html.replace(/^---$/gm, '<hr class="my-4 border-gray-300 dark:border-gray-700" />');
+
+  // Line breaks (double newline = paragraph, single newline = <br>)
+  html = html.split('\n\n').map(paragraph => {
+    if (paragraph.trim()) {
+      // Check if it's already a block element (heading, list, pre, hr)
+      if (/^<(h[1-6]|ul|ol|pre|hr)/.test(paragraph.trim())) {
+        return paragraph.trim();
+      }
+      // Convert single newlines to <br> within paragraphs
+      const withBreaks = paragraph.replace(/\n/g, '<br />');
+      return `<p class="leading-relaxed mb-2">${withBreaks}</p>`;
+    }
+    return '';
+  }).join('');
+
+  return html;
+}
+
+// Component to format AI responses with rich text (not markdown)
 function FormattedMessage({ content, isAI }: { content: string; isAI: boolean }) {
   if (!isAI) {
     return <p className="text-sm whitespace-pre-wrap">{content}</p>;
   }
 
-  // Split content into paragraphs and format
-  const paragraphs = content.split('\n\n').filter(p => p.trim());
-  
+  // Convert markdown to rich text HTML
+  const richTextHtml = markdownToRichText(content);
+
   return (
-    <div className="text-sm space-y-3">
-      {paragraphs.map((paragraph, index) => {
-        // Check if it's a list item
-        if (paragraph.includes('•') || paragraph.includes('-') || /^\d+\./.test(paragraph)) {
-          const items = paragraph.split('\n').filter(item => item.trim());
-          return (
-            <ul key={index} className="space-y-1 ml-2">
-              {items.map((item, itemIndex) => (
-                <li key={itemIndex} className="flex items-start space-x-2">
-                  <span className="text-orange-500 mt-1">•</span>
-                  <span className="flex-1">{item.replace(/^[•\-\d+\.]\s*/, '')}</span>
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        
-        // Check if it's a heading (starts with ##, ###, etc.)
-        if (paragraph.startsWith('#')) {
-          const level = paragraph.match(/^#+/)?.[0].length || 1;
-          const text = paragraph.replace(/^#+\s*/, '');
-          const HeadingTag = `h${Math.min(level + 2, 6)}` as keyof JSX.IntrinsicElements;
-          
-          return (
-            <HeadingTag key={index} className="font-semibold text-gray-900 dark:text-gray-100">
-              {text}
-            </HeadingTag>
-          );
-        }
-        
-        // Regular paragraph with bold text support
-        const formattedText = paragraph.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        
-        return (
-          <p 
-            key={index} 
-            className="leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: formattedText }}
-          />
-        );
-      })}
-    </div>
+    <div
+      className="text-sm prose prose-sm dark:prose-invert max-w-none"
+      dangerouslySetInnerHTML={{ __html: richTextHtml }}
+    />
   );
 }
 
@@ -172,11 +216,11 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
   // Handle input changes and slash command suggestions
   const handleInputChange = (value: string) => {
     setInputValue(value);
-    
+
     if (value.startsWith('/')) {
       const query = value.toLowerCase();
-      const filtered = SLASH_COMMANDS.filter(cmd => 
-        cmd.command.toLowerCase().includes(query) || 
+      const filtered = SLASH_COMMANDS.filter(cmd =>
+        cmd.command.toLowerCase().includes(query) ||
         cmd.description.toLowerCase().includes(query.slice(1))
       );
       setFilteredCommands(filtered);
@@ -216,7 +260,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
         'customer-view': 'unified-customer-view',
         'seo-llmo': 'seo-llmo'
       };
-      
+
       const moduleId = moduleMap[cmd.action];
       if (moduleId) {
         // Set hash to indicate auto-start
@@ -235,7 +279,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
     try {
       let responseContent = '';
-      
+
       switch (cmd.action) {
         case 'agents':
           responseContent = `🤖 **AI Agents Dashboard - Navigating to Module**
@@ -245,7 +289,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Your AI Marketing Team:**
 • **Lead Analyst** - Lead Intelligence & Scoring specialist
-• **Content Creator** - AI Content Generation specialist  
+• **Content Creator** - AI Content Generation specialist
 • **Campaign Optimizer** - Budget & Performance optimization specialist
 • **Customer Insights** - Customer Analytics & Segmentation specialist
 
@@ -258,7 +302,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the AI Agents Dashboard to interact with your marketing AI team! 🚀`;
           break;
-          
+
         case 'workflows':
           responseContent = `⚡ **Workflow Builder - Navigating to Module**
 
@@ -273,7 +317,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Pre-built Templates:**
 • Complete Lead Analysis Pipeline
-• Content Marketing Pipeline  
+• Content Marketing Pipeline
 • Campaign Optimization Suite
 • Customer Journey Mapping
 
@@ -285,7 +329,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the Workflow Builder to create powerful multi-agent marketing workflows! ⚡`;
           break;
-          
+
         case 'lead-intelligence':
           responseContent = `🚀 **Lead Intelligence & AI Agents - Navigating to Module**
 
@@ -308,7 +352,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the Lead Intelligence module - the AI workflow is starting! 🎯`;
           break;
-          
+
         case 'voice-bot':
           responseContent = `🎙️ **AI Voice Bot Automation - Navigating to Module**
 
@@ -332,7 +376,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the AI Voice Bot module - the workflow is starting! 📞`;
           break;
-          
+
         case 'video-bot':
           responseContent = `🎬 **AI Video Bot & Digital Avatar - Navigating to Module**
 
@@ -356,7 +400,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the AI Video Bot module - the workflow is starting! 🎥`;
           break;
-          
+
         case 'user-engagement':
           responseContent = `👥 **User Engagement & Lifecycle - Navigating to Module**
 
@@ -380,7 +424,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the User Engagement module - the workflow is starting! 🎯`;
           break;
-          
+
         case 'budget-optimization':
           responseContent = `💰 **Campaign Budget Optimization - Navigating to Module**
 
@@ -404,7 +448,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the Budget Optimization module - the workflow is starting! 📈`;
           break;
-          
+
         case 'performance-scorecard':
           responseContent = `📊 **Performance Scorecard - Navigating to Module**
 
@@ -428,7 +472,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the Performance Scorecard module - the workflow is starting! 🏆`;
           break;
-          
+
         case 'ai-content':
           responseContent = `🎨 **AI Content Generation - Navigating to Module**
 
@@ -452,7 +496,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the AI Content module - the workflow is starting! ✍️`;
           break;
-          
+
         case 'customer-view':
           responseContent = `👁️ **Unified Customer View - Navigating to Module**
 
@@ -476,7 +520,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the Unified Customer View module - the workflow is starting! 🔍`;
           break;
-          
+
         case 'seo-llmo':
           responseContent = `🔍 **SEO & LLMO Optimization - Navigating to Module**
 
@@ -500,7 +544,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
 **Next:** Check the SEO/LLMO module - the workflow is starting! 📈`;
           break;
-          
+
         case 'help':
           responseContent = `🤖 **Available Slash Commands**
 
@@ -536,28 +580,28 @@ Simply type any slash command and press Enter to instantly trigger the correspon
 
 **Pro Tip:** Start typing "/" to see command suggestions with auto-complete! ⚡`;
           break;
-          
+
         default:
           return false;
       }
-      
+
       // Simulate processing time
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: responseContent,
         sender: 'ai',
         timestamp: new Date(),
       };
-      
+
       onMessagesChange([...messages, userMessage, aiMessage]);
-      
+
       // Show success toast
       if (cmd.action !== 'help') {
         toast.success(`${cmd.description} started successfully! 🚀`);
       }
-      
+
       return true;
     } catch (error) {
       console.error('Slash command error:', error);
@@ -613,13 +657,13 @@ Simply type any slash command and press Enter to instantly trigger the correspon
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.content
       }));
-      
+
       // Add the current user message
       let messageContent = currentInput;
       if (currentFile) {
         messageContent += currentFile ? ` [File uploaded: ${currentFile.name} (${formatFileSize(currentFile.size)})]` : '';
       }
-      
+
       chatMessages.push({
         role: 'user',
         content: messageContent
@@ -627,26 +671,26 @@ Simply type any slash command and press Enter to instantly trigger the correspon
 
       // Get AI response from Groq
       const aiResponse = await GroqService.getChatResponse(chatMessages);
-      
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: aiResponse,
         sender: 'ai',
         timestamp: new Date(),
       };
-      
+
       onMessagesChange([...messages, userMessage, aiMessage]);
     } catch (error) {
       console.error('Chat error:', error);
       toast.error('Failed to get AI response. Please try again.');
-      
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: 'Sorry, I\'m having trouble connecting right now. Please try again in a moment.',
         sender: 'ai',
         timestamp: new Date(),
       };
-      
+
       onMessagesChange([...messages, userMessage, errorMessage]);
     } finally {
       setIsTyping(false);
@@ -701,23 +745,23 @@ Simply type any slash command and press Enter to instantly trigger the correspon
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       ];
-      
+
       if (!validTypes.includes(file.type)) {
         toast.error('Please upload a valid CSV, PDF, or image file');
         return;
       }
-      
+
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         toast.error('File size must be less than 10MB');
         return;
       }
-      
+
       setSelectedFile(file);
       toast.success(`${file.name} selected for upload`);
-      
+
       // Auto-open CSV analysis for CSV files
-      if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv') || 
+      if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv') ||
           file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
         setCSVFile(file);
         setShowCSVAnalysis(true);
@@ -754,7 +798,7 @@ Simply type any slash command and press Enter to instantly trigger the correspon
     <>
       {/* Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-300"
           onClick={onClose}
         />
@@ -768,8 +812,8 @@ Simply type any slash command and press Enter to instantly trigger the correspon
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-orange-500 to-orange-600 text-white">
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
-              <Bot className="h-5 w-5" />
+            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+              <Bot className="h-5 w-5" style={{ display: 'block', color: '#ffffff' }} />
             </div>
             <div>
               <h3 className="font-semibold">AI Assistant</h3>
@@ -780,19 +824,21 @@ Simply type any slash command and press Enter to instantly trigger the correspon
               variant="ghost"
               size="icon"
               onClick={handleClearChat}
-              className="text-white hover:bg-white/20 h-8 w-8 border border-white/30 hover:border-white/50"
+              className="h-8 w-8 bg-white/10 hover:bg-white/30 border border-white/40 hover:border-white/60 transition-colors"
               title="Clear chat"
+              style={{ color: '#ffffff' }}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" style={{ display: 'block', color: '#ffffff' }} />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-white hover:bg-white/20 h-8 w-8 border border-white/30 hover:border-white/50"
+              className="h-8 w-8 bg-white/10 hover:bg-white/30 border border-white/40 hover:border-white/60 transition-colors"
               title="Close chat"
+              style={{ color: '#ffffff' }}
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" style={{ display: 'block', color: '#ffffff' }} />
             </Button>
           </div>
         </div>
@@ -821,16 +867,16 @@ Simply type any slash command and press Enter to instantly trigger the correspon
                 </Avatar>
                 <Card className={cn(
                   "p-3 max-w-[280px]",
-                  message.sender === 'user' 
-                    ? "bg-orange-500 text-white" 
+                  message.sender === 'user'
+                    ? "bg-orange-500 text-white"
                     : "bg-muted text-left"
                 )}>
                   {/* File attachment display */}
                   {message.file && (
                     <div className={cn(
                       "flex items-center space-x-2 p-2 rounded mb-2 border",
-                      message.sender === 'user' 
-                        ? "bg-orange-400 border-orange-300" 
+                      message.sender === 'user'
+                        ? "bg-orange-400 border-orange-300"
                         : "bg-background border-border"
                     )}>
                       {getFileIcon(message.file.type)}
@@ -849,31 +895,31 @@ Simply type any slash command and press Enter to instantly trigger the correspon
                         </div>
                       </div>
                       {message.file.url && message.file.type.includes('image') && (
-                        <img 
-                          src={message.file.url} 
+                        <img
+                          src={message.file.url}
                           alt={message.file.name}
                           className="w-8 h-8 object-cover rounded"
                         />
                       )}
                     </div>
                   )}
-                  <FormattedMessage 
-                    content={message.content} 
-                    isAI={message.sender === 'ai'} 
+                  <FormattedMessage
+                    content={message.content}
+                    isAI={message.sender === 'ai'}
                   />
                   <p className={cn(
                     "text-xs mt-1 opacity-70",
                     message.sender === 'user' ? "text-orange-100" : "text-muted-foreground"
                   )}>
-                    {message.timestamp.toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
+                    {message.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
                     })}
                   </p>
                 </Card>
               </div>
             ))}
-            
+
             {/* Typing Indicator */}
             {isTyping && (
               <div className="flex items-start space-x-3 justify-start">
@@ -908,8 +954,8 @@ Simply type any slash command and press Enter to instantly trigger the correspon
                     <div className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</div>
                   </div>
                   {selectedFile.type.includes('image') && (
-                    <img 
-                      src={URL.createObjectURL(selectedFile)} 
+                    <img
+                      src={URL.createObjectURL(selectedFile)}
                       alt={selectedFile.name}
                       className="w-10 h-10 object-cover rounded"
                     />
@@ -949,19 +995,19 @@ Simply type any slash command and press Enter to instantly trigger the correspon
               ))}
             </div>
           )}
-          
+
           <div className="flex space-x-2">
             {/* File Upload Button */}
             <Button
               variant="outline"
               size="icon"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 hover:bg-orange-50 hover:border-orange-200"
+              className="flex-shrink-0 hover:bg-orange-50 hover:border-orange-200 bg-white border-gray-300 text-gray-700"
               title="Upload file (CSV, PDF, Images)"
             >
-              <Paperclip className="h-4 w-4" />
+              <Paperclip className="h-4 w-4 text-gray-700" style={{ display: 'block' }} />
             </Button>
-            
+
             {/* Hidden File Input */}
             <input
               ref={fileInputRef}
@@ -970,7 +1016,7 @@ Simply type any slash command and press Enter to instantly trigger the correspon
               onChange={handleFileSelect}
               className="hidden"
             />
-            
+
             <Input
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
@@ -992,15 +1038,15 @@ Simply type any slash command and press Enter to instantly trigger the correspon
           </p>
         </div>
       </div>
-      
+
       {/* CSV Analysis Panel */}
       {showCSVAnalysis && csvFile && (
-        <CSVAnalysisPanel 
-          file={csvFile} 
+        <CSVAnalysisPanel
+          file={csvFile}
           onClose={() => {
             setShowCSVAnalysis(false);
             setCSVFile(null);
-          }} 
+          }}
         />
       )}
     </>

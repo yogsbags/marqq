@@ -238,6 +238,18 @@ button .lucide {
   color: currentColor;
 }
 
+/* Ensure react-icons are visible */
+svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+button svg,
+button .react-icons {
+  display: block !important;
+  color: inherit;
+}
+
 /* Specific icon color fixes */
 .sidebar-icon {
   color: #1f2937;

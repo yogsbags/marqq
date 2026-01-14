@@ -1,0 +1,2413 @@
+#!/usr/bin/env node
+
+/**
+ * Backend API Server for Enhanced Bulk Generator
+ * Runs on port 3008 and handles workflow execution
+ * This allows the Vite app (port 3007) to proxy API calls to it
+ */
+
+const express = require('express');
+const cors = require('cors');
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const { parse } = require('csv-parse/sync');
+const { stringify } = require('csv-stringify/sync');
+const dotenv = require('dotenv');
+const multer = require('multer');
+const http = require('http');
+const https = require('https');
+const { promisify } = require('util');
+const unlink = promisify(fs.unlink);
+const writeFile = promisify(fs.writeFile);
+
+// Load environment variables from .env file
+// Try multiple locations: current dir, parent dir (martech), and parent's parent
+const envPaths = [
+  path.resolve(__dirname, '.env'),
+  path.resolve(__dirname, '..', '.env'),
+  path.resolve(__dirname, '..', '..', '.env')
+];
+
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+    console.log(`✅ Loaded environment variables from: ${envPath}`);
+    break;
+  }
+}
+
+const app = express();
+const PORT = 3006;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Multer configuration for file uploads
+const upload = multer({ dest: '/tmp' });
+
+// Backend directory
+const backendDir = path.join(__dirname, 'backend');
+const mainJsPath = path.join(backendDir, 'main.js');
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Enhanced Bulk Generator Backend API' });
+});
+
+// Execute full workflow (handles both enhanced-bulk-generator and social-media)
+app.post('/api/workflow/execute', async (req, res) => {
+  // Check if this is a social media request - if so, route to social media handler
+  if (req.body.campaignType || req.body.contentType || req.body.useAvatar !== undefined || req.body.platforms) {
+    // Call the social media execute handler directly
+    return handleSocialMediaExecute(req, res);
+  }
+
+  // Enhanced-bulk-generator continues below...
+
+  // Enhanced-bulk-generator workflow
+  const encoder = new TextEncoder();
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendEvent = (data) => {
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+    res.write(message);
+  };
+
+  try {
+    const { topicLimit = 1, category = 'derivatives', customTopic = '', customTitle = '', contentOutline = '' } = req.body;
+
+    sendEvent({ log: '🔧 Initializing workflow execution...' });
+    sendEvent({ log: `📊 Topic Limit: ${topicLimit}` });
+    sendEvent({ log: `📂 Category Focus: ${category}` });
+
+    if (customTopic) {
+      sendEvent({ log: `✨ Custom Topic: "${customTopic}"` });
+    }
+    if (customTitle) {
+      sendEvent({ log: `🚀 Custom Title: "${customTitle}"` });
+    }
+    if (contentOutline) {
+      const lineCount = contentOutline.split('\n').length;
+      sendEvent({ log: `📝 Content Outline: ${lineCount} lines provided` });
+    }
+
+    const args = [
+      mainJsPath,
+      'full',
+      '--auto-approve',
+      '--topic-limit',
+      topicLimit.toString(),
+      '--category',
+      category,
+    ];
+
+    if (customTopic) {
+      args.push('--custom-topic', customTopic);
+    }
+    if (customTitle) {
+      args.push('--custom-title', customTitle);
+    }
+    if (contentOutline) {
+      args.push('--content-outline-provided');
+    }
+
+    const envPath = path.resolve(__dirname, '..', '.env');
+    const nodeEnv = {
+      ...process.env,
+      CONTENT_OUTLINE: contentOutline,
+      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
+    };
+
+    const nodeProcess = spawn('node', args, {
+      cwd: backendDir,
+      env: nodeEnv,
+    });
+
+    let currentStage = 0;
+
+    nodeProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      const lines = output.split('\n').filter(line => line.trim());
+
+      for (const line of lines) {
+        sendEvent({ log: line });
+
+        const lowerLine = line.toLowerCase();
+
+        // Stage detection logic
+        if (lowerLine.includes('🎯 executing stage: research')) {
+          sendEvent({ stage: 1, status: 'running', message: 'Analyzing competitors...' });
+          currentStage = 1;
+        } else if (lowerLine.includes('✅ research stage completed') || lowerLine.includes('✅ stage 1 complete')) {
+          sendEvent({ stage: 1, status: 'completed', message: 'Research gaps identified' });
+        } else if (lowerLine.includes('🎯 executing stage: topics')) {
+          sendEvent({ stage: 2, status: 'running', message: 'Generating strategic topics...' });
+          currentStage = 2;
+        } else if (lowerLine.includes('✅ topic generation completed') || lowerLine.includes('✅ stage 2 complete')) {
+          sendEvent({ stage: 2, status: 'completed', message: 'Topics generated' });
+        } else if (lowerLine.includes('🎯 executing stage: deep-research')) {
+          sendEvent({ stage: 3, status: 'running', message: 'Deep research in progress...' });
+          currentStage = 3;
+        } else if (lowerLine.includes('✅ deep research completed') || lowerLine.includes('✅ stage 3 complete')) {
+          sendEvent({ stage: 3, status: 'completed', message: 'Deep research completed' });
+        } else if (lowerLine.includes('🎯 executing stage: content')) {
+          sendEvent({ stage: 4, status: 'running', message: 'Creating content...' });
+          currentStage = 4;
+        } else if (lowerLine.includes('✅ content creation completed') || lowerLine.includes('✅ stage 4 complete')) {
+          sendEvent({ stage: 4, status: 'completed', message: 'Content created' });
+        } else if (lowerLine.includes('🎯 executing stage: validation')) {
+          sendEvent({ stage: 5, status: 'running', message: 'Validating content...' });
+          currentStage = 5;
+        } else if (lowerLine.includes('✅ content validation completed') || lowerLine.includes('✅ stage 5 complete')) {
+          sendEvent({ stage: 5, status: 'completed', message: 'Content validated' });
+        } else if (lowerLine.includes('🎯 executing stage: seo')) {
+          sendEvent({ stage: 6, status: 'running', message: 'Optimizing SEO...' });
+          currentStage = 6;
+        } else if (lowerLine.includes('✅ seo optimization completed') || lowerLine.includes('✅ stage 6 complete')) {
+          sendEvent({ stage: 6, status: 'completed', message: 'SEO optimized' });
+        } else if (lowerLine.includes('🎯 executing stage: publication')) {
+          sendEvent({ stage: 7, status: 'running', message: 'Publishing content...' });
+          currentStage = 7;
+        } else if (lowerLine.includes('✅ publication completed') || lowerLine.includes('✅ stage 7 complete')) {
+          sendEvent({ stage: 7, status: 'completed', message: 'Content published' });
+        } else if (lowerLine.includes('🎯 executing stage: completion')) {
+          sendEvent({ stage: 8, status: 'running', message: 'Finalizing...' });
+          currentStage = 8;
+        } else if (lowerLine.includes('✅ workflow completed') || lowerLine.includes('✅ stage 8 complete')) {
+          sendEvent({ stage: 8, status: 'completed', message: 'Workflow completed!' });
+        }
+      }
+    });
+
+    nodeProcess.stderr.on('data', (data) => {
+      sendEvent({ log: `⚠️  ${data.toString()}` });
+    });
+
+    nodeProcess.on('close', (code) => {
+      if (code === 0) {
+        sendEvent({ log: '🎉 Workflow completed successfully!' });
+        sendEvent({ stage: 8, status: 'completed', message: 'Workflow completed!' });
+      } else {
+        sendEvent({ log: `❌ Workflow exited with code ${code}` });
+        sendEvent({ stage: currentStage || 1, status: 'error', message: `Process exited with code ${code}` });
+      }
+      res.end();
+    });
+
+    nodeProcess.on('error', (error) => {
+      sendEvent({ log: `❌ Error: ${error.message}` });
+      sendEvent({ stage: currentStage || 1, status: 'error', message: error.message });
+      res.end();
+    });
+
+  } catch (error) {
+    sendEvent({ log: `❌ Fatal error: ${error.message}` });
+    sendEvent({ stage: 1, status: 'error', message: error.message });
+    res.end();
+  }
+});
+
+// Execute single stage
+app.post('/api/workflow/stage', async (req, res) => {
+  // Check if this is a social media request
+  if ((req.body.stageId && req.body.campaignType) || req.body.contentType || req.body.useAvatar !== undefined || req.body.platforms) {
+    // Route to social media stage handler
+    return handleSocialMediaStage(req, res);
+  }
+
+  // Enhanced-bulk-generator stage
+  const encoder = new TextEncoder();
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendEvent = (data) => {
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+    res.write(message);
+  };
+
+  try {
+    const { stageId, topicLimit = 1, category = 'derivatives', customTopic = '', customTitle = '', contentOutline = '' } = req.body;
+
+    const stageMap = {
+      1: 'research',
+      2: 'topics',
+      3: 'deep-research',
+      4: 'content',
+      5: 'validation',
+      6: 'seo',
+      7: 'publication',
+      8: 'completion'
+    };
+
+    const stageName = stageMap[stageId];
+    if (!stageName) {
+      sendEvent({ log: `❌ Invalid stage ID: ${stageId}` });
+      res.end();
+      return;
+    }
+
+    sendEvent({ log: `🚀 Starting Stage ${stageId}: ${stageName}...` });
+
+    const args = [mainJsPath, 'stage', stageName];
+
+    if (stageName === 'research' && customTopic) {
+      args.push('--custom-topic', customTopic);
+    } else if (stageName === 'topics') {
+      args.push('--topic-limit', topicLimit.toString());
+    }
+
+    if (customTitle) {
+      args.push('--custom-title', customTitle);
+    }
+    if (contentOutline) {
+      args.push('--content-outline-provided');
+    }
+
+    const envPath = path.resolve(__dirname, '..', '.env');
+    const nodeEnv = {
+      ...process.env,
+      CONTENT_OUTLINE: contentOutline,
+      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
+    };
+
+    const nodeProcess = spawn('node', args, {
+      cwd: backendDir,
+      env: nodeEnv,
+    });
+
+    nodeProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      sendEvent({ log: output });
+    });
+
+    nodeProcess.stderr.on('data', (data) => {
+      sendEvent({ log: `⚠️  ${data.toString()}` });
+    });
+
+    nodeProcess.on('close', (code) => {
+      if (code === 0) {
+        sendEvent({ stage: stageId, status: 'completed', message: 'Stage completed successfully' });
+      } else {
+        sendEvent({ stage: stageId, status: 'error', message: `Process exited with code ${code}` });
+      }
+      res.end();
+    });
+
+    nodeProcess.on('error', (error) => {
+      sendEvent({ stage: stageId, status: 'error', message: error.message });
+      res.end();
+    });
+
+  } catch (error) {
+    sendEvent({ stage: stageId, status: 'error', message: error.message });
+    res.end();
+  }
+});
+
+// Get stage data
+app.get('/api/workflow/data', async (req, res) => {
+  try {
+    const stage = parseInt(req.query.stage);
+    const stageFiles = {
+      1: 'research-gaps.csv',
+      2: 'generated-topics.csv',
+      3: 'topic-research.csv',
+      4: 'created-content.csv',
+      5: 'created-content.csv',
+      6: 'created-content.csv',
+      7: 'published-content.csv',
+      8: 'workflow-status.csv'
+    };
+
+    const filename = stageFiles[stage];
+    if (!filename) {
+      return res.status(400).json({ error: 'Invalid stage' });
+    }
+
+    const csvPath = path.join(backendDir, 'data', filename);
+
+    if (!fs.existsSync(csvPath)) {
+      return res.json({ data: [], summary: { total: 0, showing: 0, approved: 0 }, file: filename });
+    }
+
+    // Read and parse CSV (simplified - you may want to use csv-parse)
+    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    const headers = lines[0]?.split(',') || [];
+    const data = lines.slice(1).map(line => {
+      const values = line.split(',');
+      const row = {};
+      headers.forEach((header, i) => {
+        row[header.trim()] = values[i]?.trim() || '';
+      });
+      return row;
+    });
+
+    res.json({
+      data: data.slice(-10), // Last 10 entries
+      summary: {
+        total: data.length,
+        showing: Math.min(10, data.length),
+        approved: data.filter(row => row.status === 'approved' || row.approved === 'true').length
+      },
+      file: filename
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Download CSV
+app.get('/api/workflow/download-csv', async (req, res) => {
+  try {
+    const filename = req.query.filename;
+    const csvPath = path.join(backendDir, 'data', filename);
+
+    if (!fs.existsSync(csvPath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.download(csvPath, filename);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Edit workflow data
+app.post('/api/workflow/edit', async (req, res) => {
+  try {
+    const { stageId, rowIndex, data } = req.body;
+
+    if (!stageId || rowIndex === undefined || !data) {
+      return res.status(400).json({ error: 'Missing required fields: stageId, rowIndex, data' });
+    }
+
+    const STAGE_CSV_MAP = {
+      1: 'research-gaps.csv',
+      2: 'generated-topics.csv',
+      3: 'topic-research.csv',
+      4: 'created-content.csv',
+      5: 'created-content.csv',
+      6: 'created-content.csv',
+      7: 'published-content.csv',
+      8: 'workflow-status.csv'
+    };
+
+    const csvFile = STAGE_CSV_MAP[stageId];
+    if (!csvFile) {
+      return res.status(400).json({ error: 'Invalid stage ID' });
+    }
+
+    const csvPath = path.join(backendDir, 'data', csvFile);
+
+    if (!fs.existsSync(csvPath)) {
+      return res.status(404).json({ error: `CSV file not found: ${csvFile}` });
+    }
+
+    // Read and parse CSV
+    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+    const records = parse(csvContent, {
+      columns: true,
+      skip_empty_lines: true,
+      relax_quotes: true,
+      trim: true,
+    });
+
+    // Calculate actual index (rowIndex is relative to displayed data, which shows last 10)
+    const actualIndex = records.length - 10 + rowIndex;
+
+    if (actualIndex < 0 || actualIndex >= records.length) {
+      return res.status(400).json({ error: `Invalid row index: ${rowIndex}` });
+    }
+
+    // Update the record with edited data
+    records[actualIndex] = {
+      ...records[actualIndex],
+      ...data
+    };
+
+    // Convert back to CSV
+    const updatedCsv = stringify(records, {
+      header: true,
+      columns: Object.keys(records[0])
+    });
+
+    // Write updated CSV back to file
+    fs.writeFileSync(csvPath, updatedCsv, 'utf-8');
+
+    res.json({
+      success: true,
+      message: `Successfully updated row ${rowIndex} in ${csvFile}`,
+      stageId,
+      rowIndex,
+      file: csvFile
+    });
+  } catch (error) {
+    console.error('Error updating CSV:', error);
+    res.status(500).json({
+      error: 'Failed to update CSV data',
+      details: error.message
+    });
+  }
+});
+
+// Helper function to remove JSON metadata from markdown
+function removeJsonMetadata(markdown) {
+  if (!markdown) return '';
+  let content = markdown;
+  const articleEndMarkers = [
+    /##\s*(?:Conclusion|Bottom\s+Line|Final\s+Thoughts|Summary|Takeaways|Next\s+Steps)/i,
+    /##\s*FAQs?\s*(?:on|about)?/i,
+    /---\s*$/m,
+    /Ready\s+to\s+execute/i,
+    /Open\s+your\s+PL\s+Capital\s+account/i
+  ];
+
+  let lastContentIndex = content.length;
+  let foundEndMarker = false;
+
+  for (const marker of articleEndMarkers) {
+    const matches = Array.from(content.matchAll(new RegExp(marker.source, 'g')));
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      const afterMatch = content.substring(lastMatch.index + lastMatch[0].length);
+      if (/["'][^"']+["']\s*:/.test(afterMatch)) {
+        const jsonStartMatch = afterMatch.match(/["'][^"']+["']\s*:/);
+        if (jsonStartMatch && jsonStartMatch.index !== undefined) {
+          lastContentIndex = lastMatch.index + lastMatch[0].length + jsonStartMatch.index;
+          foundEndMarker = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if (foundEndMarker && lastContentIndex < content.length) {
+    content = content.substring(0, lastContentIndex).trim();
+  } else {
+    content = content.replace(/["']content_upgrades["']\s*:\s*\[[\s\S]*?\]/gi, '');
+    content = content.replace(/["']compliance["']\s*:\s*"[^"]*"/gi, '');
+    content = content.replace(/["']quality_metrics["']\s*:\s*\{[\s\S]*?\}/gi, '');
+    content = content.replace(/["'][^"']+["']\s*:\s*(?:\[[\s\S]*?\]|\{[\s\S]*?\}|"[^"]*"|\d+)/g, '');
+  }
+
+  content = content.replace(/\n{3,}/g, '\n\n').trim();
+  return content;
+}
+
+// Helper function to format markdown
+function formatMarkdown(content, primaryKeyword = null) {
+  const { article_content, compliance } = content;
+  let seo_metadata = {};
+  try {
+    seo_metadata = typeof content.seo_metadata === 'string'
+      ? JSON.parse(content.seo_metadata)
+      : content.seo_metadata;
+  } catch (error) {
+    console.warn('⚠️  Failed to parse seo_metadata, using defaults');
+  }
+
+  let markdown = '';
+  if (seo_metadata?.title) {
+    markdown += `# ${seo_metadata.title}\n\n`;
+  }
+
+  let normalizedArticleContent = article_content || '';
+  if (typeof normalizedArticleContent === 'string') {
+    normalizedArticleContent = normalizedArticleContent.replace(/\\n/g, '\n');
+  }
+  normalizedArticleContent = removeJsonMetadata(normalizedArticleContent);
+  markdown += normalizedArticleContent;
+
+  if (compliance) {
+    markdown += `\n\n---\n\n${compliance}`;
+  }
+
+  markdown += '\n\n---\n\n## SEO Metadata\n\n';
+  if (seo_metadata?.title) {
+    markdown += `### SEO Meta Title\n\`\`\`\n${seo_metadata.title}\n\`\`\`\n\n`;
+  }
+  if (seo_metadata?.meta_description) {
+    markdown += `### SEO Meta Description\n\`\`\`\n${seo_metadata.meta_description}\n\`\`\`\n\n`;
+  }
+  if (seo_metadata?.focus_keyphrase) {
+    markdown += `### Focus Keyword\n\`\`\`\n${seo_metadata.focus_keyphrase}\n\`\`\`\n\n`;
+  }
+  if (seo_metadata?.secondary_keywords && seo_metadata.secondary_keywords.length > 0) {
+    markdown += `### Secondary Keywords\n\`\`\`\n${seo_metadata.secondary_keywords.join(', ')}\n\`\`\`\n\n`;
+  }
+
+  const keyword = primaryKeyword || content.primary_keyword || content.topic_id || 'article';
+  const slug = keyword.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+  const canonicalUrl = `https://www.plindia.com/blog/${slug}`;
+  markdown += `### SEO Optimized URL\n\`\`\`\n${canonicalUrl}\n\`\`\`\n\n`;
+
+  return markdown;
+}
+
+// Download Markdown
+app.get('/api/workflow/download-markdown', async (req, res) => {
+  try {
+    const contentId = req.query.contentId;
+    if (!contentId) {
+      return res.status(400).json({ error: 'contentId parameter is required' });
+    }
+
+    const possiblePaths = [
+      path.join(backendDir, 'data', 'created-content.csv'),
+      path.join(__dirname, '..', 'data', 'created-content.csv'),
+    ];
+
+    const csvPath = possiblePaths.find(p => fs.existsSync(p));
+    if (!csvPath) {
+      return res.status(404).json({ error: 'created-content.csv not found' });
+    }
+
+    const fileContent = fs.readFileSync(csvPath, 'utf-8');
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true
+    });
+
+    const content = records.find((r) => r.content_id === contentId);
+    if (!content) {
+      return res.status(404).json({ error: `Content not found: ${contentId}` });
+    }
+
+    const markdownContent = formatMarkdown(content, content.primary_keyword);
+    let seoMeta = {};
+    try {
+      seoMeta = JSON.parse(content.seo_metadata || '{}');
+    } catch (e) {}
+
+    const sanitizedTitle = (seoMeta.title || content.topic_id || 'article')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const filename = `${sanitizedTitle}.md`;
+
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(markdownContent);
+  } catch (error) {
+    console.error('Markdown download error:', error);
+    res.status(500).json({
+      error: 'Failed to download markdown file',
+      message: error.message
+    });
+  }
+});
+
+// Helper function to convert markdown to HTML
+function markdownToHtml(markdown, title = 'Article', metaDescription = '') {
+  if (!markdown) return '';
+  let html = markdown;
+  html = html.replace(/### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/# (.*$)/gim, '<h1>$1</h1>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  html = html.replace(/^\* (.+)$/gim, '<li>$1</li>');
+  html = html.replace(/^- (.+)$/gim, '<li>$1</li>');
+  html = html.replace(/(<li>.*?<\/li>\n?)+/g, (match) => '<ul>\n' + match + '</ul>\n');
+  html = html.replace(/^---$/gim, '<hr>');
+  const lines = html.split('\n');
+  const processedLines = [];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) {
+      processedLines.push('<br>');
+      continue;
+    }
+    if (line.startsWith('<')) {
+      processedLines.push(line);
+      continue;
+    }
+    processedLines.push('<p>' + line + '</p>');
+  }
+  html = processedLines.join('\n');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <meta name="description" content="${metaDescription}">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; color: #333; }
+    h1, h2, h3 { margin-top: 1.5em; color: #2c3e50; }
+    h1 { font-size: 2em; }
+    h2 { font-size: 1.5em; border-bottom: 2px solid #eee; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin: 1em 0; }
+    ul, ol { margin: 1em 0; padding-left: 2em; }
+    li { margin: 0.5em 0; }
+    a { color: #3498db; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    hr { border: none; border-top: 2px solid #eee; margin: 2em 0; }
+  </style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+}
+
+// Download HTML
+app.get('/api/workflow/download-html', async (req, res) => {
+  try {
+    const contentId = req.query.contentId;
+    if (!contentId) {
+      return res.status(400).json({ error: 'contentId parameter is required' });
+    }
+
+    const possiblePaths = [
+      path.join(backendDir, 'data', 'created-content.csv'),
+      path.join(__dirname, '..', 'data', 'created-content.csv'),
+    ];
+
+    const csvPath = possiblePaths.find(p => fs.existsSync(p));
+    if (!csvPath) {
+      return res.status(404).json({ error: 'created-content.csv not found' });
+    }
+
+    const fileContent = fs.readFileSync(csvPath, 'utf-8');
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true
+    });
+
+    const content = records.find((r) => r.content_id === contentId);
+    if (!content) {
+      return res.status(404).json({ error: `Content not found: ${contentId}` });
+    }
+
+    let markdownContent = content.article_content || '';
+    if (typeof markdownContent === 'string') {
+      markdownContent = markdownContent.replace(/\\n/g, '\n');
+    }
+    markdownContent = removeJsonMetadata(markdownContent);
+
+    let seoMeta = {};
+    try {
+      seoMeta = JSON.parse(content.seo_metadata || '{}');
+    } catch (e) {}
+
+    const title = seoMeta.title || 'Article';
+    const metaDescription = seoMeta.meta_description || '';
+    const htmlContent = markdownToHtml(markdownContent, title, metaDescription);
+
+    const sanitizedTitle = (seoMeta.title || content.topic_id || 'article')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const filename = `${sanitizedTitle}-${contentId}.html`;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(htmlContent);
+  } catch (error) {
+    console.error('HTML download error:', error);
+    res.status(500).json({
+      error: 'Failed to download HTML file',
+      message: error.message
+    });
+  }
+});
+
+// Download Raw Markdown
+app.get('/api/workflow/download-raw-markdown', async (req, res) => {
+  try {
+    const contentId = req.query.contentId;
+    if (!contentId) {
+      return res.status(400).json({ error: 'contentId parameter is required' });
+    }
+
+    const possiblePaths = [
+      path.join(backendDir, 'data', 'created-content.csv'),
+      path.join(__dirname, '..', 'data', 'created-content.csv'),
+    ];
+
+    const csvPath = possiblePaths.find(p => fs.existsSync(p));
+    if (!csvPath) {
+      return res.status(404).json({ error: 'created-content.csv not found' });
+    }
+
+    const fileContent = fs.readFileSync(csvPath, 'utf-8');
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true
+    });
+
+    const content = records.find((r) => r.content_id === contentId);
+    if (!content) {
+      return res.status(404).json({ error: `Content not found: ${contentId}` });
+    }
+
+    const topicId = content.topic_id || 'unknown';
+    const rawResponsesPaths = [
+      path.join(backendDir, 'data', 'raw-responses'),
+      path.join(__dirname, '..', 'data', 'raw-responses'),
+    ];
+
+    let rawResponseContent = null;
+    for (const rawDir of rawResponsesPaths) {
+      if (fs.existsSync(rawDir)) {
+        try {
+          const files = fs.readdirSync(rawDir).filter((f) => f.endsWith('.md'));
+          let matchingFiles = files.filter((file) => file.startsWith(`${topicId}_`));
+          if (matchingFiles.length === 0) {
+            for (const file of files) {
+              try {
+                const filePath = path.join(rawDir, file);
+                const fileContent = fs.readFileSync(filePath, 'utf-8');
+                if (fileContent.includes(`Topic ID: ${topicId}`) || fileContent.includes(`content_id: ${contentId}`)) {
+                  matchingFiles.push(file);
+                }
+              } catch (err) {
+                continue;
+              }
+            }
+          }
+          if (matchingFiles.length > 0) {
+            const sortedFiles = matchingFiles.sort().reverse();
+            const rawResponsePath = path.join(rawDir, sortedFiles[0]);
+            rawResponseContent = fs.readFileSync(rawResponsePath, 'utf-8');
+            break;
+          }
+        } catch (error) {
+          console.warn(`⚠️  Error reading raw-responses directory ${rawDir}:`, error);
+        }
+      }
+    }
+
+    if (!rawResponseContent) {
+      return res.status(404).json({
+        error: `Raw response file not found for content_id: ${contentId}`,
+        message: 'The raw AI response file for this content was not found.'
+      });
+    }
+
+    let seoMeta = {};
+    try {
+      seoMeta = JSON.parse(content.seo_metadata || '{}');
+    } catch (e) {}
+
+    const sanitizedTitle = (seoMeta.title || content.topic_id || 'article')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const filename = `${sanitizedTitle}-raw.md`;
+
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(rawResponseContent);
+  } catch (error) {
+    console.error('Raw markdown download error:', error);
+    res.status(500).json({
+      error: 'Failed to download raw markdown file',
+      message: error.message
+    });
+  }
+});
+
+// ============================================================================
+// SOCIAL MEDIA API ROUTES
+// ============================================================================
+
+// Social Media backend directory
+const socialMediaBackendDir = path.join(__dirname, '..', 'social-media-frontend', 'frontend', 'backend');
+const socialMediaMainJsPath = path.join(socialMediaBackendDir, 'main.js');
+
+// Helper function to save stage data for social media
+function saveSocialMediaStageData(stageId, data) {
+  try {
+    const stateFilePath = path.join(socialMediaBackendDir, 'data', 'workflow-state.json');
+
+    let state = {
+      campaigns: {},
+      content: {},
+      visuals: {},
+      videos: {},
+      published: {},
+      metrics: {}
+    };
+
+    if (fs.existsSync(stateFilePath)) {
+      const stateContent = fs.readFileSync(stateFilePath, 'utf-8');
+      state = JSON.parse(stateContent);
+    }
+
+    const timestamp = Date.now();
+    const id = `${stageId}-${timestamp}`;
+
+    const stageKeys = {
+      1: 'campaigns',
+      2: 'content',
+      3: 'visuals',
+      4: 'videos',
+      5: 'published',
+      6: 'metrics'
+    };
+
+    const key = stageKeys[stageId];
+    if (key) {
+      state[key][id] = {
+        id,
+        ...data,
+        stageId,
+        completedAt: new Date().toISOString()
+      };
+    }
+
+    // Ensure data directory exists
+    const dataDir = path.dirname(stateFilePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    fs.writeFileSync(stateFilePath, JSON.stringify(state, null, 2));
+    console.log(`[Social Media] Saved stage ${stageId} data:`, id);
+  } catch (error) {
+    console.error('[Social Media] Error saving stage data:', error);
+  }
+}
+
+// Social Media: Execute full workflow - extracted as reusable function
+async function handleSocialMediaExecute(req, res) {
+  const encoder = new TextEncoder();
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendEvent = (data) => {
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+    res.write(message);
+  };
+
+  try {
+    const {
+      campaignType,
+      platforms = [],
+      topic,
+      duration = 90,
+      useVeo = true,
+      useAvatar = true,
+      autoPublish = false,
+      contentType,
+      aspectRatio = '16:9',
+      language = 'english'
+    } = req.body;
+
+    const finalUseAvatar = contentType === 'avatar-video' ? true : (contentType === 'faceless-video' ? false : useAvatar);
+
+    sendEvent({ log: '🚀 Starting full campaign workflow...' });
+    sendEvent({ log: `Campaign: ${campaignType}` });
+    sendEvent({ log: `Topic: ${topic}` });
+    sendEvent({ log: `Platforms: ${platforms.join(', ')}` });
+
+    if (!fs.existsSync(socialMediaMainJsPath)) {
+      sendEvent({ log: `❌ Social Media backend not found at: ${socialMediaMainJsPath}` });
+      res.end();
+      return;
+    }
+
+    const args = [
+      socialMediaMainJsPath,
+      'campaign',
+      campaignType,
+      '--topic', topic,
+      '--duration', duration.toString(),
+      '--aspect-ratio', aspectRatio,
+      '--language', language
+    ];
+
+    if (useVeo) args.push('--use-veo');
+    if (finalUseAvatar) {
+      args.push('--use-avatar');
+    } else {
+      args.push('--no-avatar');
+    }
+    if (autoPublish) args.push('--auto-publish');
+
+    platforms.forEach((platform) => {
+      args.push('--platform', platform);
+    });
+
+    const envPath = path.resolve(__dirname, '..', '.env');
+    const nodeEnv = {
+      ...process.env,
+      NODE_PATH: path.join(socialMediaBackendDir, '..', '..', 'node_modules') + (process.env.NODE_PATH ? ':' + process.env.NODE_PATH : ''),
+      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
+    };
+
+    sendEvent({ log: `🚀 Command: node ${args.slice(1).join(' ')}` });
+
+    const nodeProcess = spawn('node', args, {
+      cwd: socialMediaBackendDir,
+      env: nodeEnv,
+    });
+
+    let currentStage = 1;
+    let outputBuffer = '';
+
+    nodeProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      outputBuffer += output;
+      sendEvent({ log: output.trim() });
+
+      // Parse stage progression
+      if (output.includes('Stage 1:') || output.includes('Planning')) {
+        currentStage = 1;
+        sendEvent({ stage: 1, status: 'running', message: 'Generating campaign plan...' });
+      } else if (output.includes('Stage 2:') || output.includes('Content')) {
+        if (currentStage === 1) {
+          const cleanOutput = extractPromptFromOutput(outputBuffer, 1);
+          saveSocialMediaStageData(1, {
+            type: 'campaign-planning',
+            topic,
+            campaignType,
+            platforms,
+            status: 'completed',
+            output: cleanOutput // Save extracted prompt, not full logs
+          });
+          sendEvent({ stage: 1, status: 'completed', message: 'Plan created' });
+        }
+        currentStage = 2;
+        sendEvent({ stage: 2, status: 'running', message: 'Generating scripts & captions...' });
+      } else if (output.includes('Stage 3:') || output.includes('Visual')) {
+        if (currentStage === 2) {
+          const cleanOutput = extractPromptFromOutput(outputBuffer, 2);
+          saveSocialMediaStageData(2, {
+            type: 'content-generation',
+            topic,
+            campaignType,
+            status: 'completed',
+            output: cleanOutput // Save extracted prompt, not full logs
+          });
+          sendEvent({ stage: 2, status: 'completed', message: 'Content generated' });
+        }
+        currentStage = 3;
+        sendEvent({ stage: 3, status: 'running', message: 'Creating visual assets...' });
+      } else if (output.includes('Stage 4:') || output.includes('Video')) {
+        if (currentStage === 3) {
+          const cleanOutput = extractPromptFromOutput(outputBuffer, 3);
+          saveSocialMediaStageData(3, {
+            type: 'visual-assets',
+            topic,
+            campaignType,
+            status: 'completed',
+            output: cleanOutput // Save extracted prompt, not full logs
+          });
+          sendEvent({ stage: 3, status: 'completed', message: 'Assets created' });
+        }
+        currentStage = 4;
+        sendEvent({ stage: 4, status: 'running', message: 'Producing video...' });
+      } else if (output.includes('Stage 5:') || output.includes('Publishing')) {
+        if (currentStage === 4) {
+          const cleanOutput = extractPromptFromOutput(outputBuffer, 4);
+          saveSocialMediaStageData(4, {
+            type: 'video-production',
+            topic,
+            campaignType,
+            duration,
+            useVeo,
+            useAvatar: finalUseAvatar,
+            status: 'completed',
+            output: cleanOutput // Save extracted prompt, not full logs
+          });
+          sendEvent({ stage: 4, status: 'completed', message: 'Video produced' });
+        }
+        currentStage = 5;
+        sendEvent({ stage: 5, status: 'running', message: 'Publishing to platforms...' });
+      } else if (output.includes('Stage 6:') || output.includes('Analytics')) {
+        if (currentStage === 5) {
+          const cleanOutput = extractPromptFromOutput(outputBuffer, 5);
+          saveSocialMediaStageData(5, {
+            type: 'publishing',
+            topic,
+            campaignType,
+            platforms,
+            status: 'completed',
+            output: cleanOutput // Save extracted prompt, not full logs
+          });
+          sendEvent({ stage: 5, status: 'completed', message: 'Published' });
+        }
+        currentStage = 6;
+        sendEvent({ stage: 6, status: 'running', message: 'Setting up tracking...' });
+      }
+
+      // Extract campaign data
+      if (output.includes('Campaign ID:')) {
+        const campaignId = output.match(/Campaign ID:\s*(\S+)/)?.[1];
+        if (campaignId) {
+          sendEvent({ campaignData: { campaignId } });
+        }
+      }
+
+      // Extract published URLs
+      if (output.includes('Published to')) {
+        const urlMatch = output.match(/(https?:\/\/[^\s]+)/);
+        if (urlMatch) {
+          const platform = output.toLowerCase().includes('linkedin') ? 'linkedin' :
+                         output.toLowerCase().includes('instagram') ? 'instagram' :
+                         output.toLowerCase().includes('youtube') ? 'youtube' :
+                         output.toLowerCase().includes('facebook') ? 'facebook' :
+                         output.toLowerCase().includes('twitter') ? 'twitter' : 'unknown';
+          sendEvent({ campaignData: { publishedUrls: { [platform]: urlMatch[1] } } });
+        }
+      }
+    });
+
+    nodeProcess.stderr.on('data', (data) => {
+      sendEvent({ log: `⚠️  ${data.toString()}` });
+    });
+
+    nodeProcess.on('close', (code) => {
+      if (code === 0) {
+        sendEvent({ log: '🎉 Campaign workflow completed successfully!' });
+        sendEvent({ stage: 6, status: 'completed', message: 'Workflow completed!' });
+      } else {
+        sendEvent({ log: `❌ Workflow exited with code ${code}` });
+        sendEvent({ stage: currentStage || 1, status: 'error', message: `Process exited with code ${code}` });
+      }
+      res.end();
+    });
+
+    nodeProcess.on('error', (error) => {
+      sendEvent({ log: `❌ Error: ${error.message}` });
+      sendEvent({ stage: currentStage || 1, status: 'error', message: error.message });
+      res.end();
+    });
+
+  } catch (error) {
+    sendEvent({ log: `❌ Fatal error: ${error.message}` });
+    sendEvent({ stage: 1, status: 'error', message: error.message });
+    res.end();
+  }
+}
+
+// Register the route handler
+app.post('/api/workflow/social-media/execute', handleSocialMediaExecute);
+
+// Helper function to extract creative brief/prompt from output buffer
+// Removes logs, ASCII art, and other noise, keeping only the actual prompt content
+function extractPromptFromOutput(outputBuffer, stageId) {
+  if (!outputBuffer || typeof outputBuffer !== 'string') {
+    return outputBuffer || '';
+  }
+
+  // For Stage 1 (Planning), extract the creative brief
+  if (stageId === 1) {
+    // Look for the creative brief markers
+    const markers = [
+      '✅ Creative Brief Generated:',
+      'Campaign Brief:',
+      '**Campaign Brief:**',
+      'Campaign Overview'
+    ];
+
+    let startIndex = -1;
+    for (const marker of markers) {
+      const index = outputBuffer.indexOf(marker);
+      if (index !== -1) {
+        startIndex = index + marker.length;
+        break;
+      }
+    }
+
+    // If we found a start marker, extract from there
+    if (startIndex !== -1) {
+      let content = outputBuffer.substring(startIndex).trim();
+
+      // Remove trailing completion messages
+      const endMarkers = [
+        '✅ Stage "planning" completed',
+        '✅ Stage "planning" completed!',
+        '✅ Stage completed',
+        '✅ Stage completed!',
+        '\n✅',
+        '\n🎉'
+      ];
+
+      for (const endMarker of endMarkers) {
+        const endIndex = content.indexOf(endMarker);
+        if (endIndex !== -1) {
+          content = content.substring(0, endIndex).trim();
+          break;
+        }
+      }
+
+      // Clean up: remove any leading/trailing whitespace and empty lines
+      content = content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join('\n')
+        .trim();
+
+      // If we extracted meaningful content, return it
+      if (content.length > 50) {
+        return content;
+      }
+    }
+  }
+
+  // For Stage 3 (Visuals), extract hosted image URL (e.g., ImgBB)
+  if (stageId === 3) {
+    // Look for ImgBB URL in the output - multiple patterns to catch different formats
+    const imgbbPatterns = [
+      // Pattern 1: "Uploaded to ImgBB: https://..."
+      /Uploaded to ImgBB:\s*(https?:\/\/[^\s\n"<>]+)/i,
+      // Pattern 2: Direct i.ibb.co URL (most common format)
+      /(https?:\/\/i\.ibb\.co\/[a-zA-Z0-9\/]+\.(jpg|jpeg|png|gif|webp))/i,
+      // Pattern 3: Any URL containing imgbb
+      /(https?:\/\/[^\s\n"<>]*imgbb[^\s\n"<>]*)/i,
+      // Pattern 4: Generic image hosting URL pattern
+      /(https?:\/\/[^\s\n"<>]+\.(jpg|jpeg|png|gif|webp))/i
+    ];
+
+    for (const pattern of imgbbPatterns) {
+      const match = outputBuffer.match(pattern);
+      if (match) {
+        const url = match[1] || match[0];
+        // Clean up the URL (remove trailing punctuation, newlines, etc.)
+        let cleanUrl = url.trim();
+        // Remove trailing non-URL characters
+        cleanUrl = cleanUrl.replace(/[.,;:!?)\]\}]+$/, '');
+        // Remove any trailing whitespace or newlines
+        cleanUrl = cleanUrl.replace(/[\s\n\r]+$/, '');
+
+        if (cleanUrl.startsWith('http') && cleanUrl.length > 10) {
+          return cleanUrl;
+        }
+      }
+    }
+  }
+
+  // For other stages or if extraction failed, try to find markdown content
+  // Look for markdown patterns (headers, lists, etc.)
+  const markdownPattern = /(?:^|\n)(?:#{1,6}\s+|[-*+]\s+|^\d+\.\s+)/m;
+  const markdownMatch = outputBuffer.match(markdownPattern);
+
+  if (markdownMatch) {
+    const markdownStart = outputBuffer.indexOf(markdownMatch[0]);
+    let markdownContent = outputBuffer.substring(markdownStart).trim();
+
+    // Remove trailing completion messages
+    const endMarkers = ['✅ Stage', '✅', '🎉', 'completed'];
+    for (const endMarker of endMarkers) {
+      const endIndex = markdownContent.lastIndexOf(endMarker);
+      if (endIndex !== -1 && endIndex > markdownContent.length / 2) {
+        markdownContent = markdownContent.substring(0, endIndex).trim();
+        break;
+      }
+    }
+
+    if (markdownContent.length > 50) {
+      return markdownContent.trim();
+    }
+  }
+
+  // Fallback: return the original output if we can't extract clean content
+  return outputBuffer;
+}
+
+// Helper function to handle social media stage
+async function handleSocialMediaStage(req, res) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendEvent = (data) => {
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+    res.write(message);
+  };
+
+  try {
+    const {
+      stageId,
+      campaignType,
+      platforms = [],
+      topic,
+      duration = 90,
+      useVeo = true,
+      useAvatar = true,
+      contentType,
+      aspectRatio = '16:9',
+      language = 'english',
+      files,
+      avatarId,
+      avatarScriptText,
+      avatarVoiceId,
+      brandSettings,
+      promptOverride,
+      frameInterpolation,
+      longCatConfig
+    } = req.body;
+
+    const finalUseAvatar = contentType === 'avatar-video' ? true : (contentType === 'faceless-video' ? false : useAvatar);
+
+    const stageNames = {
+      1: 'planning',
+      2: 'content',
+      3: 'visuals',
+      4: 'video',
+      5: 'publishing',
+      6: 'tracking'
+    };
+
+    const stageName = stageNames[stageId];
+    if (!stageName) {
+      sendEvent({ log: `❌ Invalid stage ID: ${stageId}` });
+      res.end();
+      return;
+    }
+
+    sendEvent({ log: `🚀 Starting Stage ${stageId}: ${stageName}...` });
+    sendEvent({ stage: stageId, status: 'running', message: `Executing ${stageName}...` });
+
+    // Special handling for Stage 2: Generate email newsletter content (matching original frontend behavior)
+    if (stageId === 2 && (platforms.includes('email') || campaignType.includes('email') || campaignType.includes('newsletter'))) {
+      sendEvent({ log: '📧 Generating HTML email newsletter...' });
+
+      try {
+        // Get creative prompt from Stage 1 if available
+        const stateFilePath = path.join(socialMediaBackendDir, 'data', 'workflow-state.json');
+        let creativePrompt = '';
+
+        if (fs.existsSync(stateFilePath)) {
+          const stateContent = fs.readFileSync(stateFilePath, 'utf-8');
+          const state = JSON.parse(stateContent);
+
+          // Find the most recent campaign with matching topic
+          const campaigns = Object.values(state.campaigns || {});
+          const matchingCampaign = campaigns
+            .filter((c) => c.topic === topic)
+            .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())[0];
+
+          if (matchingCampaign?.output) {
+            // Extract creative prompt from output field
+            creativePrompt = matchingCampaign.output;
+            sendEvent({ log: '📋 Using creative prompt from Stage 1' });
+          } else if (matchingCampaign?.creativePrompt) {
+            creativePrompt = matchingCampaign.creativePrompt;
+            sendEvent({ log: '📋 Using creative prompt from Stage 1' });
+          }
+        }
+
+        // Call email generation API from the social-media frontend Next.js server
+        // Try multiple possible ports where the Next.js server might be running
+        const possiblePorts = [3001, 3004, 3007];
+        let emailData = null;
+        let emailError = null;
+
+        for (const port of possiblePorts) {
+          try {
+            const emailApiUrl = `http://localhost:${port}/api/email/generate`;
+            sendEvent({ log: `📡 Attempting to call email API at ${emailApiUrl}...` });
+
+            const emailResponse = await fetch(emailApiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                topic,
+                purpose: purpose || 'newsletter',
+                targetAudience: targetAudience || 'investors and wealth builders',
+                creativePrompt,
+                brandSettings: brandSettings,
+                language: language || 'english'
+              }),
+              signal: AbortSignal.timeout(60000) // 60 second timeout
+            });
+
+            if (emailResponse.ok) {
+              emailData = await emailResponse.json();
+              sendEvent({ log: `✅ Email API responded from port ${port}` });
+              break;
+            } else {
+              const errorText = await emailResponse.text();
+              sendEvent({ log: `⚠️ Email API at port ${port} returned ${emailResponse.status}: ${errorText.substring(0, 100)}` });
+            }
+          } catch (err) {
+            emailError = err;
+            sendEvent({ log: `⚠️ Email API at port ${port} unavailable: ${err.message}` });
+            continue;
+          }
+        }
+
+        if (emailData) {
+          sendEvent({ log: '✅ Email newsletter generated successfully!' });
+          sendEvent({ log: `📧 Subject: ${emailData.subject}` });
+          sendEvent({ log: `📝 Preheader: ${emailData.preheader}` });
+          sendEvent({ log: `📄 HTML: ${emailData.html?.length || 0} characters` });
+
+          // Save the generated email as stage 2 data
+          const stageData = {
+            topic,
+            campaignType,
+            platforms,
+            status: 'completed',
+            type: 'content-generation',
+            contentType: 'email-newsletter',
+            subject: emailData.subject,
+            preheader: emailData.preheader,
+            subjectVariations: emailData.subjectVariations,
+            html: emailData.html,
+            plainText: emailData.plainText,
+            model: emailData.model
+          };
+
+          saveSocialMediaStageData(stageId, stageData);
+          sendEvent({ stage: stageId, status: 'completed', message: 'Email newsletter generated', data: stageData });
+          sendEvent({ log: '✅ Stage 2 completed successfully!' });
+          res.end();
+          return;
+        } else {
+          sendEvent({ log: `⚠️ Email generation API unavailable on all ports (${possiblePorts.join(', ')})` });
+          sendEvent({ log: '💡 Make sure the social-media frontend Next.js server is running' });
+          sendEvent({ log: '📦 Falling back to standard workflow execution...' });
+          // Continue with normal backend execution if email generation fails
+        }
+      } catch (error) {
+        sendEvent({ log: `⚠️ Email generation failed: ${error.message}` });
+        sendEvent({ log: '📦 Falling back to standard workflow execution...' });
+        // Continue with normal backend execution if email generation fails
+      }
+    }
+
+    // Map campaignType to format for orchestrator (matching original frontend behavior)
+    // BUT: Respect contentType from frontend - if user selected "Static Image", generate image, not video
+    let format;
+    if (contentType === 'image') {
+      // User selected "Static Image" - force image generation regardless of campaign type
+      format = campaignType === 'linkedin-carousel' ? 'carousel' : 'image';
+    } else if (contentType === 'faceless-video' || contentType === 'avatar-video') {
+      // User selected video - use campaign type mapping
+      const campaignTypeToFormat = {
+        'linkedin-testimonial': 'video-testimonial',
+        'linkedin-carousel': 'carousel',
+        'linkedin-data-viz': 'data-viz',
+        'instagram-reel': 'reel',
+        'instagram-carousel': 'carousel',
+        'youtube-explainer': 'explainer',
+        'email-newsletter': 'newsletter'
+      };
+      format = campaignTypeToFormat[campaignType] || campaignType;
+    } else {
+      // Default: use campaign type mapping
+      const campaignTypeToFormat = {
+        'linkedin-testimonial': 'video-testimonial',
+        'linkedin-carousel': 'carousel',
+        'linkedin-data-viz': 'data-viz',
+        'instagram-reel': 'reel',
+        'instagram-carousel': 'carousel',
+        'youtube-explainer': 'explainer',
+        'email-newsletter': 'newsletter'
+      };
+      format = campaignTypeToFormat[campaignType] || campaignType;
+    }
+
+    // Build arguments for social media backend
+    // The main.js expects: node main.js stage <stageName> [options]
+    const args = [
+      'stage',
+      stageName,
+      '--campaign-type', campaignType,
+      '--format', format, // Add format parameter so orchestrator can detect video formats
+      '--topic', topic,
+      '--duration', duration.toString(),
+      '--aspect-ratio', aspectRatio,
+      '--language', language
+    ];
+
+    if (useVeo) args.push('--use-veo');
+    if (finalUseAvatar) {
+      args.push('--use-avatar');
+      if (avatarId) args.push('--avatar-id', avatarId);
+      if (avatarScriptText) args.push('--avatar-script', avatarScriptText);
+      if (avatarVoiceId) args.push('--avatar-voice', avatarVoiceId);
+    } else {
+      args.push('--no-avatar');
+    }
+
+    platforms.forEach((platform) => {
+      args.push('--platform', platform);
+    });
+
+    if (files) {
+      // Handle file uploads if needed
+      args.push('--files', JSON.stringify(files));
+    }
+
+    if (brandSettings) {
+      args.push('--brand-settings', JSON.stringify(brandSettings));
+    }
+
+    if (promptOverride) {
+      args.push('--prompt-override', JSON.stringify(promptOverride));
+    }
+
+    if (frameInterpolation) {
+      args.push('--frame-interpolation', JSON.stringify(frameInterpolation));
+    }
+
+    if (longCatConfig) {
+      args.push('--longcat-config', JSON.stringify(longCatConfig));
+    }
+
+    const envPath = path.resolve(__dirname, '..', '.env');
+    const nodeEnv = {
+      ...process.env,
+      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
+    };
+
+    const nodeProcess = spawn('node', [socialMediaMainJsPath, ...args], {
+      cwd: socialMediaBackendDir,
+      env: nodeEnv,
+    });
+
+    let outputBuffer = '';
+
+    nodeProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      outputBuffer += output;
+      sendEvent({ log: output.trim() });
+
+      // Parse stage progression and send events
+      if (output.includes('completed') || output.includes('Completed')) {
+        // Extract clean prompt content from output buffer
+        const cleanOutput = extractPromptFromOutput(outputBuffer, stageId);
+
+        saveSocialMediaStageData(stageId, {
+          type: stageName,
+          topic,
+          campaignType,
+          platforms,
+          status: 'completed',
+          output: cleanOutput // Save extracted prompt, not full logs
+        });
+        sendEvent({ stage: stageId, status: 'completed', message: `${stageName} completed` });
+      }
+    });
+
+    nodeProcess.stderr.on('data', (data) => {
+      sendEvent({ log: `ERROR: ${data.toString().trim()}` });
+    });
+
+    nodeProcess.on('close', (code) => {
+      if (code === 0) {
+        sendEvent({ stage: stageId, status: 'completed', message: `Stage ${stageId} completed successfully` });
+      } else {
+        sendEvent({ stage: stageId, status: 'error', message: `Stage ${stageId} failed with code ${code}` });
+      }
+      res.end();
+    });
+  } catch (error) {
+    sendEvent({ stage: req.body.stageId || 1, status: 'error', message: error.message });
+    res.end();
+  }
+}
+
+// Social Media: Execute single stage (alternative format: /api/workflow/social-media/stage)
+app.post('/api/workflow/social-media/stage', handleSocialMediaStage);
+
+// Social Media: Get avatars
+app.get('/api/avatars', async (req, res) => {
+  try {
+    const configPaths = [
+      path.join(socialMediaBackendDir, 'config', 'heygen-native-voice-mapping.json'),
+      path.join(socialMediaBackendDir, '..', 'config', 'heygen-avatar-config.js'),
+    ];
+
+    const configPath = configPaths.find(p => fs.existsSync(p));
+    if (!configPath) {
+      return res.status(404).json({ error: 'Avatar config not found' });
+    }
+
+    let avatarData;
+    if (configPath.endsWith('.json')) {
+      avatarData = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } else {
+      // For .js files, we'd need to require them, but this is simpler for now
+      return res.status(500).json({ error: 'JS config files not yet supported' });
+    }
+
+    res.json(avatarData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social Media: Get stage data (AI Content) - namespaced to avoid conflict with SEO/LLMO CSV route
+app.get('/api/workflow/social-media/data', (req, res) => {
+  try {
+    const stageId = parseInt(req.query.stage);
+    if (!stageId || isNaN(stageId)) {
+      return res.status(400).json({ error: 'Missing or invalid stage parameter' });
+    }
+
+    const stateFilePath = path.join(socialMediaBackendDir, 'data', 'workflow-state.json');
+
+    if (!fs.existsSync(stateFilePath)) {
+      return res.status(404).json({ error: 'No workflow state found' });
+    }
+
+    const state = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+    const stageKeys = {
+      1: 'campaigns',
+      2: 'content',
+      3: 'visuals',
+      4: 'videos',
+      5: 'published',
+      6: 'metrics'
+    };
+
+    const key = stageKeys[stageId];
+    if (!key || !state[key]) {
+      return res.status(404).json({ error: `No data found for stage ${stageId}` });
+    }
+
+    res.json({ data: state[key], summary: {} });
+  } catch (error) {
+    console.error('[Social Media] Error getting stage data:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social Media: Get stage data (alternative format: /api/workflow/social-media/stage/:stageId)
+app.get('/api/workflow/social-media/stage/:stageId', (req, res) => {
+  try {
+    const { stageId } = req.params;
+    const stateFilePath = path.join(socialMediaBackendDir, 'data', 'workflow-state.json');
+
+    if (!fs.existsSync(stateFilePath)) {
+      return res.status(404).json({ error: 'No workflow state found' });
+    }
+
+    const state = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+    const stageKeys = {
+      1: 'campaigns',
+      2: 'content',
+      3: 'visuals',
+      4: 'videos',
+      5: 'published',
+      6: 'metrics'
+    };
+
+    const key = stageKeys[parseInt(stageId)];
+    if (!key || !state[key]) {
+      return res.status(404).json({ error: `No data found for stage ${stageId}` });
+    }
+
+    res.json({ data: state[key], summary: {} });
+  } catch (error) {
+    console.error('[Social Media] Error getting stage data:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social Media: Save stage data (AI Content) - namespaced to avoid conflict with SEO/LLMO CSV route
+app.post('/api/workflow/social-media/data/save', async (req, res) => {
+  try {
+    const { stageId, dataId, editedData } = req.body;
+
+    if (!stageId || !dataId || !editedData) {
+      return res.status(400).json({ error: 'Missing required fields: stageId, dataId, editedData' });
+    }
+
+    const stateFilePath = path.join(socialMediaBackendDir, 'data', 'workflow-state.json');
+    let state = { campaigns: {}, content: {}, visuals: {}, videos: {}, published: {}, metrics: {} };
+
+    if (fs.existsSync(stateFilePath)) {
+      state = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+    }
+
+    const stageKeys = {
+      1: 'campaigns',
+      2: 'content',
+      3: 'visuals',
+      4: 'videos',
+      5: 'published',
+      6: 'metrics'
+    };
+
+    const key = stageKeys[parseInt(stageId)];
+    if (!key) {
+      return res.status(400).json({ error: `Invalid stage ID: ${stageId}` });
+    }
+
+    if (!state[key] || !state[key][dataId]) {
+      return res.status(404).json({ error: `Data entry not found: ${dataId}` });
+    }
+
+    // Update the data entry
+    state[key][dataId] = {
+      ...state[key][dataId],
+      ...editedData,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Ensure data directory exists
+    const dataDir = path.dirname(stateFilePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    fs.writeFileSync(stateFilePath, JSON.stringify(state, null, 2));
+    console.log(`[Social Media] Updated stage ${stageId} data:`, dataId);
+
+    res.json({ success: true, message: 'Data saved successfully' });
+  } catch (error) {
+    console.error('[Social Media] Error saving stage data:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social Media: Generate topic
+app.post('/api/topic/generate', async (req, res) => {
+  try {
+    const { campaignType, purpose, targetAudience, platforms, language } = req.body;
+
+    // Spawn a process to generate topic using the social-media backend
+    const args = [
+      socialMediaMainJsPath,
+      'generate-topic',
+      '--campaign-type', campaignType,
+      '--purpose', purpose,
+      '--target-audience', targetAudience,
+      '--language', language
+    ];
+
+    platforms.forEach((platform) => {
+      args.push('--platform', platform);
+    });
+
+    const envPath = path.resolve(__dirname, '..', '.env');
+    const nodeEnv = {
+      ...process.env,
+      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
+    };
+
+    const nodeProcess = spawn('node', args, {
+      cwd: socialMediaBackendDir,
+      env: nodeEnv,
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    nodeProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    nodeProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    nodeProcess.on('close', (code) => {
+      if (code === 0) {
+        // Try to parse JSON from output
+        try {
+          const lines = output.trim().split('\n');
+          const jsonLine = lines.find(line => line.startsWith('{') || line.includes('topic'));
+          if (jsonLine) {
+            const data = JSON.parse(jsonLine);
+            res.json(data);
+          } else {
+            // Fallback: extract topic from text output
+            const topicMatch = output.match(/Topic:\s*(.+)/i) || output.match(/"topic":\s*"([^"]+)"/i);
+            if (topicMatch) {
+              res.json({ topic: topicMatch[1], model: 'gemini-3-pro-preview' });
+            } else {
+              res.json({ topic: output.trim().split('\n')[0] || 'Generated topic', model: 'gemini-3-pro-preview' });
+            }
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, return a simple response
+          res.json({ topic: output.trim().split('\n')[0] || 'Generated topic', model: 'gemini-3-pro-preview' });
+        }
+      } else {
+        console.error('[Social Media] Topic generation failed:', errorOutput);
+        res.status(500).json({ error: errorOutput || 'Failed to generate topic' });
+      }
+    });
+  } catch (error) {
+    console.error('[Social Media] Error in topic generation:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social Media: Health check
+app.get('/api/health/social-media', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Social Media Backend API',
+    backendExists: fs.existsSync(socialMediaMainJsPath),
+    backendPath: socialMediaMainJsPath
+  });
+});
+
+// ============================================================================
+// VIDEO-GEN API ROUTES
+// ============================================================================
+
+// Video Gen: Generate Prompt
+app.post('/api/video-gen/generate-prompt', async (req, res) => {
+  try {
+    const { userPrompt, reelType } = req.body;
+    if (!userPrompt || !reelType) {
+      return res.status(400).json({ error: 'Missing userPrompt or reelType' });
+    }
+
+    // This would need @google/generative-ai package
+    // For now, return a basic fallback
+    const MODEL_MAPPING = {
+      educational: 'wan-2.5',
+      market_update: 'wan-2.5',
+      viral_hook: 'kling-2.6',
+      advisor: 'omnihuman-1.5',
+      cinematic: 'runway-gen-4'
+    };
+    const recommendedModel = MODEL_MAPPING[reelType] || 'kling-2.6';
+    const basicPrompt = `A high-quality video about ${userPrompt} in style of ${reelType}. Professional financial aesthetic, emerald green and navy blue colors.`;
+
+    res.json({
+      optimizedPrompt: basicPrompt,
+      recommendedModel,
+      reelType,
+      warning: "Gemini API Key missing. Using basic fallback."
+    });
+  } catch (error) {
+    console.error('Error generating prompt:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Video Gen: Generate OVI Prompt
+app.post('/api/video-gen/generate-ovi-prompt', async (req, res) => {
+  try {
+    const { script, gender = 'female', persona = 'financial advisor' } = req.body;
+    if (!script) {
+      return res.status(400).json({ error: 'Script is required' });
+    }
+
+    const genderDesc = gender === 'male' ? 'man' : 'woman';
+    const visualDescription = `A professional ${genderDesc} in business attire`;
+    const voiceCharacteristics = gender === 'male'
+      ? 'Professional male voice, confident tone, clear enunciation, measured pace, studio quality acoustics, authoritative delivery, trustworthy demeanor'
+      : 'Professional female voice, warm tone, clear enunciation, measured pace, studio quality acoustics, authoritative delivery, trustworthy demeanor';
+
+    const oviPrompt = `${visualDescription} looks at camera and says, <S>${script}<E>.<AUDCAP>${voiceCharacteristics}<ENDAUDCAP>`;
+
+    res.json({ prompt: oviPrompt });
+  } catch (error) {
+    console.error('OVI prompt generation failed:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate OVI prompt' });
+  }
+});
+
+// Video Gen: Generate Script
+app.post('/api/video-gen/generate-script', async (req, res) => {
+  try {
+    const { topic, language = 'en' } = req.body;
+    if (!topic) {
+      return res.status(400).json({ error: 'Missing topic' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn('GEMINI_API_KEY not found, using fallback script');
+      const fallbackScript = `Stop leaving your cash in a savings account earning pennies. Inflation is eating your wealth. Instead, consider a diversified index fund. It's the simplest way to grow your money over time. Start today, and thank yourself in ten years.`;
+      return res.json({ script: fallbackScript, warning: 'GEMINI_API_KEY missing, using fallback' });
+    }
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
+
+    const SYSTEM_INSTRUCTION = `You are an expert scriptwriter for short-form financial video content (Reels/TikTok).
+Your goal is to write a concise, engaging script for a "Financial Advisor" persona.
+
+Constraints:
+1.  **Duration:** Strictly under 30 seconds spoken (approx 60-75 words).
+2.  **Tone:** Professional, trustworthy, yet accessible and engaging.
+3.  **Structure:** Hook (first 3s) -> Value/Insight -> Call to Action.
+4.  **Format:** Return ONLY the raw spoken text. No scene directions, no "Host:", no markdown formatting. Just the words to be spoken.
+
+Example Output:
+"Stop leaving your cash in a savings account earning pennies. Inflation is eating your wealth. Instead, consider a diversified index fund. It's the simplest way to grow your money over time. Start today, and thank yourself in ten years."`;
+
+    const langMap = {
+      hi: "Hindi (Devanagari script)",
+      hinglish: "Hinglish (Hindi words written in English alphabet, casual Indian style)",
+      bn: "Bengali",
+      gu: "Gujarati",
+      kn: "Kannada",
+      ml: "Malayalam",
+      mr: "Marathi",
+      pa: "Punjabi",
+      ta: "Tamil",
+      te: "Telugu"
+    };
+
+    let langInstruction = "";
+    if (langMap[language]) {
+      langInstruction = `Write the script in ${langMap[language]}.`;
+    }
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: `Topic: "${topic}"\nLanguage: ${language}\n${langInstruction}\n\nWrite the script:` }] }],
+      systemInstruction: { role: 'system', parts: [{ text: SYSTEM_INSTRUCTION }] },
+    });
+
+    const script = result.response.text();
+
+    res.json({ script });
+  } catch (error) {
+    console.error('Error generating script:', error);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
+});
+
+// Video Gen: Generate Audio
+app.post('/api/video-gen/generate-audio', async (req, res) => {
+  try {
+    const { text, language = 'en', gender = 'female', voiceId: customVoiceId } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: 'Missing text' });
+    }
+
+    const CARTESIA_API_KEY = process.env.CARTESIA_API_KEY;
+    if (!CARTESIA_API_KEY) {
+      return res.status(500).json({
+        error: 'CARTESIA_API_KEY not configured',
+        message: 'Please set CARTESIA_API_KEY in your .env file'
+      });
+    }
+
+    // Voice IDs
+    const VOICES = {
+      female: '3b554273-4299-48b9-9aaf-eefd438e3941', // Indian Lady
+      male: '6303e5fb-a0a7-48f9-bb1a-dd42c216dc5d',   // Sagar (Indian Male)
+    };
+
+    const voiceId = customVoiceId || VOICES[gender];
+    const modelId = 'sonic-3-2025-10-27';
+
+    const { CartesiaClient } = require('@cartesia/cartesia-js');
+    const cartesia = new CartesiaClient({ apiKey: CARTESIA_API_KEY });
+    const websocket = cartesia.tts.websocket({
+      container: 'raw',
+      encoding: 'pcm_f32le',
+      sampleRate: 44100,
+    });
+
+    await websocket.connect();
+
+    const response = await websocket.send({
+      modelId,
+      voice: { mode: 'id', id: voiceId },
+      transcript: text,
+      language: language === 'hinglish' ? 'hi' : language,
+      addTimestamps: true, // Enable word-level timestamps
+    });
+
+    const chunks = [];
+    const timestamps = [];
+
+    // Wrap event listener in a promise
+    await new Promise((resolve, reject) => {
+      response.on('message', (message) => {
+        if (typeof message === 'string') {
+          try {
+            const parsed = JSON.parse(message);
+            if (parsed.data) {
+              chunks.push(Buffer.from(parsed.data, 'base64'));
+            }
+            if (parsed.word_timestamps) {
+              timestamps.push(...parsed.word_timestamps.words);
+            }
+            if (parsed.done) {
+              resolve();
+            }
+          } catch (e) {
+            console.error("Error parsing chunk:", e);
+          }
+        }
+      });
+
+      // Safety timeout
+      setTimeout(() => resolve(), 15000);
+    });
+
+    const audioBuffer = Buffer.concat(chunks);
+    const wavBuffer = addWavHeader(audioBuffer, 44100, 1, 32); // 44.1kHz, 1 channel, 32-bit float
+
+    // Return as base64
+    res.json({
+      audioBase64: wavBuffer.toString('base64'),
+      timestamps: timestamps // Include word timestamps for splitting
+    });
+
+  } catch (error) {
+    console.error('Error generating audio:', error);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
+});
+
+// Helper function to add WAV header to PCM audio data
+function addWavHeader(samples, sampleRate, numChannels, bitDepth) {
+  const byteRate = (sampleRate * numChannels * bitDepth) / 8;
+  const blockAlign = (numChannels * bitDepth) / 8;
+  const dataSize = samples.length;
+  const buffer = Buffer.alloc(44 + dataSize);
+
+  // RIFF chunk
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8);
+
+  // fmt chunk
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16); // Subchunk1Size (16 for PCM)
+  buffer.writeUInt16LE(3, 20); // AudioFormat (3 for IEEE Float)
+  buffer.writeUInt16LE(numChannels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(byteRate, 28);
+  buffer.writeUInt16LE(blockAlign, 32);
+  buffer.writeUInt16LE(bitDepth, 34);
+
+  // data chunk
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+
+  samples.copy(buffer, 44);
+  return buffer;
+}
+
+// Video Gen: Clone Voice
+app.post('/api/video-gen/clone-voice', upload.single('file'), async (req, res) => {
+  let tempFilePath = null;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({
+        error: 'ELEVENLABS_API_KEY not configured. Please add it to .env.local'
+      });
+    }
+
+    tempFilePath = req.file.path;
+    const ElevenLabsClient = require('elevenlabs').ElevenLabsClient;
+    const client = new ElevenLabsClient({ apiKey });
+
+    const voice = await client.voices.add({
+      name: `Cloned Voice ${Date.now()}`,
+      files: [fs.createReadStream(tempFilePath)],
+      description: `Voice cloned from ${req.file.originalname}`,
+    });
+
+    if (!voice.voice_id) {
+      throw new Error('Voice cloning failed: No voice_id returned from ElevenLabs');
+    }
+
+    // Clean up temp file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      await unlink(tempFilePath);
+      tempFilePath = null;
+    }
+
+    res.json({
+      success: true,
+      voice_id: voice.voice_id,
+      id: voice.voice_id,
+      message: 'Voice cloned successfully using ElevenLabs',
+    });
+  } catch (error) {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        await unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup temp file:', cleanupError);
+      }
+    }
+    console.error('Voice cloning failed:', error);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
+});
+
+// Video Gen: Test Voice
+app.post('/api/video-gen/test-voice', async (req, res) => {
+  try {
+    const { voice_id, text } = req.body;
+    if (!voice_id) {
+      return res.status(400).json({ error: 'No voice_id provided' });
+    }
+
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({
+        error: 'ELEVENLABS_API_KEY not configured'
+      });
+    }
+
+    const ElevenLabsClient = require('elevenlabs').ElevenLabsClient;
+    const client = new ElevenLabsClient({ apiKey });
+
+    const testText = text || "Hello! This is a test of your cloned voice. How does it sound?";
+    const audio = await client.textToSpeech.convert(voice_id, {
+      text: testText,
+      model_id: "eleven_multilingual_v2",
+    });
+
+    const chunks = [];
+    for await (const chunk of audio) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    res.json({
+      success: true,
+      audio: buffer.toString('base64'),
+      audio_type: 'audio/mpeg',
+      text: testText,
+    });
+  } catch (error) {
+    console.error('Test voice generation failed:', error);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
+});
+
+// Video Gen: Split Audio
+app.post('/api/video-gen/split-audio', async (req, res) => {
+  const tempFiles = [];
+  try {
+    const { audioBase64, timestamps, targetDuration = 10 } = req.body;
+
+    if (!audioBase64 || !timestamps || !Array.isArray(timestamps)) {
+      return res.status(400).json({
+        error: 'audioBase64 and timestamps array are required'
+      });
+    }
+
+    // Find optimal split points
+    const splitPoints = findSplitPoints(timestamps, targetDuration);
+
+    if (splitPoints.length === 0) {
+      return res.json({
+        success: true,
+        segments: [audioBase64],
+        splitPoints: []
+      });
+    }
+
+    // Save audio to temp file
+    const inputPath = path.join('/tmp', `audio_${Date.now()}.wav`);
+    tempFiles.push(inputPath);
+    const audioBuffer = Buffer.from(audioBase64, 'base64');
+    await writeFile(inputPath, audioBuffer);
+
+    // Split audio using ffmpeg
+    const segments = [];
+    const boundaries = [0, ...splitPoints];
+
+    for (let i = 0; i < boundaries.length; i++) {
+      const startTime = boundaries[i];
+      const endTime = i < boundaries.length - 1 ? boundaries[i + 1] : undefined;
+      const outputPath = path.join('/tmp', `segment_${Date.now()}_${i}.wav`);
+      tempFiles.push(outputPath);
+
+      await splitAudioSegment(inputPath, outputPath, startTime, endTime);
+      const segmentBuffer = await fs.promises.readFile(outputPath);
+      segments.push(segmentBuffer.toString('base64'));
+    }
+
+    // Clean up temp files
+    for (const file of tempFiles) {
+      try {
+        await unlink(file);
+      } catch (err) {
+        console.error(`Failed to delete ${file}:`, err);
+      }
+    }
+
+    res.json({
+      success: true,
+      segments: segments,
+      splitPoints: splitPoints
+    });
+  } catch (error) {
+    for (const file of tempFiles) {
+      try {
+        await unlink(file);
+      } catch (err) {
+        // Ignore cleanup errors
+      }
+    }
+    console.error('Audio splitting failed:', error);
+    res.status(500).json({ error: error.message || 'Failed to split audio' });
+  }
+});
+
+// Helper function to split audio segment
+function splitAudioSegment(inputPath, outputPath, startTime, endTime) {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = require('fluent-ffmpeg');
+    let command = ffmpeg(inputPath).setStartTime(startTime);
+    if (endTime !== undefined) {
+      command = command.setDuration(endTime - startTime);
+    }
+    command
+      .output(outputPath)
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run();
+  });
+}
+
+// Helper function to find split points
+function findSplitPoints(timestamps, targetDuration) {
+  if (timestamps.length === 0) return [];
+  const totalDuration = timestamps[timestamps.length - 1].end;
+  const splitPoints = [];
+  const targets = [targetDuration, targetDuration * 2];
+
+  for (const target of targets) {
+    if (target >= totalDuration) continue;
+    let bestIndex = 0;
+    let minDiff = Infinity;
+
+    for (let i = 0; i < timestamps.length; i++) {
+      const wordEnd = timestamps[i].end;
+      const diff = Math.abs(wordEnd - target);
+      const isSentenceEnd = i < timestamps.length - 1 &&
+        (timestamps[i].word.endsWith('.') ||
+          timestamps[i].word.endsWith('!') ||
+          timestamps[i].word.endsWith('?') ||
+          timestamps[i + 1].start - timestamps[i].end > 0.3);
+
+      if (diff < minDiff || (diff < minDiff * 1.5 && isSentenceEnd)) {
+        minDiff = diff;
+        bestIndex = i;
+      }
+    }
+    splitPoints.push(timestamps[bestIndex].end);
+  }
+  return splitPoints;
+}
+
+// Video Gen: Stitch Videos
+app.post('/api/video-gen/stitch-videos', async (req, res) => {
+  const tempFiles = [];
+  try {
+    const { video_urls } = req.body;
+
+    if (!video_urls || !Array.isArray(video_urls) || video_urls.length === 0) {
+      return res.status(400).json({ error: 'video_urls array is required' });
+    }
+
+    if (video_urls.length === 1) {
+      return res.json({
+        video_url: video_urls[0],
+        success: true
+      });
+    }
+
+    // Download all video segments
+    const downloadedFiles = [];
+    for (let i = 0; i < video_urls.length; i++) {
+      const tempPath = path.join('/tmp', `segment_${Date.now()}_${i}.mp4`);
+      await downloadFile(video_urls[i], tempPath);
+      downloadedFiles.push(tempPath);
+      tempFiles.push(tempPath);
+    }
+
+    // Stitch videos together
+    const outputPath = path.join('/tmp', `stitched_${Date.now()}.mp4`);
+    tempFiles.push(outputPath);
+    await stitchVideos(downloadedFiles, outputPath);
+
+    // Read the stitched video and convert to base64
+    const videoBuffer = fs.readFileSync(outputPath);
+    const videoBase64 = videoBuffer.toString('base64');
+
+    // Clean up temp files
+    for (const file of tempFiles) {
+      try {
+        await unlink(file);
+      } catch (err) {
+        console.error(`Failed to delete ${file}:`, err);
+      }
+    }
+
+    res.json({
+      video_base64: videoBase64,
+      success: true,
+      message: 'Videos stitched successfully'
+    });
+  } catch (error) {
+    for (const file of tempFiles) {
+      try {
+        await unlink(file);
+      } catch (err) {
+        // Ignore cleanup errors
+      }
+    }
+    console.error('Video stitching failed:', error);
+    res.status(500).json({ error: error.message || 'Failed to stitch videos' });
+  }
+});
+
+// Helper to download a file
+async function downloadFile(url, filepath) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    const file = fs.createWriteStream(filepath);
+    protocol.get(url, (response) => {
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+    }).on('error', (err) => {
+      fs.unlink(filepath, () => { });
+      reject(err);
+    });
+  });
+}
+
+// Helper to stitch videos using ffmpeg
+async function stitchVideos(inputFiles, outputFile) {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = require('fluent-ffmpeg');
+    const command = ffmpeg();
+    inputFiles.forEach(file => command.input(file));
+    command
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .mergeToFile(outputFile, '/tmp');
+  });
+}
+
+// Video Gen: Extract Frame (placeholder - actual extraction happens client-side)
+app.post('/api/video-gen/extract-frame', async (req, res) => {
+  try {
+    const { video_url } = req.body;
+    if (!video_url) {
+      return res.status(400).json({ error: 'video_url is required' });
+    }
+    // Frame extraction happens client-side using video element and canvas
+    res.json({
+      success: true,
+      message: 'Frame extraction should be done client-side',
+      video_url: video_url
+    });
+  } catch (error) {
+    console.error('Frame extraction failed:', error);
+    res.status(500).json({ error: error.message || 'Failed to extract frame' });
+  }
+});
+
+// Video Gen: Extend Video
+app.post('/api/video-gen/extend-video', async (req, res) => {
+  try {
+    const { video_url, prompt, model = 'wan-2.5', duration_seconds = 10, resolution = '720p', audio_url } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    // This would need @fal-ai/serverless-client package
+    // For now, return an error indicating the feature needs setup
+    res.status(501).json({
+      error: 'Video extension requires Fal.ai API setup',
+      message: 'Please configure FAL_KEY in environment variables'
+    });
+  } catch (error) {
+    console.error('Video extension failed:', error);
+    res.status(500).json({ error: error.message || 'Failed to extend video' });
+  }
+});
+
+// Video Gen: Fal Proxy
+app.all('/api/video-gen/fal/proxy', async (req, res) => {
+  const FAL_KEY = process.env.FAL_KEY;
+  const targetUrl = req.headers['x-fal-target-url'];
+
+  if (!targetUrl) {
+    return res.status(400).json({ error: "Missing x-fal-target-url header" });
+  }
+
+  try {
+    const urlObj = new URL(targetUrl);
+    if (!/(\.|^)fal\.(run|ai)$/.test(urlObj.host)) {
+      return res.status(412).json({ error: "Invalid target URL" });
+    }
+  } catch (e) {
+    return res.status(400).json({ error: "Invalid target URL format" });
+  }
+
+  if (!FAL_KEY) {
+    return res.status(401).json({ error: "Missing Fal credentials" });
+  }
+
+  const headers = {};
+  Object.keys(req.headers).forEach(key => {
+    if (key.toLowerCase().startsWith('x-fal-')) {
+      headers[key] = req.headers[key];
+    }
+  });
+  headers['Authorization'] = `Key ${FAL_KEY}`;
+  headers['Content-Type'] = 'application/json';
+  headers['Accept'] = 'application/json';
+
+  const body = req.method === 'GET' ? undefined : JSON.stringify(req.body);
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: req.method,
+      headers: headers,
+      body: body,
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).json(JSON.parse(errorText));
+    }
+
+    const responseData = await response.json();
+    res.json(responseData);
+  } catch (error) {
+    console.error("Proxy exception:", error);
+    res.status(500).json({ error: error.message || "Proxy failed" });
+  }
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Enhanced Bulk Generator Backend API running on http://localhost:${PORT}`);
+  console.log(`📡 Ready to handle workflow requests from Vite app (port 3007)`);
+  console.log(`📱 Social Media API routes available at /api/workflow/social-media/*`);
+  console.log(`🎬 Video Gen API routes available at /api/video-gen/*`);
+});
+

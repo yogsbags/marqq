@@ -31,10 +31,12 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
 
   const handleDemoLogin = async () => {
     try {
+      // Note: Demo login requires a demo account to be created in Supabase
+      // For development, you can create a test account or disable this feature
       await login('demo@example.com', 'demo123');
       toast.success('Welcome to the demo! 🚀');
-    } catch (error) {
-      toast.error('Demo login failed. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Demo login failed. Please create an account or check your Supabase configuration.');
     }
   };
 
@@ -57,7 +59,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
           Torqq AI
         </h1>
       </div>
-      
+
       <Card className="animate-in fade-in-50 slide-in-from-bottom-5 duration-700">
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
@@ -93,15 +95,15 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               required
             />
           </div>
-          <Button 
-            type="submit" 
-            className="w-full bg-orange-500 hover:bg-orange-600 transition-all duration-200 hover:scale-[1.02]" 
+          <Button
+            type="submit"
+            className="w-full bg-orange-500 hover:bg-orange-600 transition-all duration-200 hover:scale-[1.02]"
             disabled={isLoading}
           >
             {isLoading ? <LoadingSpinner size="sm" /> : 'Sign In'}
           </Button>
         </form>
-        
+
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -111,8 +113,8 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
           </div>
         </div>
 
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full transition-all duration-200 hover:scale-[1.02] hover:border-orange-500"
           onClick={handleDemoLogin}
           disabled={isLoading}

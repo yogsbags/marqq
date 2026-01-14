@@ -14,6 +14,8 @@ import { BudgetOptimizationFlow } from './BudgetOptimizationFlow';
 import { PerformanceScorecard } from './PerformanceScorecard';
 import { AIContentFlow } from './AIContentFlow';
 import { SEOLLMOFlow } from './SEOLLMOFlow';
+import { SocialMediaFlow } from './SocialMediaFlow';
+import { EnhancedBulkGenerator } from './EnhancedBulkGenerator';
 import { UnifiedCustomerViewFlow } from './UnifiedCustomerViewFlow';
 
 interface ModuleDetailProps {
@@ -93,7 +95,8 @@ export function ModuleDetail({ module, onBack, autoStart = false }: ModuleDetail
   if (module.id === 'ai-content') {
     return (
       <div className="space-y-6">
-        <AIContentFlow />
+        {/* AI Content should use the Social Media workflow */}
+        <SocialMediaFlow />
       </div>
     );
   }
@@ -102,7 +105,8 @@ export function ModuleDetail({ module, onBack, autoStart = false }: ModuleDetail
   if (module.id === 'seo-llmo') {
     return (
       <div className="space-y-6">
-        <SEOLLMOFlow />
+        {/* SEO/LLMO should use the Enhanced Bulk Generator experience */}
+        <EnhancedBulkGenerator />
       </div>
     );
   }
@@ -120,9 +124,9 @@ export function ModuleDetail({ module, onBack, autoStart = false }: ModuleDetail
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center space-x-4">
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           onClick={onBack}
           className="transition-all duration-200 hover:scale-110"
         >
@@ -146,7 +150,7 @@ export function ModuleDetail({ module, onBack, autoStart = false }: ModuleDetail
               <div className="flex items-center justify-between">
                 <div className="text-2xl font-bold">{metric.value}</div>
                 {metric.change && (
-                  <Badge 
+                  <Badge
                     variant={metric.change > 0 ? 'default' : 'destructive'}
                     className="text-xs"
                   >

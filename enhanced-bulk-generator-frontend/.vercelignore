@@ -1,0 +1,42 @@
+# Vercel Ignore
+# Exclude files not needed in deployment
+
+# Node modules (will be installed during build)
+node_modules/
+backend/node_modules/
+
+# Environment files (set via Vercel dashboard)
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+.next/
+out/
+
+# Development files
+*.log
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Tests
+*.test.js
+*.spec.js
+test/
+__tests__/
+
+# Backend data (CSV files can be large, will be created at runtime)
+backend/data/*.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
