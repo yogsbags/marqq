@@ -9,7 +9,9 @@
     "dev:backend": "node enhanced-bulk-generator-frontend/backend-server.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.js",
+    "postinstall": "npm --prefix enhanced-bulk-generator-frontend ci --omit=dev"
   },
   "dependencies": {
     "@fal-ai/serverless-client": "^0.15.0",
