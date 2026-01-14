@@ -1244,6 +1244,7 @@ async function handleSocialMediaStage(req, res) {
     const {
       stageId,
       campaignType,
+      purpose,
       platforms = [],
       topic,
       duration = 90,
@@ -1259,7 +1260,8 @@ async function handleSocialMediaStage(req, res) {
       brandSettings,
       promptOverride,
       frameInterpolation,
-      longCatConfig
+      longCatConfig,
+      targetAudience
     } = req.body;
 
     const finalUseAvatar = contentType === 'avatar-video' ? true : (contentType === 'faceless-video' ? false : useAvatar);
@@ -1282,6 +1284,113 @@ async function handleSocialMediaStage(req, res) {
 
     sendEvent({ log: `🚀 Starting Stage ${stageId}: ${stageName}...` });
     sendEvent({ stage: stageId, status: 'running', message: `Executing ${stageName}...` });
+
+    // Stage 1: Campaign Planning (generate creative prompt/brief here for UI consumption)
+    // Rationale: the vendored social-media backend CLI doesn't implement a dedicated topic/prompt generator command,
+    // and the UI expects Stage 1 to produce an editable creative prompt payload (creativePrompt/output).
+    if (stageId === 1) {
+      try {
+        const groqKey = process.env.GROQ_API_KEY;
+        const platformList = Array.isArray(platforms) ? platforms : [];
+
+        if (!groqKey) {
+          const fallback = `## Campaign Planning\n\n**Campaign Type:** ${campaignType}\n\n**Purpose:** ${purpose || 'brand-awareness'}\n\n**Target Audience:** ${targetAudience || 'all_clients'}\n\n**Platforms:** ${platformList.join(', ') || 'linkedin'}\n\n**Topic:** ${topic}\n\n### Creative Prompt\nDraft a concise, compliant campaign brief for PL Capital.`;
+
+          const stageData = {
+            type: 'campaign-planning',
+            topic,
+            campaignType,
+            purpose,
+            targetAudience,
+            platforms: platformList,
+            language,
+            status: 'completed',
+            creativePrompt: fallback,
+            output: fallback
+          };
+
+          saveSocialMediaStageData(stageId, stageData);
+          sendEvent({ log: '⚠️ GROQ_API_KEY not set; using fallback planning prompt.' });
+          sendEvent({ stage: stageId, status: 'completed', message: `${stageName} completed`, data: stageData });
+          res.end();
+          return;
+        }
+
+        sendEvent({ log: '🧠 Generating creative prompt for campaign planning...' });
+
+        const systemPrompt = `You are a senior campaign strategist and creative director for PL Capital (financial services, India).
+Generate a campaign planning brief and a reusable creative prompt for downstream content generation.
+Output MUST be markdown (not JSON).`;
+
+        const userPrompt = `Create Stage 1 output for the Social Media workflow.
+
+Inputs:
+- Topic: ${topic}
+- Campaign type: ${campaignType}
+- Purpose: ${purpose || 'brand-awareness'}
+- Target audience: ${targetAudience || 'all_clients'}
+- Platforms: ${platformList.join(', ') || 'linkedin'}
+- Language: ${language || 'english'}
+
+Requirements:
+1) Provide a crisp campaign brief tailored to purpose + audience (avoid generic finance content).
+2) Provide an explicit section titled "Creative Prompt" that can be reused verbatim in later stages.
+3) Keep it compliant: no guaranteed returns, no exaggerated claims, no personalized investment advice.
+4) Include: objective, key message pillars (3-5), tone, content angles (3-5), CTA options (3), visual direction.
+
+Format as markdown with clear headings (## / ###) and bullet points.`;
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1800
+          })
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Groq API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const markdown = (data.choices?.[0]?.message?.content || '').trim();
+
+        const stageData = {
+          type: 'campaign-planning',
+          topic,
+          campaignType,
+          purpose,
+          targetAudience,
+          platforms: platformList,
+          language,
+          status: 'completed',
+          creativePrompt: markdown,
+          output: markdown
+        };
+
+        // Send the markdown back in logs so it is visible in Live Logs as well
+        sendEvent({ log: markdown });
+
+        saveSocialMediaStageData(stageId, stageData);
+        sendEvent({ stage: stageId, status: 'completed', message: `${stageName} completed`, data: stageData });
+        res.end();
+        return;
+      } catch (error) {
+        sendEvent({ stage: stageId, status: 'error', message: error.message || 'Stage 1 planning failed' });
+        res.end();
+        return;
+      }
+    }
 
     // Special handling for Stage 2: Generate email newsletter content (matching original frontend behavior)
     if (stageId === 2 && (platforms.includes('email') || campaignType.includes('email') || campaignType.includes('newsletter'))) {
