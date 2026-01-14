@@ -1,0 +1,15 @@
+{
+  "prompts": [
+    "Professional financial analyst in modern studio, presenting to camera",
+    "Animated chart showing 76% returns highlighted in bold green text",
+    "Split screen showing systematic vs emotional investing comparison",
+    "Animated 6S framework visualization with interconnected circles"
+  ],
+  "config": {
+    "duration": 8,
+    "aspectRatio": "16:9",
+    "provider": "fal"
+  }
+}
+
+
