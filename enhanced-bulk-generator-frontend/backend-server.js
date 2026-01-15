@@ -888,6 +888,67 @@ function saveSocialMediaStageData(stageId, data) {
   }
 }
 
+function readSocialMediaWorkflowState() {
+  try {
+    const stateFilePath = path.join(socialMediaBackendDir, 'data', 'workflow-state.json');
+    if (!fs.existsSync(stateFilePath)) return null;
+    const stateContent = fs.readFileSync(stateFilePath, 'utf-8');
+    return JSON.parse(stateContent);
+  } catch (error) {
+    console.error('[Social Media] Error reading workflow state:', error);
+    return null;
+  }
+}
+
+function getLatestSocialMediaStateEntry(state, key, predicate) {
+  try {
+    if (!state || !state[key]) return null;
+    const entries = Object.values(state[key]);
+    const filtered = typeof predicate === 'function' ? entries.filter(predicate) : entries;
+    const sorted = filtered.sort(
+      (a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime()
+    );
+    return sorted[0] || null;
+  } catch (error) {
+    console.error('[Social Media] Error getting latest stage entry:', error);
+    return null;
+  }
+}
+
+async function callGeminiGenerateContent({ apiKey, model, prompt, temperature = 0.7, maxOutputTokens = 1400 }) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature, maxOutputTokens }
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  return parts.map((p) => p.text).filter(Boolean).join('\n').trim();
+}
+
+function extractFirstJsonObject(text) {
+  if (!text) return null;
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+  const candidate = text.slice(start, end + 1);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+}
+
 // Social Media: Execute full workflow - extracted as reusable function
 async function handleSocialMediaExecute(req, res) {
   const encoder = new TextEncoder();
@@ -950,12 +1011,12 @@ async function handleSocialMediaExecute(req, res) {
       args.push('--platform', platform);
     });
 
-    const envPath = path.resolve(__dirname, '..', '.env');
-    const nodeEnv = {
-      ...process.env,
-      NODE_PATH: path.join(socialMediaBackendDir, '..', '..', 'node_modules') + (process.env.NODE_PATH ? ':' + process.env.NODE_PATH : ''),
-      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
-    };
+	    const envPath = path.resolve(__dirname, '..', '.env');
+	    const nodeEnv = {
+	      ...process.env,
+	      NODE_PATH: path.join(__dirname, '..', 'node_modules') + (process.env.NODE_PATH ? ':' + process.env.NODE_PATH : ''),
+	      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
+	    };
 
     sendEvent({ log: `🚀 Command: node ${args.slice(1).join(' ')}` });
 
@@ -967,10 +1028,10 @@ async function handleSocialMediaExecute(req, res) {
     let currentStage = 1;
     let outputBuffer = '';
 
-    nodeProcess.stdout.on('data', (data) => {
-      const output = data.toString();
-      outputBuffer += output;
-      sendEvent({ log: output.trim() });
+	    nodeProcess.stdout.on('data', (data) => {
+	      const output = data.toString();
+	      outputBuffer += output;
+	      sendEvent({ log: output.trim() });
 
       // Parse stage progression
       if (output.includes('Stage 1:') || output.includes('Planning')) {
@@ -1264,6 +1325,8 @@ async function handleSocialMediaStage(req, res) {
       targetAudience
     } = req.body;
 
+    const stageIdNum = Number(stageId);
+
     const finalUseAvatar = contentType === 'avatar-video' ? true : (contentType === 'faceless-video' ? false : useAvatar);
 
     const stageNames = {
@@ -1275,20 +1338,20 @@ async function handleSocialMediaStage(req, res) {
       6: 'tracking'
     };
 
-    const stageName = stageNames[stageId];
+    const stageName = stageNames[stageIdNum];
     if (!stageName) {
       sendEvent({ log: `❌ Invalid stage ID: ${stageId}` });
       res.end();
       return;
     }
 
-    sendEvent({ log: `🚀 Starting Stage ${stageId}: ${stageName}...` });
-    sendEvent({ stage: stageId, status: 'running', message: `Executing ${stageName}...` });
+    sendEvent({ log: `🚀 Starting Stage ${stageIdNum}: ${stageName}...` });
+    sendEvent({ stage: stageIdNum, status: 'running', message: `Executing ${stageName}...` });
 
     // Stage 1: Campaign Planning (generate creative prompt/brief here for UI consumption)
     // Rationale: the vendored social-media backend CLI doesn't implement a dedicated topic/prompt generator command,
     // and the UI expects Stage 1 to produce an editable creative prompt payload (creativePrompt/output).
-    if (stageId === 1) {
+	    if (stageIdNum === 1) {
       try {
         const groqKey = process.env.GROQ_API_KEY;
         const platformList = Array.isArray(platforms) ? platforms : [];
@@ -1309,9 +1372,9 @@ async function handleSocialMediaStage(req, res) {
             output: fallback
           };
 
-          saveSocialMediaStageData(stageId, stageData);
+          saveSocialMediaStageData(stageIdNum, stageData);
           sendEvent({ log: '⚠️ GROQ_API_KEY not set; using fallback planning prompt.' });
-          sendEvent({ stage: stageId, status: 'completed', message: `${stageName} completed`, data: stageData });
+          sendEvent({ stage: stageIdNum, status: 'completed', message: `${stageName} completed`, data: stageData });
           res.end();
           return;
         }
@@ -1381,20 +1444,169 @@ Format as markdown with clear headings (## / ###) and bullet points.`;
         // Send the markdown back in logs so it is visible in Live Logs as well
         sendEvent({ log: markdown });
 
-        saveSocialMediaStageData(stageId, stageData);
-        sendEvent({ stage: stageId, status: 'completed', message: `${stageName} completed`, data: stageData });
+        saveSocialMediaStageData(stageIdNum, stageData);
+        sendEvent({ stage: stageIdNum, status: 'completed', message: `${stageName} completed`, data: stageData });
         res.end();
         return;
       } catch (error) {
-        sendEvent({ stage: stageId, status: 'error', message: error.message || 'Stage 1 planning failed' });
+        sendEvent({ stage: stageIdNum, status: 'error', message: error.message || 'Stage 1 planning failed' });
         res.end();
         return;
       }
-    }
+	    }
 
-    // Special handling for Stage 2: Generate email newsletter content (matching original frontend behavior)
-    if (stageId === 2 && (platforms.includes('email') || campaignType.includes('email') || campaignType.includes('newsletter'))) {
-      sendEvent({ log: '📧 Generating HTML email newsletter...' });
+	    const isEmailCampaign =
+	      (Array.isArray(platforms) && platforms.includes('email')) ||
+	      (typeof campaignType === 'string' && /email|newsletter/i.test(campaignType));
+
+	    // Stage 2: Content Generation (post copy/captions/hashtags) using Gemini 3 Flash Preview.
+	    // Stage 3 handles image/video asset generation; Stage 2 focuses on the textual content pack.
+	    if (stageIdNum === 2 && !isEmailCampaign) {
+	      try {
+	        const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+	        const platformList = Array.isArray(platforms) ? platforms : [];
+
+	        const state = readSocialMediaWorkflowState();
+	        const planningEntry =
+	          getLatestSocialMediaStateEntry(state, 'campaigns', (e) => e?.topic === topic) ||
+	          getLatestSocialMediaStateEntry(state, 'campaigns');
+	        const planningText = planningEntry?.creativePrompt || planningEntry?.output || '';
+
+	        if (!geminiKey) {
+	          const fallback = {
+	            global: {
+	              topic,
+	              campaignType,
+	              purpose: purpose || 'brand-awareness',
+	              targetAudience: targetAudience || 'all_clients',
+	              tone: 'professional, trustworthy, educational',
+	              complianceNote: 'Avoid guaranteed returns; no personalized investment advice.'
+	            },
+	            platforms: Object.fromEntries(
+	              (platformList.length ? platformList : ['linkedin']).map((p) => [
+	                p,
+	                {
+	                  primaryCaption: `PL Capital | ${topic}\n\nKey takeaway: ...\n\nCTA: Learn more / Book a consultation.`,
+	                  altCaptions: [],
+	                  hashtags: ['#Investing', '#WealthManagement', '#FinancialPlanning'],
+	                  ctaOptions: ['Learn more', 'Book a consultation', 'Follow for updates']
+	                }
+	              ])
+	            )
+	          };
+
+	          const stageData = {
+	            type: 'content-generation',
+	            topic,
+	            campaignType,
+	            purpose,
+	            targetAudience,
+	            platforms: platformList,
+	            language,
+	            status: 'completed',
+	            model: 'fallback',
+	            contentPack: fallback,
+	            output: JSON.stringify(fallback, null, 2)
+	          };
+
+	          saveSocialMediaStageData(stageIdNum, stageData);
+	          sendEvent({ log: '⚠️ GEMINI_API_KEY not set; using fallback content pack.' });
+	          sendEvent({ stage: stageIdNum, status: 'completed', message: `${stageName} completed`, data: stageData });
+	          res.end();
+	          return;
+	        }
+
+	        const requestedModel = process.env.GEMINI_TEXT_MODEL || 'gemini-3-flash-preview';
+	        const modelCandidates = [requestedModel, 'gemini-3-pro-preview'].filter(
+	          (m, idx, arr) => m && arr.indexOf(m) === idx
+	        );
+
+	        const prompt = `You are a senior social media copywriter for PL Capital (financial services, India).
+Generate Stage 2 "Content" output: captions/post copy that matches the campaign purpose, campaign type, and target audience.
+Return ONLY valid JSON (no markdown, no code fences).
+
+Inputs:
+- Topic: ${topic}
+- Campaign type: ${campaignType}
+- Purpose: ${purpose || 'brand-awareness'}
+- Target audience: ${targetAudience || 'all_clients'}
+- Platforms: ${(platformList.length ? platformList : ['linkedin']).join(', ')}
+- Language: ${language || 'english'}
+
+Stage 1 planning context (if any):
+${planningText ? planningText : '(none)'}
+
+Requirements:
+1) For each platform, create: primaryCaption, 3 altCaptions, 10-15 hashtags, 3 CTA options.
+2) Platform constraints: Twitter max 280 chars for primaryCaption; LinkedIn is professional; Instagram can be punchier; YouTube can be longer.
+3) Be compliant: no guaranteed returns, no exaggerated claims, no personalized investment advice. Add a short generic disclaimer where appropriate.
+4) Output JSON schema:
+{
+  "global": { "tone": string, "disclaimer": string, "language": string },
+  "platforms": {
+    "<platform>": {
+      "primaryCaption": string,
+      "altCaptions": string[],
+      "hashtags": string[],
+      "ctaOptions": string[]
+    }
+  }
+}`;
+
+	        sendEvent({ log: `🧠 Generating content pack with Gemini (${modelCandidates[0]})...` });
+
+	        let rawText = '';
+	        let modelUsed = '';
+	        let parsed = null;
+	        let lastError = null;
+
+	        for (const model of modelCandidates) {
+	          try {
+	            rawText = await callGeminiGenerateContent({ apiKey: geminiKey, model, prompt });
+	            parsed = extractFirstJsonObject(rawText) || null;
+	            modelUsed = model;
+	            if (parsed) break;
+	          } catch (err) {
+	            lastError = err;
+	          }
+	        }
+
+	        if (!parsed) {
+	          throw new Error(
+	            lastError?.message ||
+	              'Gemini returned an unexpected response; unable to parse JSON content pack.'
+	          );
+	        }
+
+	        const stageData = {
+	          type: 'content-generation',
+	          topic,
+	          campaignType,
+	          purpose,
+	          targetAudience,
+	          platforms: platformList,
+	          language,
+	          status: 'completed',
+	          model: modelUsed,
+	          contentPack: parsed,
+	          output: rawText
+	        };
+
+	        saveSocialMediaStageData(stageIdNum, stageData);
+	        sendEvent({ log: '✅ Content pack generated successfully.' });
+	        sendEvent({ stage: stageIdNum, status: 'completed', message: `${stageName} completed`, data: stageData });
+	        res.end();
+	        return;
+	      } catch (error) {
+	        sendEvent({ stage: stageIdNum, status: 'error', message: error.message || 'Stage 2 content failed' });
+	        res.end();
+	        return;
+	      }
+	    }
+
+	    // Special handling for Stage 2: Generate email newsletter content (matching original frontend behavior)
+	    if (stageIdNum === 2 && isEmailCampaign) {
+	      sendEvent({ log: '📧 Generating HTML email newsletter...' });
 
       try {
         // Get creative prompt from Stage 1 if available
@@ -1483,12 +1695,12 @@ Format as markdown with clear headings (## / ###) and bullet points.`;
             model: emailData.model
           };
 
-          saveSocialMediaStageData(stageId, stageData);
-          sendEvent({ stage: stageId, status: 'completed', message: 'Email newsletter generated', data: stageData });
-          sendEvent({ log: '✅ Stage 2 completed successfully!' });
-          res.end();
-          return;
-        } else {
+	          saveSocialMediaStageData(stageIdNum, stageData);
+	          sendEvent({ stage: stageIdNum, status: 'completed', message: 'Email newsletter generated', data: stageData });
+	          sendEvent({ log: '✅ Stage 2 completed successfully!' });
+	          res.end();
+	          return;
+	        } else {
           sendEvent({ log: `⚠️ Email generation API unavailable on all ports (${possiblePorts.join(', ')})` });
           sendEvent({ log: '💡 Make sure the social-media frontend Next.js server is running' });
           sendEvent({ log: '📦 Falling back to standard workflow execution...' });
@@ -1581,11 +1793,12 @@ Format as markdown with clear headings (## / ###) and bullet points.`;
       args.push('--longcat-config', JSON.stringify(longCatConfig));
     }
 
-    const envPath = path.resolve(__dirname, '..', '.env');
-    const nodeEnv = {
-      ...process.env,
-      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
-    };
+	    const envPath = path.resolve(__dirname, '..', '.env');
+	    const nodeEnv = {
+	      ...process.env,
+	      NODE_PATH: path.join(__dirname, '..', 'node_modules') + (process.env.NODE_PATH ? ':' + process.env.NODE_PATH : ''),
+	      ...(fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {})
+	    };
 
     const nodeProcess = spawn('node', [socialMediaMainJsPath, ...args], {
       cwd: socialMediaBackendDir,
@@ -1600,38 +1813,38 @@ Format as markdown with clear headings (## / ###) and bullet points.`;
       sendEvent({ log: output.trim() });
 
       // Parse stage progression and send events
-      if (output.includes('completed') || output.includes('Completed')) {
-        // Extract clean prompt content from output buffer
-        const cleanOutput = extractPromptFromOutput(outputBuffer, stageId);
+	      if (output.includes('completed') || output.includes('Completed')) {
+	        // Extract clean prompt content from output buffer
+	        const cleanOutput = extractPromptFromOutput(outputBuffer, stageIdNum);
 
-        saveSocialMediaStageData(stageId, {
-          type: stageName,
-          topic,
-          campaignType,
-          platforms,
-          status: 'completed',
-          output: cleanOutput // Save extracted prompt, not full logs
-        });
-        sendEvent({ stage: stageId, status: 'completed', message: `${stageName} completed` });
-      }
-    });
+	        saveSocialMediaStageData(stageIdNum, {
+	          type: stageName,
+	          topic,
+	          campaignType,
+	          platforms,
+	          status: 'completed',
+	          output: cleanOutput // Save extracted prompt, not full logs
+	        });
+	        sendEvent({ stage: stageIdNum, status: 'completed', message: `${stageName} completed` });
+	      }
+	    });
 
     nodeProcess.stderr.on('data', (data) => {
       sendEvent({ log: `ERROR: ${data.toString().trim()}` });
     });
 
-    nodeProcess.on('close', (code) => {
-      if (code === 0) {
-        sendEvent({ stage: stageId, status: 'completed', message: `Stage ${stageId} completed successfully` });
-      } else {
-        sendEvent({ stage: stageId, status: 'error', message: `Stage ${stageId} failed with code ${code}` });
-      }
-      res.end();
-    });
-  } catch (error) {
-    sendEvent({ stage: req.body.stageId || 1, status: 'error', message: error.message });
-    res.end();
-  }
+	    nodeProcess.on('close', (code) => {
+	      if (code === 0) {
+	        sendEvent({ stage: stageIdNum, status: 'completed', message: `Stage ${stageIdNum} completed successfully` });
+	      } else {
+	        sendEvent({ stage: stageIdNum, status: 'error', message: `Stage ${stageIdNum} failed with code ${code}` });
+	      }
+	      res.end();
+	    });
+	  } catch (error) {
+	    sendEvent({ stage: stageIdNum || 1, status: 'error', message: error.message });
+	    res.end();
+	  }
 }
 
 // Social Media: Execute single stage (alternative format: /api/workflow/social-media/stage)
