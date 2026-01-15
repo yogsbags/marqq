@@ -157,6 +157,31 @@ function extractHtmlMeta(html) {
   return { title, metaDescription, h1, h2 };
 }
 
+function inferCompanyName({ explicitName, websiteUrl, title }) {
+  const name = String(explicitName || '').trim();
+  if (name) return name;
+
+  const titleText = String(title || '').trim();
+  if (titleText) {
+    const firstChunk = titleText.split(/\s[\|\-–—]\s/)[0]?.trim();
+    if (firstChunk && firstChunk.length >= 2) return firstChunk.slice(0, 80);
+    return titleText.slice(0, 80);
+  }
+
+  const urlText = String(websiteUrl || '').trim();
+  if (urlText) {
+    try {
+      const u = new URL(urlText);
+      const host = u.hostname.replace(/^www\./i, '');
+      if (host) return host;
+    } catch {
+      // ignore
+    }
+  }
+
+  return 'Untitled Company';
+}
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Enhanced Bulk Generator Backend API' });
@@ -173,11 +198,11 @@ app.get('/api/company-intel/companies', (req, res) => {
   res.json({ companies });
 });
 
-// Company Intelligence: create + ingest (website/company name)
-app.post('/api/company-intel/companies', async (req, res) => {
-  try {
-    const companyName = String(req.body?.companyName || req.body?.name || '').trim();
-    const websiteUrl = normalizeWebsiteUrl(req.body?.websiteUrl || req.body?.website || '');
+	// Company Intelligence: create + ingest (website/company name)
+	app.post('/api/company-intel/companies', async (req, res) => {
+	  try {
+	    const companyName = String(req.body?.companyName || req.body?.name || '').trim();
+	    const websiteUrl = normalizeWebsiteUrl(req.body?.websiteUrl || req.body?.website || '');
 
     if (!companyName && !websiteUrl) {
       res.status(400).json({ error: 'Provide companyName or websiteUrl' });
@@ -200,21 +225,24 @@ app.post('/api/company-intel/companies', async (req, res) => {
       sourceMeta = extractHtmlMeta(sourceHtml);
     }
 
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    const requestedModel =
-      process.env.GEMINI_COMPANY_MODEL ||
-      process.env.GEMINI_TEXT_MODEL ||
-      'gemini-3-flash-preview';
+	    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+	    const requestedModel =
+	      process.env.GEMINI_COMPANY_MODEL ||
+	      process.env.GEMINI_TEXT_MODEL ||
+	      'gemini-3-flash-preview';
 
-    let profile = null;
-    if (geminiKey && (companyName || websiteUrl)) {
-      const prompt = `You are a senior marketing strategist and brand analyst.
+	    let profile = null;
+	    if (geminiKey && (companyName || websiteUrl)) {
+	      const inferredName = inferCompanyName({ explicitName: companyName, websiteUrl, title: sourceMeta.title });
+	      const prompt = `You are a senior marketing strategist and brand analyst.
 Use Google Search grounding to accurately identify the company's products/services, positioning, and key pages.
 Return ONLY valid JSON (no markdown, no code fences).
 If the website content is thin/unknown, make best-effort inferences but label uncertain items in "assumptions".
+IMPORTANT: If the provided Company name is unknown, infer it from the website/domain and page title.
 
 Inputs:
-- Company name: ${companyName || '(unknown)'}
+- Company name (may be unknown): ${companyName || '(unknown)'}
+- Inferred brand name (use if needed): ${inferredName}
 - Website: ${websiteUrl || '(none)'}
 - Page title: ${sourceMeta.title || '(unknown)'}
 - Meta description: ${sourceMeta.metaDescription || '(none)'}
@@ -252,22 +280,28 @@ Output JSON schema:
         maxOutputTokens: 1800,
         tools: [{ google_search: {} }]
       });
-      profile = extractJsonFromText(rawText);
-    }
+	      profile = extractJsonFromText(rawText);
+	    }
 
-    const company = {
-      id,
-      companyName: profile?.companyName || companyName || 'Untitled Company',
-      websiteUrl: profile?.websiteUrl || websiteUrl || null,
-      createdAt,
-      updatedAt: createdAt,
-      profile: profile || {
-        companyName: companyName || 'Untitled Company',
-        websiteUrl: websiteUrl || null,
-        summary: sourceMeta.metaDescription || '',
-        industry: 'unknown',
-        geoFocus: ['India'],
-        productsServices: [],
+	    const finalCompanyName = inferCompanyName({
+	      explicitName: profile?.companyName || companyName,
+	      websiteUrl: profile?.websiteUrl || websiteUrl,
+	      title: sourceMeta.title
+	    });
+
+	    const company = {
+	      id,
+	      companyName: finalCompanyName,
+	      websiteUrl: profile?.websiteUrl || websiteUrl || null,
+	      createdAt,
+	      updatedAt: createdAt,
+	      profile: profile || {
+	        companyName: finalCompanyName,
+	        websiteUrl: websiteUrl || null,
+	        summary: sourceMeta.metaDescription || '',
+	        industry: 'unknown',
+	        geoFocus: ['India'],
+	        productsServices: [],
         offerings: [],
         primaryAudience: [],
         positioning: sourceMeta.metaDescription || '',
