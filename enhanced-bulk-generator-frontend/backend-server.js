@@ -1789,9 +1789,9 @@ Critical requirement: The newsletter copy MUST be tailored to the Purpose and Ta
 
 Layout reference (use this structure and styling cues; OMIT web stories section):
 - 600px wide, single-column responsive layout (table-based).
-- Header section with EXACTLY ONE logo (linked to plindia.com) and EXACTLY ONE top banner image:
-  * Use this banner image ONCE: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/xtp/w8t/1aj/Asset%201.png
-  * Do NOT include any second logo or duplicate header/banner image elsewhere in the email.
+- Header section: use ONLY the provided header/banner image (it already contains the logo). Do NOT add a separate logo image or logo block anywhere.
+  * Use this header image ONCE (link the image to plindia.com): https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/xtp/w8t/1aj/Asset%201.png
+  * Do NOT include any other logo, and do NOT duplicate the header image elsewhere in the email.
 - Hero section: text-led (no additional hero image). Use a solid background color or simple accent divider instead of another image.
 - Intro paragraph and section dividers (1px solid #0000a0).
 - “Market Highlights” section.
