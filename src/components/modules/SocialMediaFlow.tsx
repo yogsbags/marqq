@@ -174,14 +174,13 @@ export function SocialMediaFlow() {
   // Platform dropdown state
   const [showPlatformDropdown, setShowPlatformDropdown] = useState<boolean>(false)
 
-  const campaignTypes = [
-    { value: 'linkedin-carousel', label: 'LinkedIn Carousel', platforms: ['linkedin'] },
-    { value: 'linkedin-testimonial', label: 'LinkedIn Testimonial', platforms: ['linkedin'] },
-    { value: 'linkedin-data-viz', label: 'LinkedIn Data Viz', platforms: ['linkedin'] },
-    { value: 'instagram-reel', label: 'Instagram Reel', platforms: ['instagram'] },
-    { value: 'instagram-carousel', label: 'Instagram Carousel', platforms: ['instagram'] },
-    { value: 'youtube-explainer', label: 'YouTube Explainer', platforms: ['youtube'] },
-    { value: 'youtube-short', label: 'YouTube Short', platforms: ['youtube'] },
+	  const campaignTypes = [
+	    { value: 'linkedin-carousel', label: 'LinkedIn Carousel', platforms: ['linkedin'] },
+	    { value: 'linkedin-testimonial', label: 'LinkedIn Testimonial', platforms: ['linkedin'] },
+	    { value: 'instagram-reel', label: 'Instagram Reel', platforms: ['instagram'] },
+	    { value: 'instagram-carousel', label: 'Instagram Carousel', platforms: ['instagram'] },
+	    { value: 'youtube-explainer', label: 'YouTube Explainer', platforms: ['youtube'] },
+	    { value: 'youtube-short', label: 'YouTube Short', platforms: ['youtube'] },
     { value: 'facebook-community', label: 'Facebook Community', platforms: ['facebook'] },
     { value: 'twitter-thread', label: 'Twitter Thread', platforms: ['twitter'] },
     { value: 'whatsapp-creative', label: 'WhatsApp Creative', platforms: ['whatsapp'] },
