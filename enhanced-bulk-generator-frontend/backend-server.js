@@ -936,17 +936,110 @@ async function callGeminiGenerateContent({ apiKey, model, prompt, temperature = 
   return parts.map((p) => p.text).filter(Boolean).join('\n').trim();
 }
 
-function extractFirstJsonObject(text) {
-  if (!text) return null;
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) return null;
-  const candidate = text.slice(start, end + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    return null;
+async function callGeminiGenerateContentJson({
+  apiKey,
+  model,
+  prompt,
+  temperature = 0.7,
+  maxOutputTokens = 1400
+}) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature, maxOutputTokens, responseMimeType: 'application/json' }
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `Gemini API error: ${response.status}`);
   }
+
+  const data = await response.json();
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  return parts.map((p) => p.text).filter(Boolean).join('\n').trim();
+}
+
+function extractJsonFromText(text) {
+  if (!text) return null;
+
+  // 1) Code-fence extraction (common LLM behavior)
+  const fenceMatch =
+    text.match(/```json\s*([\s\S]*?)\s*```/i) ||
+    text.match(/```\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch?.[1]) {
+    try {
+      return JSON.parse(fenceMatch[1]);
+    } catch {
+      // continue
+    }
+  }
+
+  // 2) Try parsing the whole response as JSON
+  try {
+    return JSON.parse(text);
+  } catch {
+    // continue
+  }
+
+  // 3) Robust JSON object extraction: scan for the first complete JSON object,
+  // respecting strings/escapes (handles embedded CSS braces in HTML strings).
+  const len = text.length;
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < len; i++) {
+    const ch = text[i];
+
+    if (start === -1) {
+      if (ch === '{') {
+        start = i;
+        depth = 1;
+        inString = false;
+        escape = false;
+      }
+      continue;
+    }
+
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (ch === '\\') {
+        escape = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '{') depth++;
+    if (ch === '}') depth--;
+
+    if (depth === 0) {
+      const candidate = text.slice(start, i + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        // Continue searching for another JSON object start
+        start = -1;
+        depth = 0;
+        inString = false;
+        escape = false;
+      }
+    }
+  }
+
+  return null;
 }
 
 function extractLastMatch(text, regex) {
@@ -1585,8 +1678,8 @@ Requirements:
 
 	        for (const model of modelCandidates) {
 	          try {
-	            rawText = await callGeminiGenerateContent({ apiKey: geminiKey, model, prompt });
-	            parsed = extractFirstJsonObject(rawText) || null;
+	            rawText = await callGeminiGenerateContentJson({ apiKey: geminiKey, model, prompt });
+	            parsed = extractJsonFromText(rawText) || null;
 	            modelUsed = model;
 	            if (parsed) break;
 	          } catch (err) {
@@ -1748,14 +1841,14 @@ ${brandGuidance ? `Brand Requirements:\n${brandGuidance}\nIMPORTANT: You MUST us
 
 	        for (const model of modelCandidates) {
 	          try {
-	            rawText = await callGeminiGenerateContent({
+	            rawText = await callGeminiGenerateContentJson({
 	              apiKey: geminiKey,
 	              model,
 	              prompt,
 	              temperature: 0.6,
 	              maxOutputTokens: 2000
 	            });
-	            emailData = extractFirstJsonObject(rawText);
+	            emailData = extractJsonFromText(rawText);
 	            modelUsed = model;
 	            if (emailData) break;
 	          } catch (err) {

@@ -296,6 +296,7 @@ export function SocialMediaFlow() {
   const executeStage = async (stageId: number) => {
     setExecutingStage(stageId)
     addLog(`Starting Stage ${stageId} execution...`)
+    let stageHadError = false
 
     try {
       // Prepare file data
@@ -374,6 +375,9 @@ export function SocialMediaFlow() {
                 if (data.stage) {
                   await updateStage(data.stage, data.status, data.message)
                   addLog(`Stage ${data.stage}: ${data.message}`)
+                  if (data.stage === stageId && data.status === 'error') {
+                    stageHadError = true
+                  }
                 } else if (data.log) {
                   addLog(data.log)
                 } else if (data.campaignData) {
@@ -387,7 +391,9 @@ export function SocialMediaFlow() {
         }
       }
 
-      addLog(`Stage ${stageId} completed!`)
+      if (!stageHadError) {
+        addLog(`Stage ${stageId} completed!`)
+      }
     } catch (error) {
       addLog(`Error in Stage ${stageId}: ${error instanceof Error ? error.message : 'Unknown error'}`)
       console.error('Stage error:', error)
