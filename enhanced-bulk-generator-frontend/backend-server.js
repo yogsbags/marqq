@@ -1115,7 +1115,11 @@ async function handleSocialMediaExecute(req, res) {
       autoPublish = false,
       contentType,
       aspectRatio = '16:9',
-      language = 'english'
+      language = 'english',
+      avatarId,
+      avatarScriptText,
+      avatarVoiceId,
+      heygenAvatarGroupId
     } = req.body;
 
     const finalUseAvatar = contentType === 'avatar-video' ? true : (contentType === 'faceless-video' ? false : useAvatar);
@@ -1144,6 +1148,10 @@ async function handleSocialMediaExecute(req, res) {
     if (useVeo) args.push('--use-veo');
     if (finalUseAvatar) {
       args.push('--use-avatar');
+      if (avatarId) args.push('--avatar-id', avatarId);
+      if (avatarScriptText) args.push('--avatar-script', avatarScriptText);
+      if (avatarVoiceId) args.push('--avatar-voice', avatarVoiceId);
+      if (heygenAvatarGroupId) args.push('--heygen-avatar-group-id', heygenAvatarGroupId);
     } else {
       args.push('--no-avatar');
     }
@@ -1460,6 +1468,7 @@ async function handleSocialMediaStage(req, res) {
       avatarId,
       avatarScriptText,
       avatarVoiceId,
+      heygenAvatarGroupId,
       brandSettings,
       promptOverride,
       frameInterpolation,
@@ -1977,6 +1986,7 @@ ${brandGuidance ? `Brand Requirements:\n${brandGuidance}\nIMPORTANT: You MUST us
 	      if (avatarId) args.push('--avatar-id', avatarId);
 	      if (avatarScriptText) args.push('--avatar-script', avatarScriptText);
 	      if (avatarVoiceId) args.push('--avatar-voice', avatarVoiceId);
+	      if (heygenAvatarGroupId) args.push('--heygen-avatar-group-id', heygenAvatarGroupId);
 	      // For avatar videos (HeyGen or other providers), wait for completion so Stage 4 returns a playable URL.
 	      args.push('--wait-for-completion');
 	    } else {
@@ -2119,6 +2129,67 @@ app.get('/api/avatars', async (req, res) => {
     }
 
     res.json(avatarData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social Media: List HeyGen avatars in a group (used by UI to pick "look"/variant ids)
+const heygenAvatarGroupCache = new Map();
+
+app.get('/api/heygen/avatar-group/:groupId', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    if (!groupId) {
+      return res.status(400).json({ error: 'Missing groupId' });
+    }
+
+    const apiKey = process.env.HEYGEN_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'HEYGEN_API_KEY not configured on server' });
+    }
+
+    if (heygenAvatarGroupCache.has(groupId)) {
+      return res.json(heygenAvatarGroupCache.get(groupId));
+    }
+
+    // HeyGen docs: List all avatars in one avatar group
+    // https://docs.heygen.com/reference/list-all-avatars-in-one-avatar-group
+    const url = `https://api.heygen.com/v2/avatar_group/${encodeURIComponent(groupId)}/avatars`;
+
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Api-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      return res.status(resp.status).json({ error: json?.error || json?.message || `HeyGen API error: ${resp.status}` });
+    }
+
+    // Normalize likely response shapes
+    const raw =
+      json?.data?.avatars ||
+      json?.data?.data ||
+      json?.data ||
+      json?.avatars ||
+      [];
+
+    const avatars = Array.isArray(raw)
+      ? raw
+          .map((a) => ({
+            avatarId: a?.avatar_id || a?.id || a?.avatarId || null,
+            name: a?.avatar_name || a?.name || a?.avatarName || null
+          }))
+          .filter((a) => typeof a.avatarId === 'string' && a.avatarId.length > 0)
+      : [];
+
+    const payload = { groupId, avatars };
+    heygenAvatarGroupCache.set(groupId, payload);
+    res.json(payload);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

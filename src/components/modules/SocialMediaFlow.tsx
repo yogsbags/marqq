@@ -116,6 +116,9 @@ export function SocialMediaFlow() {
   const [avatarId, setAvatarId] = useState<string>('siddharth-vora')
   const [avatarScriptText, setAvatarScriptText] = useState<string>('')
   const [avatarVoiceId, setAvatarVoiceId] = useState<string>('')
+  const [heygenAvatarGroupId, setHeygenAvatarGroupId] = useState<string | null>(null)
+  const [heygenGroupAvatars, setHeygenGroupAvatars] = useState<Array<{ avatarId: string; name?: string | null }>>([])
+  const [heygenSelectedAvatarId, setHeygenSelectedAvatarId] = useState<string>('')
   const [availableAvatars, setAvailableAvatars] = useState<Array<{
     id: string
     name: string
@@ -254,6 +257,11 @@ export function SocialMediaFlow() {
     { value: 'punjabi', label: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
   ]
 
+  const HEYGEN_GROUPS = {
+    indianMale: 'c2d73a2a1707469c852206165ede3fb2',
+    indianFemale: '2c43461ac14846ef973be96e81c49ca3',
+  } as const
+
   // Load available avatars on component mount
   useEffect(() => {
     const loadAvatars = async () => {
@@ -269,6 +277,32 @@ export function SocialMediaFlow() {
     }
     loadAvatars()
   }, [])
+
+  const loadHeyGenAvatarGroup = async (groupId: string) => {
+    try {
+      const response = await fetch(`/api/heygen/avatar-group/${groupId}`)
+      if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        throw new Error(text || `Failed to load HeyGen avatar group (${response.status})`)
+      }
+
+      const data = await response.json()
+      const avatars = Array.isArray(data?.avatars) ? data.avatars : []
+      setHeygenGroupAvatars(avatars)
+      setHeygenSelectedAvatarId(avatars[0]?.avatarId || '')
+    } catch (error) {
+      console.error('Failed to load HeyGen avatar group:', error)
+      setHeygenGroupAvatars([])
+      setHeygenSelectedAvatarId('')
+    }
+  }
+
+  const isHeyGenGroupSelection = avatarId === 'heygen-indian-male' || avatarId === 'heygen-indian-female'
+
+  const resolvedAvatarIdForBackend = () => {
+    if (isHeyGenGroupSelection) return heygenSelectedAvatarId || ''
+    return avatarId
+  }
 
   const updateStage = async (stageId: number, status: WorkflowStage['status'], message: string) => {
     setStages(prev => prev.map(stage =>
@@ -294,6 +328,11 @@ export function SocialMediaFlow() {
   }
 
   const executeStage = async (stageId: number) => {
+    if (contentType === 'avatar-video' && isHeyGenGroupSelection && !heygenSelectedAvatarId) {
+      addLog('⚠️ Please select a HeyGen avatar look before executing.')
+      return
+    }
+
     setExecutingStage(stageId)
     addLog(`Starting Stage ${stageId} execution...`)
     let stageHadError = false
@@ -321,9 +360,10 @@ export function SocialMediaFlow() {
           language,
           campaignData,
           files: fileData,
-          avatarId,
+          avatarId: resolvedAvatarIdForBackend(),
           avatarScriptText,
           avatarVoiceId,
+          heygenAvatarGroupId,
           brandSettings: {
             useBrandGuidelines,
             customColors: useBrandGuidelines ? null : customColors,
@@ -404,6 +444,11 @@ export function SocialMediaFlow() {
   }
 
   const executeWorkflow = async () => {
+    if (contentType === 'avatar-video' && isHeyGenGroupSelection && !heygenSelectedAvatarId) {
+      addLog('⚠️ Please select a HeyGen avatar look before executing.')
+      return
+    }
+
     setIsRunning(true)
     setLogs([])
     setStageData({})
@@ -434,9 +479,10 @@ export function SocialMediaFlow() {
           language,
           aspectRatio,
           files: fileData,
-          avatarId,
+          avatarId: resolvedAvatarIdForBackend(),
           avatarScriptText,
           avatarVoiceId,
+          heygenAvatarGroupId,
           brandSettings: {
             useBrandGuidelines,
             customColors: useBrandGuidelines ? null : customColors,
@@ -1596,17 +1642,35 @@ export function SocialMediaFlow() {
                   <select
                     value={avatarId}
                     onChange={(e) => {
-                      setAvatarId(e.target.value)
-                      // Auto-set voice ID when avatar changes
-                      const selectedAvatar = availableAvatars.find(a => a.groupId === e.target.value)
-                      if (selectedAvatar) {
-                        setAvatarVoiceId(selectedAvatar.voiceId)
+                      const value = e.target.value
+                      setAvatarId(value)
+
+                      if (value === 'heygen-indian-male') {
+                        setHeygenAvatarGroupId(HEYGEN_GROUPS.indianMale)
+                        loadHeyGenAvatarGroup(HEYGEN_GROUPS.indianMale)
+                        return
                       }
+
+                      if (value === 'heygen-indian-female') {
+                        setHeygenAvatarGroupId(HEYGEN_GROUPS.indianFemale)
+                        loadHeyGenAvatarGroup(HEYGEN_GROUPS.indianFemale)
+                        return
+                      }
+
+                      setHeygenAvatarGroupId(null)
+                      setHeygenGroupAvatars([])
+                      setHeygenSelectedAvatarId('')
+
+                      // Auto-set voice ID when avatar changes (config-driven avatars)
+                      const selectedAvatar = availableAvatars.find(a => a.groupId === value)
+                      if (selectedAvatar) setAvatarVoiceId(selectedAvatar.voiceId)
                     }}
                     disabled={isRunning || executingStage !== null}
                     className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="siddharth-vora">Siddharth Vora (HeyGen Custom Avatar)</option>
+                    <option value="heygen-indian-male">Indian Male (HeyGen)</option>
+                    <option value="heygen-indian-female">Indian Female (HeyGen)</option>
                     {availableAvatars.map((avatar) => (
                       <option key={avatar.groupId} value={avatar.groupId}>
                         {avatar.name} ({avatar.gender === 'male' ? 'Male' : 'Female'}) - {avatar.voiceName}
@@ -1622,11 +1686,43 @@ export function SocialMediaFlow() {
                   <p className="text-xs text-gray-500 mt-1">
                     {avatarId === 'siddharth-vora'
                       ? 'Using HeyGen custom avatar for Siddharth Vora, Fund Manager at PL Capital'
+                      : avatarId === 'heygen-indian-male'
+                      ? `Using HeyGen avatar group (Indian Male). Variant: ${heygenSelectedAvatarId ? heygenSelectedAvatarId.slice(0, 8) + '…' : 'not selected'}`
+                      : avatarId === 'heygen-indian-female'
+                      ? `Using HeyGen avatar group (Indian Female). Variant: ${heygenSelectedAvatarId ? heygenSelectedAvatarId.slice(0, 8) + '…' : 'not selected'}`
                       : availableAvatars.find(a => a.groupId === avatarId)
                       ? `Using ${availableAvatars.find(a => a.groupId === avatarId)?.name} avatar with ${availableAvatars.find(a => a.groupId === avatarId)?.voiceName} voice`
                       : 'Using VEO-generated avatar'}
                   </p>
                 </div>
+
+                {/* HeyGen Avatar Variant Selection */}
+                {(avatarId === 'heygen-indian-male' || avatarId === 'heygen-indian-female') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      HeyGen Avatar Look:
+                    </label>
+                    <select
+                      value={heygenSelectedAvatarId}
+                      onChange={(e) => setHeygenSelectedAvatarId(e.target.value)}
+                      disabled={isRunning || executingStage !== null || heygenGroupAvatars.length === 0}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      {heygenGroupAvatars.length === 0 ? (
+                        <option value="">Loading variants…</option>
+                      ) : (
+                        heygenGroupAvatars.map((a, idx) => (
+                          <option key={a.avatarId} value={a.avatarId}>
+                            {a.name ? a.name : `Look ${idx + 1}`} ({a.avatarId.slice(0, 8)}…)
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Picks one of the HeyGen avatar IDs from the selected group (different look/settings).
+                    </p>
+                  </div>
+                )}
 
                 {/* Script Text (Optional) */}
                 <div>

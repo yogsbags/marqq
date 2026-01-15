@@ -802,7 +802,14 @@ Output rules:
 
       // Check if this is avatar mode (VEO-based avatar generation)
       const isAvatarMode = options.useAvatar === true;
-      const isHeyGenAvatar = options.avatarId === 'siddharth-vora'; // Later: route to HeyGen
+      const looksLikeHeyGenAvatarId = (value) =>
+        typeof value === 'string' && /^[a-f0-9]{32}$/i.test(value.trim());
+
+      const isHeyGenAvatar =
+        options.avatarId === 'siddharth-vora' ||
+        looksLikeHeyGenAvatarId(options.avatarId) ||
+        Boolean(options.heygenAvatarGroupId) ||
+        Boolean(options.heygenAvatarId);
 
       // For avatar mode (non-HeyGen), augment prompt with avatar and voice descriptions
       if (isAvatarMode && !isHeyGenAvatar) {
@@ -878,8 +885,15 @@ Output rules:
         }
 
         // Get HeyGen avatar and voice IDs from options or use defaults
-        const heygenAvatarId = options.heygenAvatarId || process.env.HEYGEN_AVATAR_ID_SIDDHARTH;
-        const heygenVoiceId = options.heygenVoiceId || process.env.HEYGEN_VOICE_ID_SIDDHARTH;
+        const heygenAvatarId =
+          options.heygenAvatarId ||
+          (looksLikeHeyGenAvatarId(options.avatarId) ? options.avatarId : null) ||
+          process.env.HEYGEN_AVATAR_ID_SIDDHARTH;
+
+        const heygenVoiceId =
+          options.heygenVoiceId ||
+          options.avatarVoiceId ||
+          process.env.HEYGEN_VOICE_ID_SIDDHARTH;
 
         if (!heygenAvatarId) {
           throw new Error('HeyGen avatar ID not configured. Set HEYGEN_AVATAR_ID_SIDDHARTH or pass heygenAvatarId');
