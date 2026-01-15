@@ -71,6 +71,11 @@ const navigationItems = [
     icon: Search,
   },
   {
+    id: 'company-intelligence',
+    title: 'Company Intelligence',
+    icon: TrendingUp,
+  },
+  {
     id: 'unified-customer-view',
     title: 'Customer View',
     icon: Eye,

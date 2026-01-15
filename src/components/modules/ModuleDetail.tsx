@@ -15,6 +15,7 @@ import { PerformanceScorecard } from './PerformanceScorecard';
 import { SocialMediaFlow } from './SocialMediaFlow';
 import { EnhancedBulkGenerator } from './EnhancedBulkGenerator';
 import { UnifiedCustomerViewFlow } from './UnifiedCustomerViewFlow';
+import { CompanyIntelligenceFlow } from './CompanyIntelligenceFlow';
 
 interface ModuleDetailProps {
   module: ModuleStats;
@@ -114,6 +115,15 @@ export function ModuleDetail({ module, onBack, autoStart = false }: ModuleDetail
     return (
       <div className="space-y-6">
         <UnifiedCustomerViewFlow />
+      </div>
+    );
+  }
+
+  // Special handling for Company Intelligence module
+  if (module.id === 'company-intelligence') {
+    return (
+      <div className="space-y-6">
+        <CompanyIntelligenceFlow />
       </div>
     );
   }

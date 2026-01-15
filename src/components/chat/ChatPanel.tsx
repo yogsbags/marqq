@@ -79,6 +79,11 @@ const SLASH_COMMANDS = [
     action: 'seo-llmo'
   },
   {
+    command: '/company-intel',
+    description: 'Open Company Intelligence (strategy, calendar, ICPs, competitors)',
+    action: 'company-intel'
+  },
+  {
     command: '/help',
     description: 'Show available slash commands',
     action: 'help'
@@ -259,7 +264,8 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
         'performance-scorecard': 'performance-scorecard',
         'ai-content': 'ai-content',
         'customer-view': 'unified-customer-view',
-        'seo-llmo': 'seo-llmo'
+        'seo-llmo': 'seo-llmo',
+        'company-intel': 'company-intelligence'
       };
 
       const moduleId = moduleMap[cmd.action];

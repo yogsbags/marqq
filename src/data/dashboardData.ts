@@ -98,5 +98,15 @@ export const dashboardData: DashboardData = {
         { label: 'Campaign CTR', value: '4.8%', change: 14 },
       ],
     },
+    {
+      id: 'company-intelligence',
+      name: 'Company Intelligence',
+      color: '#0EA5E9',
+      metrics: [
+        { label: 'Companies', value: '—' },
+        { label: 'Artifacts', value: '—' },
+        { label: 'Calendars', value: '—' },
+      ],
+    },
   ],
 };

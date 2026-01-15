@@ -18,6 +18,7 @@ const multer = require('multer');
 const http = require('http');
 const https = require('https');
 const { promisify } = require('util');
+const crypto = require('crypto');
 const unlink = promisify(fs.unlink);
 const writeFile = promisify(fs.writeFile);
 
@@ -51,10 +52,364 @@ const upload = multer({ dest: '/tmp' });
 // Backend directory
 const backendDir = path.join(__dirname, 'backend');
 const mainJsPath = path.join(backendDir, 'main.js');
+const companyIntelDbPath = path.join(backendDir, 'data', 'company-intelligence.json');
+
+function readCompanyIntelDb() {
+  try {
+    if (!fs.existsSync(companyIntelDbPath)) {
+      return { companies: {}, artifacts: {} };
+    }
+    const raw = fs.readFileSync(companyIntelDbPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return {
+      companies: parsed?.companies && typeof parsed.companies === 'object' ? parsed.companies : {},
+      artifacts: parsed?.artifacts && typeof parsed.artifacts === 'object' ? parsed.artifacts : {}
+    };
+  } catch (error) {
+    console.error('[Company Intel] Failed to read DB:', error);
+    return { companies: {}, artifacts: {} };
+  }
+}
+
+function writeCompanyIntelDb(nextDb) {
+  try {
+    const dir = path.dirname(companyIntelDbPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(companyIntelDbPath, JSON.stringify(nextDb, null, 2));
+  } catch (error) {
+    console.error('[Company Intel] Failed to write DB:', error);
+  }
+}
+
+function normalizeWebsiteUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return null;
+  try {
+    const withProto = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    const url = new URL(withProto);
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchText(url, { timeoutMs = 15000, maxBytes = 2_000_000 } = {}) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs).unref();
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'user-agent': 'martech-company-intel/1.0 (+https://github.com/yogsbags/martech)'
+      },
+      signal: controller.signal
+    });
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`Fetch failed: ${resp.status} ${text}`);
+    }
+
+    const arrayBuffer = await resp.arrayBuffer();
+    const buf = Buffer.from(arrayBuffer);
+    const sliced = buf.length > maxBytes ? buf.subarray(0, maxBytes) : buf;
+    const text = sliced.toString('utf-8');
+
+    return { text, contentType, truncated: buf.length > maxBytes };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function stripHtml(html) {
+  const raw = String(html || '');
+  return raw
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractHtmlMeta(html) {
+  const raw = String(html || '');
+  const title =
+    raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, ' ')?.trim() || '';
+
+  const metaDescription =
+    raw.match(/<meta[^>]+name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i)?.[1]?.trim() ||
+    raw.match(/<meta[^>]+content=["']([^"']+)["'][^>]*name=["']description["'][^>]*>/i)?.[1]?.trim() ||
+    '';
+
+  const h1 = Array.from(raw.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi))
+    .map((m) => stripHtml(m[1]))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  const h2 = Array.from(raw.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi))
+    .map((m) => stripHtml(m[1]))
+    .filter(Boolean)
+    .slice(0, 6);
+
+  return { title, metaDescription, h1, h2 };
+}
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Enhanced Bulk Generator Backend API' });
+});
+
+// Company Intelligence: list companies
+app.get('/api/company-intel/companies', (req, res) => {
+  const db = readCompanyIntelDb();
+  const companies = Object.values(db.companies || {}).sort((a, b) => {
+    const aTs = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+    const bTs = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+    return bTs - aTs;
+  });
+  res.json({ companies });
+});
+
+// Company Intelligence: create + ingest (website/company name)
+app.post('/api/company-intel/companies', async (req, res) => {
+  try {
+    const companyName = String(req.body?.companyName || req.body?.name || '').trim();
+    const websiteUrl = normalizeWebsiteUrl(req.body?.websiteUrl || req.body?.website || '');
+
+    if (!companyName && !websiteUrl) {
+      res.status(400).json({ error: 'Provide companyName or websiteUrl' });
+      return;
+    }
+
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    let sourceHtml = '';
+    let sourceText = '';
+    let sourceMeta = { title: '', metaDescription: '', h1: [], h2: [] };
+    let fetchInfo = null;
+
+    if (websiteUrl) {
+      const fetched = await fetchText(websiteUrl, { timeoutMs: 20000 });
+      fetchInfo = { contentType: fetched.contentType, truncated: fetched.truncated };
+      sourceHtml = fetched.text;
+      sourceText = stripHtml(sourceHtml).slice(0, 15000);
+      sourceMeta = extractHtmlMeta(sourceHtml);
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const requestedModel = process.env.GEMINI_TEXT_MODEL || 'gemini-3-flash-preview';
+
+    let profile = null;
+    if (geminiKey && (companyName || websiteUrl)) {
+      const prompt = `You are a senior marketing strategist and brand analyst.
+Build a concise "Company Profile" from the inputs. Return ONLY valid JSON (no markdown, no code fences).
+If the website content is thin/unknown, make best-effort inferences but label uncertain items in "assumptions".
+
+Inputs:
+- Company name: ${companyName || '(unknown)'}
+- Website: ${websiteUrl || '(none)'}
+- Page title: ${sourceMeta.title || '(unknown)'}
+- Meta description: ${sourceMeta.metaDescription || '(none)'}
+- H1: ${(sourceMeta.h1 || []).join(' | ') || '(none)'}
+- H2: ${(sourceMeta.h2 || []).join(' | ') || '(none)'}
+- Website text excerpt:
+${sourceText ? sourceText : '(none)'}
+
+Output JSON schema:
+{
+  "companyName": string,
+  "websiteUrl": string | null,
+  "industry": string,
+  "geoFocus": string[],
+  "offerings": string[],
+  "primaryAudience": string[],
+  "positioning": string,
+  "brandVoice": { "tone": string, "style": string, "dos": string[], "donts": string[] },
+  "keywords": string[],
+  "complianceNotes": string[],
+  "competitorsHint": string[],
+  "assumptions": string[]
+}`;
+
+      const rawText = await callGeminiGenerateContentJson({
+        apiKey: geminiKey,
+        model: requestedModel,
+        prompt,
+        temperature: 0.4,
+        maxOutputTokens: 1400
+      });
+      profile = extractJsonFromText(rawText);
+    }
+
+    const company = {
+      id,
+      companyName: profile?.companyName || companyName || 'Untitled Company',
+      websiteUrl: profile?.websiteUrl || websiteUrl || null,
+      createdAt,
+      updatedAt: createdAt,
+      profile: profile || {
+        companyName: companyName || 'Untitled Company',
+        websiteUrl: websiteUrl || null,
+        industry: 'unknown',
+        geoFocus: ['India'],
+        offerings: [],
+        primaryAudience: [],
+        positioning: sourceMeta.metaDescription || '',
+        brandVoice: { tone: 'professional', style: 'clear', dos: [], donts: [] },
+        keywords: [],
+        complianceNotes: [],
+        competitorsHint: [],
+        assumptions: ['Limited data; generated from minimal website metadata.']
+      },
+      sources: {
+        fetchedAt: websiteUrl ? new Date().toISOString() : null,
+        fetchInfo,
+        meta: sourceMeta,
+        textExcerpt: sourceText || ''
+      }
+    };
+
+    const db = readCompanyIntelDb();
+    db.companies[id] = company;
+    writeCompanyIntelDb(db);
+
+    res.json({ company });
+  } catch (error) {
+    res.status(500).json({ error: 'Company ingestion failed', details: error.message });
+  }
+});
+
+// Company Intelligence: fetch one company (including stored artifacts)
+app.get('/api/company-intel/companies/:id', (req, res) => {
+  const id = String(req.params.id || '');
+  const db = readCompanyIntelDb();
+  const company = db.companies?.[id] || null;
+  if (!company) {
+    res.status(404).json({ error: 'Company not found' });
+    return;
+  }
+  const artifacts = db.artifacts?.[id] || {};
+  res.json({ company, artifacts });
+});
+
+function getArtifactSpec(type) {
+  const specs = {
+    competitor_intelligence: {
+      label: 'Competitor Intelligence',
+      schema: `{"topCompetitors":[{"name":string,"website":string|null,"whyRelevant":string,"positioningSnapshot":string,"strengths":string[],"weaknesses":string[]}],"comparison":{"yourDifferentiators":string[],"messagingGaps":string[],"opportunities":string[]},"notes":string[]}`
+    },
+    client_profiling: {
+      label: 'Client Profiling Analytics',
+      schema: `{"segments":[{"name":string,"profile":string,"jobsToBeDone":string[],"painPoints":string[],"objections":string[],"triggers":string[],"channels":string[]}],"insights":string[]}`
+    },
+    partner_profiling: {
+      label: 'Partner Profiling Analytics',
+      schema: `{"partnerTypes":[{"name":string,"valueExchange":string,"selectionCriteria":string[],"activationPlaybook":string[]}],"insights":string[]}`
+    },
+    icps: {
+      label: 'ICPs / Cohorts',
+      schema: `{"icps":[{"name":string,"who":string,"firmographics":string[],"psychographics":string[],"qualifiers":string[],"disqualifiers":string[],"hook":string,"channels":string[]}],"cohorts":[{"name":string,"definition":string,"priority":number,"messagingAngle":string}],"notes":string[]}`
+    },
+    social_calendar: {
+      label: 'Social Media Content Calendar',
+      schema: `{"timezone":string,"startDate":string,"weeks":number,"channels":string[],"cadence":{"postsPerWeek":number},"items":[{"date":string,"channel":string,"format":string,"pillar":string,"hook":string,"captionBrief":string,"cta":string,"assetNotes":string,"complianceNote":string}],"themes":string[]}`
+    },
+    marketing_strategy: {
+      label: 'Marketing Strategy',
+      schema: `{"objective":string,"targetSegments":string[],"positioning":string,"messagingPillars":string[],"funnelPlan":[{"stage":string,"goal":string,"channels":string[],"offers":string[]}],"kpis":string[],"90DayPlan":[{"week":number,"focus":string,"keyActivities":string[]}],"risksAndMitigations":string[]}`
+    },
+    content_strategy: {
+      label: 'Content Strategy',
+      schema: `{"contentPillars":[{"name":string,"purpose":string,"exampleTopics":string[]}],"formats":string[],"distributionRules":string[],"repurposingPlan":string[],"governance":{"reviewChecklist":string[]}}`
+    },
+    channel_strategy: {
+      label: 'Channel Strategy',
+      schema: `{"channels":[{"name":string,"role":string,"contentMix":string[],"cadence":string,"growthLoops":string[]}],"budgetSplitGuidance":string[],"measurement":string[]}`
+    },
+    lookalike_audiences: {
+      label: 'Lookalike Audiences',
+      schema: `{"seedAudiences":string[],"lookalikes":[{"platform":string,"targeting":string[],"exclusions":string[],"creativeAngles":string[]}],"measurement":string[]}`
+    },
+    lead_magnets: {
+      label: 'Lead Magnets',
+      schema: `{"leadMagnets":[{"name":string,"format":string,"promise":string,"outline":string[],"landingPageCopy":{"headline":string,"subheadline":string,"bullets":string[],"cta":string},"followUpSequence":[{"day":number,"subject":string,"goal":string}]}],"notes":string[]}`
+    }
+  };
+  return specs[type] || null;
+}
+
+// Company Intelligence: generate artifacts (strategy, calendar, ICPs, etc.)
+app.post('/api/company-intel/companies/:id/generate', async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    const type = String(req.body?.type || '').trim();
+    const inputs = req.body?.inputs && typeof req.body.inputs === 'object' ? req.body.inputs : {};
+
+    const spec = getArtifactSpec(type);
+    if (!spec) {
+      res.status(400).json({ error: 'Unknown type', supported: 'competitor_intelligence, client_profiling, partner_profiling, icps, social_calendar, marketing_strategy, content_strategy, channel_strategy, lookalike_audiences, lead_magnets' });
+      return;
+    }
+
+    const db = readCompanyIntelDb();
+    const company = db.companies?.[id];
+    if (!company) {
+      res.status(404).json({ error: 'Company not found' });
+      return;
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!geminiKey) {
+      res.status(400).json({ error: 'GEMINI_API_KEY not set' });
+      return;
+    }
+
+    const model = process.env.GEMINI_TEXT_MODEL || 'gemini-3-flash-preview';
+    const profile = company.profile || {};
+
+    const prompt = `You are an expert growth marketer for India-focused brands.
+Generate the requested artifact: ${spec.label}.
+Return ONLY valid JSON (no markdown, no code fences).
+Prioritize clarity, measurability, and practical next steps.
+Keep compliance-safe for financial marketing: no guaranteed returns, no personalized investment advice.
+
+Company profile (source: website/company input):
+${JSON.stringify(profile, null, 2)}
+
+Additional inputs (user provided):
+${JSON.stringify(inputs, null, 2)}
+
+Output MUST match this JSON schema exactly (keys and types):
+${spec.schema}`;
+
+    const rawText = await callGeminiGenerateContentJson({
+      apiKey: geminiKey,
+      model,
+      prompt,
+      temperature: 0.5,
+      maxOutputTokens: 1800
+    });
+
+    const parsed = extractJsonFromText(rawText);
+    if (!parsed) {
+      res.status(500).json({ error: 'Unable to parse JSON from model response' });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    db.artifacts[id] = db.artifacts[id] || {};
+    db.artifacts[id][type] = { type, updatedAt: now, data: parsed };
+    db.companies[id] = { ...company, updatedAt: now };
+    writeCompanyIntelDb(db);
+
+    res.json({ artifact: db.artifacts[id][type] });
+  } catch (error) {
+    res.status(500).json({ error: 'Generation failed', details: error.message });
+  }
 });
 
 // Execute full workflow (handles both enhanced-bulk-generator and social-media)
