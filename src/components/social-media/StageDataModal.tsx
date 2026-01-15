@@ -162,7 +162,9 @@ export default function StageDataModal({
         return match?.[1] || ''
       }
 
-      const match = trimmed.match(/(https?:\/\/(?:res\.)?cloudinary\.com\/[^\s]+?\.(mp4|mov|webm)(?:\?[^\s]*)?)/i)
+      const match =
+        trimmed.match(/(https?:\/\/(?:res\.)?cloudinary\.com\/[^\s]+?\.(mp4|mov|webm)(?:\?[^\s]*)?)/i) ||
+        trimmed.match(/(https?:\/\/[^\s]+?\.(mp4|mov|webm)(?:\?[^\s]*)?)/i)
       return match?.[1] || ''
     }
 

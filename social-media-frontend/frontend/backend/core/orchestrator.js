@@ -15,6 +15,118 @@ class SocialMediaOrchestrator {
     this.stateManager = new StateManager(path.join(this.projectRoot, 'data'));
   }
 
+  _getLatestCampaignPlanningEntry(topic) {
+    const campaigns = this.stateManager?.state?.campaigns || {};
+    const entries = Object.values(campaigns).filter(Boolean);
+
+    const planningEntries = entries.filter((entry) => {
+      const stageId = entry?.stageId;
+      const type = typeof entry?.type === 'string' ? entry.type : '';
+      return stageId === 1 || type.includes('campaign-planning');
+    });
+
+    if (planningEntries.length === 0) return null;
+
+    const byCompletedAtDesc = (a, b) => {
+      const aTs = new Date(a?.completedAt || a?.updatedAt || a?.createdAt || 0).getTime();
+      const bTs = new Date(b?.completedAt || b?.updatedAt || b?.createdAt || 0).getTime();
+      return bTs - aTs;
+    };
+
+    const normalizedTopic = (topic || '').trim();
+    if (normalizedTopic) {
+      const match = planningEntries
+        .filter((e) => (e?.topic || '').trim() === normalizedTopic)
+        .sort(byCompletedAtDesc)[0];
+      if (match) return match;
+    }
+
+    return planningEntries.sort(byCompletedAtDesc)[0];
+  }
+
+  async _generateHeyGenScript(options) {
+    const topic = options.topic || 'PL Capital investing insights';
+    const platform = options.platform || 'instagram';
+    const format = options.format || 'reel';
+    const duration = Number(options.duration || 8);
+    const language = options.language || 'english';
+
+    const wordsTarget = Math.max(12, Math.round(duration * 2.2)); // ~2.2 wps for clear speech
+    const groqKey = process.env.GROQ_API_KEY;
+
+    const planning = this._getLatestCampaignPlanningEntry(topic);
+    const planningText = (planning?.creativePrompt || planning?.output || '').trim();
+
+    if (!groqKey) {
+      const disclaimer = /english/i.test(language) ? 'Market risks apply.' : '';
+      return `Hi, quick update from PL Capital. ${topic}. If you want a portfolio review or a plan, talk to us today. ${disclaimer}`.trim();
+    }
+
+    const systemPrompt = `You write short, natural spoken scripts for a financial services video avatar.
+Return ONLY the spoken script as plain text. No bullet points. No headings. No stage directions. No meta-instructions.`;
+
+    const languageName = this._getLanguageName(language);
+    const userPrompt = `Write a single spoken script for an AI avatar video.
+
+Constraints:
+- Platform: ${platform}
+- Format: ${format}
+- Topic: ${topic}
+- Duration: ${duration} seconds
+- Language: ${languageName}
+- Tone: confident, warm, professional, Indian business style.
+- Length: about ${wordsTarget} words (max ${wordsTarget + 6}).
+- Compliance: no guaranteed returns, no exaggerated claims, no personalized investment advice.
+- If in English, end with a very short disclaimer: "Market risks apply." (exactly once).
+
+Optional context from Stage 1 planning (may include purpose/audience/tone):
+${planningText ? planningText.slice(0, 2000) : '(none)'}
+
+Output rules:
+- Output ONLY the script text the avatar should speak.
+- Do NOT include quotation marks or labels like "Script:".`;
+
+    const model = process.env.GROQ_HEYGEN_SCRIPT_MODEL || 'llama-3.3-70b-versatile';
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.6,
+        max_tokens: 400
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(text || `Groq API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let script = (data.choices?.[0]?.message?.content || '').trim();
+
+    // Sanitize common failure modes (headings/labels/quotes)
+    script = script.replace(/^```[\s\S]*?$/gm, '').trim();
+    script = script.replace(/^\s*script\s*:\s*/i, '').trim();
+    script = script.replace(/^["']|["']$/g, '').trim();
+
+    // Hard cap by words so we don't exceed HeyGen TTS timing too much
+    const words = script.split(/\s+/).filter(Boolean);
+    if (words.length > wordsTarget + 12) {
+      script = words.slice(0, wordsTarget + 12).join(' ').trim();
+    }
+
+    return script;
+  }
+
   /**
    * Initialize the workflow system
    */
@@ -747,18 +859,22 @@ class SocialMediaOrchestrator {
           scriptText = options.scriptText;
           console.log(`   📝 Script: ${scriptText.substring(0, 60)}...`);
         } else {
-          // Auto-generate script based on topic
-          const topic = options.topic || 'financial services and investment opportunities';
-          const platform = options.platform || 'linkedin';
-          const format = options.format || 'testimonial';
+          // Generate a REAL spoken script (not meta-instructions)
+          try {
+            scriptText = await this._generateHeyGenScript({
+              topic: options.topic,
+              platform: options.platform,
+              format: options.format,
+              duration: requestedDuration,
+              language: options.language
+            });
+          } catch (error) {
+            console.log(`   ⚠️  Script generation failed; using fallback: ${error.message}`);
+            const topic = options.topic || 'PL Capital investing insights';
+            scriptText = `Hi, quick update from PL Capital. ${topic}. If you want a portfolio review or a plan, talk to us today. Market risks apply.`;
+          }
 
-          const languageName = this._getLanguageName(options.language || 'english');
-          const languageInstruction = options.language && options.language !== 'english'
-            ? ` All speech and dialogue must be in ${languageName}.`
-            : '';
-          scriptText = `Generate natural, engaging speech that is informative, trustworthy, and appropriate for the platform. Include key points, benefits, and a clear message. Speech should be conversational yet professional, matching Indian business communication style.${languageInstruction}`;
-
-          console.log(`   📝 Script: [Auto-generated for ${topic}]`);
+          console.log(`   📝 Script: ${scriptText.substring(0, 60)}...`);
         }
 
         // Get HeyGen avatar and voice IDs from options or use defaults
@@ -803,8 +919,14 @@ class SocialMediaOrchestrator {
             }
           };
 
-          // Wait for completion if requested
-          if (options.waitForCompletion !== false) {
+          const shouldWaitForCompletion =
+            options.waitForCompletion === true ||
+            process.env.HEYGEN_FORCE_WAIT === 'true' ||
+            Boolean(process.env.RAILWAY_ENVIRONMENT) ||
+            Boolean(process.env.PORT);
+
+          // Wait for completion (required for a playable URL in the UI)
+          if (shouldWaitForCompletion) {
             console.log(`   ⏳ Waiting for HeyGen video to complete...`);
 
             let status = 'pending';

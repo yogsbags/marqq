@@ -1074,6 +1074,15 @@ function extractCloudinaryUrlFromOutput(output) {
   return (m[1] || m[0] || '').replace(/[),.;\]]+$/g, '');
 }
 
+function extractHttpVideoUrlFromOutput(output) {
+  const m = extractLastMatch(
+    output,
+    /(https?:\/\/[^\s]+?\.(mp4|mov|webm)(?:\?[^\s]*)?)/gi
+  );
+  if (!m) return null;
+  return (m[1] || m[0] || '').replace(/[),.;\]]+$/g, '');
+}
+
 function extractVideoPathFromOutput(output) {
   const m =
     extractLastMatch(output, /✅\s*Video saved to\s*(\/[^\s]+?\.(mp4|mov|webm))/gi) ||
@@ -2025,6 +2034,7 @@ ${brandGuidance ? `Brand Requirements:\n${brandGuidance}\nIMPORTANT: You MUST us
 	        const hostedUrl = extractImgBbUrlFromOutput(outputBuffer);
 	        const imagePath = stageIdNum === 3 ? extractVisualImagePathFromOutput(outputBuffer) : null;
 	        const cloudinaryUrl = stageIdNum === 4 ? extractCloudinaryUrlFromOutput(outputBuffer) : null;
+	        const httpVideoUrl = stageIdNum === 4 ? extractHttpVideoUrlFromOutput(outputBuffer) : null;
 	        const videoPath = stageIdNum === 4 ? extractVideoPathFromOutput(outputBuffer) : null;
 
 	        const stagePayload = {
@@ -2038,15 +2048,18 @@ ${brandGuidance ? `Brand Requirements:\n${brandGuidance}\nIMPORTANT: You MUST us
 
 	        if (cloudinaryUrl) {
 	          stagePayload.hostedUrl = cloudinaryUrl;
+	        } else if (httpVideoUrl) {
+	          stagePayload.hostedUrl = httpVideoUrl;
 	        } else if (hostedUrl) {
 	          stagePayload.hostedUrl = hostedUrl;
 	        }
 
-	        if (stageIdNum === 4 && (videoPath || cloudinaryUrl)) {
+	        if (stageIdNum === 4 && (videoPath || cloudinaryUrl || httpVideoUrl)) {
 	          stagePayload.videos = [
 	            {
 	              ...(videoPath ? { localPath: videoPath } : {}),
-	              ...(cloudinaryUrl ? { hostedUrl: cloudinaryUrl } : {})
+	              ...(cloudinaryUrl ? { hostedUrl: cloudinaryUrl } : {}),
+	              ...(!cloudinaryUrl && httpVideoUrl ? { hostedUrl: httpVideoUrl } : {})
 	            }
 	          ];
 	        } else if (imagePath || hostedUrl) {
