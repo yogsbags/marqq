@@ -1652,12 +1652,29 @@ Requirements:
 	          (m, idx, arr) => m && arr.indexOf(m) === idx
 	        );
 
-	        const brandHint = brandSettings?.customInstructions
-	          ? `Brand instructions: ${brandSettings.customInstructions}`
-	          : '';
+	        let brandGuidance = '';
+	        if (brandSettings?.useBrandGuidelines) {
+	          brandGuidance = `
+**PL Capital Brand Guidelines:**
+- **Primary Colors**: Navy (#0e0e6a), Blue (#3c3cf8)
+- **Accent Colors**: Teal (#00d084), Green (#66e766)
+- **Typography**: Figtree font family, professional sans-serif fallbacks
+- **Tone & Voice**: Professional, trustworthy, data-driven yet approachable
+- **Visual Style**: Clean, modern, corporate with subtle tech motifs
+- **Key Values**: Trust, Innovation, Performance, Client-First
+- **Messaging**: Focus on adaptive strategies, quantitative excellence, consistent alpha
+`;
+	        } else if (brandSettings?.customColors || brandSettings?.customTone || brandSettings?.customInstructions) {
+	          brandGuidance = `
+**Custom Brand Guidelines:**
+${brandSettings.customColors ? `- **Brand Colors**: ${brandSettings.customColors}` : ''}
+${brandSettings.customTone ? `- **Brand Tone**: ${brandSettings.customTone}` : ''}
+${brandSettings.customInstructions ? `- **Additional Guidelines**: ${brandSettings.customInstructions}` : ''}
+`;
+	        }
 
 	        const prompt = `You are an email marketing copywriter for PL Capital (financial services, India).
-Generate a single HTML newsletter email for the given topic.
+Generate a single HTML newsletter email for the given topic. You MUST follow the layout reference closely.
 Return ONLY valid JSON (no markdown, no code fences).
 
 Inputs:
@@ -1666,15 +1683,39 @@ Inputs:
 - Purpose: ${purpose || 'newsletter'}
 - Target audience: ${targetAudience || 'investors and wealth builders'}
 - Language: ${language || 'english'}
-${brandHint ? `- ${brandHint}` : ''}
 
 Stage 1 creative prompt (if any):
 ${creativePrompt || '(none)'}
 
+Layout reference (use this structure and styling cues; OMIT web stories section):
+- 600px wide, single-column responsive layout (table-based).
+- Header/hero with logo linking to plindia.com and top banner using:
+  * Header image: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/xtp/w8t/1aj/Asset%201.png
+  * Hero/banner image slot (keep 600px width) - you may reuse the header asset if needed.
+- Intro paragraph and section dividers (1px solid #0000a0).
+- “Market Highlights” section.
+- 3-column story grid with image + headline + “Read more” button:
+  * Rounded 24px, background #00b34e, white text, Figtree bold 12px, generous horizontal padding.
+- CTA section to visit PL Capital News (include a prominent button).
+- Closing tagline and footer image:
+  * Footer image: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/9wn/vw0/ds6/Asset%202.png
+- Fonts: Figtree (load via Google Fonts); Colors: Navy/Blue (#0000a0 accents), CTA buttons #00b34e, body text #000.
+- Social icons bar (below footer image): centered row of circular color icons linking to:
+  * LinkedIn: https://www.linkedin.com/company/prabhudaslilladher/
+  * Instagram: https://www.instagram.com/prabhudaslilladher/
+  * X/Twitter: https://x.com/PLIndiaOnline
+  * YouTube: https://www.youtube.com/@PrabhudasLilladherIndia
+  * Telegram: https://t.me/PLIndiaOnline
+  Use 32px circle-color icons (e.g., https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/circle-color/linkedin@2x.png etc.) in a single horizontal row (centered) — use a table with inline-block cells and equal padding so icons do NOT stack vertically on desktop or mobile.
+
+IMPORTANT: Do NOT include any "Trending Web Stories" section.
+
 Requirements:
-1) Provide: subject (<=70 chars), preheader (<=120 chars), 3 subjectVariations, plainText, html.
-2) HTML: use email-safe inline CSS and table layout; include a header, a hero section, 3-5 bullet takeaways, and a CTA button.
-3) Compliance: no guaranteed returns, no exaggerated claims, no personalized investment advice. Include a short disclaimer in the footer.
+1) Provide: subject (40-60 chars preferred), preheader (85-100 chars preferred), 3 subjectVariations, plainText, html.
+2) HTML: production-ready, table-based, 600px width, mobile-first; inline CSS (no external stylesheets).
+3) Include: header section with logo/link, hero/banner, intro, Market Highlights, 3-column story grid, primary CTA, footer image, social icons row, footer compliance/unsubscribe.
+4) Compliance: no guaranteed returns, no exaggerated claims, no personalized investment advice. Include a short disclaimer in the footer.
+5) Images: keep the header and footer image URLs exactly as provided above.
 
 Output JSON schema:
 {
@@ -1683,7 +1724,9 @@ Output JSON schema:
   "subjectVariations": string[],
   "plainText": string,
   "html": string
-}`;
+}
+
+${brandGuidance ? `Brand Requirements:\n${brandGuidance}\nIMPORTANT: You MUST use these exact brand colors in the email HTML.` : ''}`;
 
 	        sendEvent({ log: `🧠 Generating newsletter with Gemini (${modelCandidates[0]})...` });
 
