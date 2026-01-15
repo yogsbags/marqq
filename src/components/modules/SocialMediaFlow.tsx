@@ -971,6 +971,10 @@ export function SocialMediaFlow() {
                   if (next === 'instagram-reel') {
                     setAspectRatio('9:16')
                   }
+                  // YouTube Shorts defaults: vertical video
+                  if (next === 'youtube-short') {
+                    setAspectRatio('9:16')
+                  }
                   // LinkedIn Carousel defaults: square slides
                   if (next === 'linkedin-carousel') {
                     setAspectRatio('1:1')

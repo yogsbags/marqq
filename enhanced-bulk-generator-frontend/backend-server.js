@@ -1711,6 +1711,13 @@ Requirements:
      * MUST include: "pinnedComment" idea, "coverText" (3–6 words), and 5–7 "onScreenText" lines (<= 36 chars each) suitable for subtitles.
      * Make it sound like a credible Indian finfluencer: direct, conversational, slightly playful but still compliant.
      * Include at least one "Save this" / "Share" / "Follow for more" style CTA option.
+   - YouTube Shorts: optimize for retention + search:
+     * primaryCaption should be a YouTube-style description (2 short paragraphs + bullets).
+     * MUST include: "title" (<= 60 chars), "hook" (<= 12 words), "script" (spoken voiceover, 20–35s), "onScreenText" (6–10 short lines), and include "#shorts" in hashtags.
+     * India context ok (₹, SIP, tax, Nifty/Sensex), but keep compliant (no promises).
+   - Facebook Community: optimize for comments/discussion:
+     * primaryCaption should be a community post (short intro + a clear question).
+     * MUST include: "question", "pollOptions" (4 options), and "commentReplyBank" (5 short replies to common comments).
    - YouTube: can be longer; include a clearer CTA.
 3) Be compliant: no guaranteed returns, no exaggerated claims, no personalized investment advice. Add a short generic disclaimer where appropriate.
 4) Output JSON schema (for platform === "instagram", pinnedComment, coverText, onScreenText are REQUIRED):
@@ -1725,6 +1732,12 @@ Requirements:
       "pinnedComment"?: string,
       "coverText"?: string,
       "onScreenText"?: string[],
+      "title"?: string,
+      "hook"?: string,
+      "script"?: string,
+      "question"?: string,
+      "pollOptions"?: string[],
+      "commentReplyBank"?: string[],
       "carousel"?: {
         "slideCount": number,
         "coverText": string,

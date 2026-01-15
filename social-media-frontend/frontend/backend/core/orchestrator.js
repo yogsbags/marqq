@@ -1346,7 +1346,17 @@ Visual style: clean motion graphics + relatable India cues (₹ symbol, SIP, tax
 On-screen text: short punchy lines (max ~36 chars/line), 6–8 lines across the video; emphasize 1–2 key numbers (e.g., “₹100 SIP”, “3-step checklist”) without promises.
 Audio note: suggest energetic background beat (no copyrighted lyrics). End with a clear CTA on screen like “Save this” / “Follow for more”.${languageInstruction}`,
 
-      youtube: `Faceless educational ${format || 'explainer'} video about ${topic || 'wealth building'}. NO PEOPLE, NO FACES, NO HUMANS. Animated educational graphics, step-by-step visual diagrams, 3D charts and statistics, icon animations, timeline visualizations. Clear visual hierarchy. Professional presentation with smooth transitions. Clean modern design with focus on information delivery. 16:9 landscape format.${languageInstruction}`,
+      youtube: (() => {
+        const isShort = /short/i.test(format || '') || /youtube-short/i.test(type || '');
+        if (isShort) {
+          return `YouTube Shorts-style faceless video about ${topic || 'money tips'} for an Indian audience. NO PEOPLE, NO FACES, NO HUMANS.
+Format: 9:16 vertical, 20–35s, ultra-fast pacing, hook in first 1s, pattern interrupts every ~2s, loopable ending.
+Visuals: kinetic typography + bold subtitles, animated charts (Nifty/Sensex style), ₹ symbol, SIP/tax calendar motifs. Clean, high-contrast, modern finance look.
+On-screen text: 7–10 short lines, max ~32 chars/line; highlight 1–2 key numbers/terms without promises.
+Editing: jump cuts, zooms, whip transitions, whoosh SFX (no copyrighted music/lyrics). End screen CTA: “Save + Follow for more”.${languageInstruction}`;
+        }
+        return `Faceless educational ${format || 'explainer'} video about ${topic || 'wealth building'}. NO PEOPLE, NO FACES, NO HUMANS. Animated educational graphics, step-by-step visual diagrams, 3D charts and statistics, icon animations, timeline visualizations. Clear visual hierarchy. Professional presentation with smooth transitions. Clean modern design with focus on information delivery. 16:9 landscape format.${languageInstruction}`;
+      })(),
 
       facebook: `Faceless community-focused ${format || 'post'} video about ${topic || 'financial planning'}. NO PEOPLE, NO FACES, NO HUMANS. Friendly animated graphics, simple infographics, icon-based storytelling, warm color palette, accessible visual language. Relatable abstract symbols and metaphors. Clear messaging through visuals and text overlays. 1:1 or 16:9 format.${languageInstruction}`,
 
