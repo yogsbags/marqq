@@ -373,9 +373,10 @@ export function SocialMediaFlow() {
                 const data = JSON.parse(line.slice(6))
 
                 if (data.stage) {
-                  await updateStage(data.stage, data.status, data.message)
-                  addLog(`Stage ${data.stage}: ${data.message}`)
-                  if (data.stage === stageId && data.status === 'error') {
+                  const normalizedStageId = Number(data.stage)
+                  await updateStage(normalizedStageId, data.status, data.message)
+                  addLog(`Stage ${normalizedStageId}: ${data.message}`)
+                  if (normalizedStageId === stageId && data.status === 'error') {
                     stageHadError = true
                   }
                 } else if (data.log) {
@@ -484,8 +485,9 @@ export function SocialMediaFlow() {
                 const data = JSON.parse(line.slice(6))
 
                 if (data.stage) {
-                  updateStage(data.stage, data.status, data.message)
-                  addLog(`Stage ${data.stage}: ${data.message}`)
+                  const normalizedStageId = Number(data.stage)
+                  updateStage(normalizedStageId, data.status, data.message)
+                  addLog(`Stage ${normalizedStageId}: ${data.message}`)
                 } else if (data.log) {
                   addLog(data.log)
                 } else if (data.campaignData) {
