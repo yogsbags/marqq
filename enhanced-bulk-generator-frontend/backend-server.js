@@ -1789,16 +1789,17 @@ Critical requirement: The newsletter copy MUST be tailored to the Purpose and Ta
 
 Layout reference (use this structure and styling cues; OMIT web stories section):
 - 600px wide, single-column responsive layout (table-based).
-- Header/hero with logo linking to plindia.com and top banner using:
-  * Header image: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/xtp/w8t/1aj/Asset%201.png
-  * Hero/banner image slot (keep 600px width) - you may reuse the header asset if needed.
+- Header section with EXACTLY ONE logo (linked to plindia.com) and EXACTLY ONE top banner image:
+  * Use this banner image ONCE: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/xtp/w8t/1aj/Asset%201.png
+  * Do NOT include any second logo or duplicate header/banner image elsewhere in the email.
+- Hero section: text-led (no additional hero image). Use a solid background color or simple accent divider instead of another image.
 - Intro paragraph and section dividers (1px solid #0000a0).
 - “Market Highlights” section.
 - 3-column story grid with image + headline + “Read more” button:
   * Rounded 24px, background #00b34e, white text, Figtree bold 12px, generous horizontal padding.
 - CTA section to visit PL Capital News (include a prominent button).
 - Closing tagline and footer image:
-  * Footer image: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/9wn/vw0/ds6/Asset%202.png
+  * Use this footer image ONCE: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/9wn/vw0/ds6/Asset%202.png
 - Fonts: Figtree (load via Google Fonts); Colors: Navy/Blue (#0000a0 accents), CTA buttons #00b34e, body text #000.
 - Social icons bar (below footer image): centered row of circular color icons linking to:
   * LinkedIn: https://www.linkedin.com/company/prabhudaslilladher/
