@@ -961,10 +961,15 @@ export function SocialMediaFlow() {
               <select
                 value={campaignType}
                 onChange={(e) => {
-                  setCampaignType(e.target.value)
+                  const next = e.target.value
+                  setCampaignType(next)
                   // Auto-set contentType to 'image' for infographic campaigns
-                  if (e.target.value === 'infographic') {
+                  if (next === 'infographic') {
                     setContentType('image')
+                  }
+                  // Instagram Reels defaults: vertical video
+                  if (next === 'instagram-reel') {
+                    setAspectRatio('9:16')
                   }
                 }}
                 disabled={isRunning || executingStage !== null}

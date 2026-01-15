@@ -58,14 +58,25 @@ class SocialMediaOrchestrator {
     const planningText = (planning?.creativePrompt || planning?.output || '').trim();
 
     if (!groqKey) {
-      const disclaimer = /english/i.test(language) ? 'Market risks apply.' : '';
-      return `Hi, quick update from PL Capital. ${topic}. If you want a portfolio review or a plan, talk to us today. ${disclaimer}`.trim();
+      const needsDisclaimer = /(english|hinglish)/i.test(language);
+      const disclaimer = needsDisclaimer ? 'Market risks apply.' : '';
+      const hook = platform === 'instagram' ? 'Stop scrolling—quick money tip.' : 'Quick update.';
+      return `${hook} ${topic}. Want a simple plan? Talk to PL Capital today. ${disclaimer}`.trim();
     }
 
     const systemPrompt = `You write short, natural spoken scripts for a financial services video avatar.
 Return ONLY the spoken script as plain text. No bullet points. No headings. No stage directions. No meta-instructions.`;
 
     const languageName = this._getLanguageName(language);
+    const isInstagramReel = platform === 'instagram' || /reel/i.test(format || '');
+    const needsDisclaimer = /(english|hinglish)/i.test(language);
+    const styleGuidance = isInstagramReel
+      ? `Style (Instagram Reels, Indian audience):
+- Hook in the first sentence (pattern interrupt).
+- Short punchy sentences, spoken like a credible Indian finfluencer (not cheesy).
+- Use everyday India cues where relevant (₹, SIP, tax, salary day) without giving personalized advice.
+- Close with a strong CTA: "Save this", "Share", "Follow", or "Comment 'PLAN'".`
+      : '';
     const userPrompt = `Write a single spoken script for an AI avatar video.
 
 Constraints:
@@ -77,7 +88,9 @@ Constraints:
 - Tone: confident, warm, professional, Indian business style.
 - Length: about ${wordsTarget} words (max ${wordsTarget + 6}).
 - Compliance: no guaranteed returns, no exaggerated claims, no personalized investment advice.
-- If in English, end with a very short disclaimer: "Market risks apply." (exactly once).
+- If language is English or Hinglish, end with the exact disclaimer: "Market risks apply." (exactly once).
+
+${styleGuidance ? styleGuidance : ''}
 
 Optional context from Stage 1 planning (may include purpose/audience/tone):
 ${planningText ? planningText.slice(0, 2000) : '(none)'}
@@ -122,6 +135,11 @@ Output rules:
     const words = script.split(/\s+/).filter(Boolean);
     if (words.length > wordsTarget + 12) {
       script = words.slice(0, wordsTarget + 12).join(' ').trim();
+    }
+
+    // Ensure disclaimer for English/Hinglish
+    if (needsDisclaimer && !/market risks apply\.?$/i.test(script)) {
+      script = `${script.replace(/\.*\s*$/, '')}. Market risks apply.`;
     }
 
     return script;
@@ -851,9 +869,20 @@ Output rules:
 
       // HeyGen avatar routing for Siddharth Vora
       if (isAvatarMode && isHeyGenAvatar) {
-        console.log('\n🎬 HeyGen Avatar Mode (Siddharth Vora)');
+        const prettyAvatarId = (value) => {
+          if (!value) return '';
+          const s = String(value).trim();
+          return s.length > 12 ? `${s.slice(0, 8)}…` : s;
+        };
+
+        const avatarDisplayName =
+          options.avatarId === 'siddharth-vora'
+            ? 'Siddharth Vora (Custom)'
+            : `HeyGen Avatar (${prettyAvatarId(options.avatarId || options.heygenAvatarId)})`;
+
+        console.log('\n🎬 HeyGen Avatar Mode');
         console.log(`   Provider: HeyGen`);
-        console.log(`   Avatar: Siddharth Vora (Custom)`);
+        console.log(`   Avatar: ${avatarDisplayName}`);
         console.log(`   Duration: ${requestedDuration}s\n`);
 
         // Check for HeyGen API key
@@ -914,7 +943,8 @@ Output rules:
             avatar_id: heygenAvatarId,
             voice_id: heygenVoiceId,
             input_text: scriptText,
-            title: options.title || `Avatar Video - ${options.topic || 'Content'}`
+            title: options.title || `Avatar Video - ${options.topic || 'Content'}`,
+            aspect_ratio: options.aspectRatio || '16:9'
           });
 
           console.log(`   ✅ HeyGen video generation started`);
@@ -929,7 +959,7 @@ Output rules:
               type: 'heygen-avatar',
               videoId: apiResult.video_id,
               status: 'pending',
-              avatar: 'siddharth-vora',
+              avatar: options.avatarId || 'heygen',
               message: 'Video generation started. Check status with video ID or at https://app.heygen.com/home'
             }
           };
@@ -1179,7 +1209,11 @@ Output rules:
     const basePrompts = {
       linkedin: `Faceless professional ${format || 'business'} video about ${topic || 'financial services'}. NO PEOPLE, NO FACES, NO HUMANS. Abstract data visualizations, animated charts and graphs, geometric shapes, motion graphics only. Corporate blue and teal color palette with navy accents. Dynamic camera movements orbiting around 3D data elements. Volumetric lighting with soft glows. Modern, clean, premium aesthetic. Cinematic quality. 16:9 aspect ratio.${languageInstruction}`,
 
-      instagram: `Faceless engaging ${format || 'reel'} video about ${topic || 'investment tips'}. NO PEOPLE, NO FACES, NO HUMANS. Vibrant abstract visuals, animated infographics, colorful geometric patterns, particle effects, data-driven motion graphics. Dynamic camera zoom and rotation. Trendy gradient backgrounds (purple to teal). High-energy pacing. Modern social media aesthetic. 9:16 vertical format optimized.${languageInstruction}`,
+      instagram: `Instagram Reels-style faceless ${format || 'reel'} about ${topic || 'money tips'} for an Indian audience. NO PEOPLE, NO FACES, NO HUMANS.
+Editing & format: 9:16 vertical, 0.5–1.2s fast cuts, strong hook in first 1–2 seconds, loopable ending, bold subtitles throughout, high contrast, trending finfluencer pacing.
+Visual style: clean motion graphics + relatable India cues (₹ symbol, SIP, tax calendar, salary-day motif, Indian market charts) WITHOUT giving personalized advice. Use modern gradients, kinetic typography, animated charts, icons, quick zooms, whip transitions.
+On-screen text: short punchy lines (max ~36 chars/line), 6–8 lines across the video; emphasize 1–2 key numbers (e.g., “₹100 SIP”, “3-step checklist”) without promises.
+Audio note: suggest energetic background beat (no copyrighted lyrics). End with a clear CTA on screen like “Save this” / “Follow for more”.${languageInstruction}`,
 
       youtube: `Faceless educational ${format || 'explainer'} video about ${topic || 'wealth building'}. NO PEOPLE, NO FACES, NO HUMANS. Animated educational graphics, step-by-step visual diagrams, 3D charts and statistics, icon animations, timeline visualizations. Clear visual hierarchy. Professional presentation with smooth transitions. Clean modern design with focus on information delivery. 16:9 landscape format.${languageInstruction}`,
 
@@ -1682,7 +1716,15 @@ Output rules:
    * @private
    */
   async _heygenGenerateVideo(apiKey, params) {
-    const { avatar_id, voice_id, input_text, title } = params;
+    const { avatar_id, voice_id, input_text, title, aspect_ratio } = params;
+
+    const resolvedAspectRatio = typeof aspect_ratio === 'string' ? aspect_ratio : '16:9';
+    const dimension =
+      resolvedAspectRatio === '9:16' || resolvedAspectRatio === 'portrait'
+        ? { width: 720, height: 1280 }
+        : resolvedAspectRatio === '1:1'
+          ? { width: 1080, height: 1080 }
+          : { width: 1280, height: 720 };
 
     const requestBody = {
       video_inputs: [{
@@ -1697,10 +1739,7 @@ Output rules:
           voice_id: voice_id
         }
       }],
-      dimension: {
-        width: 1280,
-        height: 720
-      },
+      dimension,
       title: title || 'Avatar Video'
     };
 

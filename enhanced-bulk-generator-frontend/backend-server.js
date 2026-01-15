@@ -1695,11 +1695,12 @@ Requirements:
    - Instagram: optimize for Reels virality in the Indian context:
      * Strong hook in the first 1–2 lines, short punchy lines, use line breaks, 0–2 emojis max.
      * Prefer relatable India cues where appropriate (₹, SIP, tax, salary day, “aaj ka quick tip”), but never personalized advice.
-     * Include a short "pinnedComment" idea and 5–7 on-screen text lines ("onScreenText") suitable for captions/subtitles.
-     * Include a short "coverText" (3–6 words) for the Reel cover.
+     * MUST include: "pinnedComment" idea, "coverText" (3–6 words), and 5–7 "onScreenText" lines (<= 36 chars each) suitable for subtitles.
+     * Make it sound like a credible Indian finfluencer: direct, conversational, slightly playful but still compliant.
+     * Include at least one "Save this" / "Share" / "Follow for more" style CTA option.
    - YouTube: can be longer; include a clearer CTA.
 3) Be compliant: no guaranteed returns, no exaggerated claims, no personalized investment advice. Add a short generic disclaimer where appropriate.
-4) Output JSON schema (additional IG fields are required for platform === "instagram"):
+4) Output JSON schema (for platform === "instagram", pinnedComment, coverText, onScreenText are REQUIRED):
 {
   "global": { "tone": string, "disclaimer": string, "language": string },
   "platforms": {
