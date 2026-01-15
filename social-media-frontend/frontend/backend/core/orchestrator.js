@@ -884,6 +884,7 @@ Constraints: no guaranteed returns, no “sure-shot” claims. Professional Link
         const headline = whatsapp?.headline ? String(whatsapp.headline).trim() : '';
         const body = whatsapp?.body ? String(whatsapp.body).trim() : '';
         const cta = whatsapp?.cta ? String(whatsapp.cta).trim() : '';
+
         const contentSpec = (headline || body || cta)
           ? `Text to render (exact):
 Headline: ${headline || (topic || 'Your offer')}
@@ -891,10 +892,32 @@ Body: ${body || 'One clear benefit.\nOne clear next step.'}
 CTA: ${cta || 'Learn more'}`
           : `Text-forward layout with a bold headline and a single CTA.`;
 
-        return `High-contrast, text-forward static image for WhatsApp. 1080x1920 portrait-friendly layout, bold headline, single CTA, clear brand colors.
+        return `Design a visually stunning, premium WhatsApp creative poster for PL Capital (India, finance).
+Format: 1080x1920 (9:16). Mobile-first readability. High-contrast. Modern and clean.
+Goal: instantly communicate the message + drive action (tap/click/forward).
+
+Layout system (STRICT):
+- Safe margins: 80px on all sides. Keep all text inside safe area.
+- Hierarchy: (1) Headline (2) Body (3) CTA button (4) Small disclaimer footer.
+- Headline: big, bold, max 2 lines, 28–44 chars/line.
+- Body: max 2 lines, 28–40 chars/line, supportive and clear.
+- CTA: button pill with solid fill (#00b34e / #66e766), white text, 2–4 words.
+- Footer: tiny disclaimer line (e.g., "Market risks apply.") in 10–12px.
+- Optional: small icon/illustration on the side (simple, not cluttered).
+
+Brand & style:
+- Use PL palette (navy/blue base with green accents). Use Figtree-like sans font.
+- Add subtle gradients/texture, but keep background clean (no noisy patterns).
+- Use ONE highlight element (badge/chip) to emphasize a key term/number if present.
+- No stock-photo faces; avoid busy scenes. Prefer abstract finance motifs (₹, chart line, calendar, shield/trust icon).
+
+Copy accuracy (VERY IMPORTANT):
 ${contentSpec}
-Design: clean, high readability on small screens, minimal elements, strong hierarchy.
-Constraints: no guaranteed returns, no exaggerated claims.${languageInstruction} ${brandGuidance}`;
+
+Compliance constraints:
+- No guaranteed returns, no "sure-shot", no exaggerated claims.
+${languageInstruction}
+${brandGuidance}`;
       })()
     };
 
