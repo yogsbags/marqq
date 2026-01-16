@@ -595,12 +595,12 @@ function getArtifactSpec(type) {
   return specs[type] || null;
 }
 
-// Company Intelligence: generate artifacts (strategy, calendar, ICPs, etc.)
-app.post('/api/company-intel/companies/:id/generate', async (req, res) => {
-  try {
-    const id = String(req.params.id || '');
-    const type = String(req.body?.type || '').trim();
-    const inputs = req.body?.inputs && typeof req.body.inputs === 'object' ? req.body.inputs : {};
+	// Company Intelligence: generate artifacts (strategy, calendar, ICPs, etc.)
+	app.post('/api/company-intel/companies/:id/generate', async (req, res) => {
+	  try {
+	    const id = String(req.params.id || '');
+	    const type = String(req.body?.type || '').trim();
+	    const inputs = req.body?.inputs && typeof req.body.inputs === 'object' ? req.body.inputs : {};
 
     const spec = getArtifactSpec(type);
     if (!spec) {
@@ -610,54 +610,88 @@ app.post('/api/company-intel/companies/:id/generate', async (req, res) => {
 
     const db = readCompanyIntelDb();
     const company = db.companies?.[id];
-    if (!company) {
-      res.status(404).json({ error: 'Company not found' });
-      return;
-    }
+	    if (!company) {
+	      res.status(404).json({ error: 'Company not found' });
+	      return;
+	    }
 
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!geminiKey) {
-      res.status(400).json({ error: 'GEMINI_API_KEY not set' });
-      return;
-    }
+	    const groqKey = process.env.GROQ_API_KEY;
+	    if (!groqKey) {
+	      res.status(400).json({ error: 'GROQ_API_KEY not set' });
+	      return;
+	    }
 
-    const model = process.env.GEMINI_TEXT_MODEL || 'gemini-3-flash-preview';
-    const profile = company.profile || {};
+	    const profile = company.profile || {};
 
-    const prompt = `You are an expert growth marketer for India-focused brands.
-Generate the requested artifact: ${spec.label}.
-Return ONLY valid JSON (no markdown, no code fences).
-Prioritize clarity, measurability, and practical next steps.
-Keep compliance-safe for financial marketing: no guaranteed returns, no personalized investment advice.
+	    const systemPrompt = `You are an expert growth marketer for India-focused brands.
+	Generate the requested artifact: ${spec.label}.
+	Return ONLY valid JSON (no markdown, no code fences, no extra keys).
+	Prioritize clarity, measurability, and practical next steps.
+	Keep compliance-safe for financial marketing: no guaranteed returns, no personalized investment advice.
+	If you are unsure, still output the full schema with best-effort values.`;
 
-Company profile (source: website/company input):
-${JSON.stringify(profile, null, 2)}
+	    const userPrompt = `Company profile (source: website/company input):
+	${JSON.stringify(profile, null, 2)}
+	
+	Additional inputs (user provided):
+	${JSON.stringify(inputs, null, 2)}
+	
+	Output MUST match this JSON schema exactly (keys and types):
+	${spec.schema}`;
 
-Additional inputs (user provided):
-${JSON.stringify(inputs, null, 2)}
+	    const requestedModel = process.env.GROQ_COMPANY_MODEL || 'groq/compound';
+	    const modelCandidates = [
+	      requestedModel,
+	      'groq/compound-mini',
+	      'llama-3.3-70b-versatile'
+	    ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
-Output MUST match this JSON schema exactly (keys and types):
-${spec.schema}`;
+	    let rawText = '';
+	    let parsed = null;
+	    let lastError = null;
 
-    const rawText = await callGeminiGenerateContentJson({
-      apiKey: geminiKey,
-      model,
-      prompt,
-      temperature: 0.5,
-      maxOutputTokens: 1800
-    });
+	    for (const model of modelCandidates) {
+	      try {
+	        rawText = await callGroqChatJson({
+	          apiKey: groqKey,
+	          model,
+	          systemPrompt,
+	          userPrompt,
+	          temperature: 0.4,
+	          maxTokens: 2000
+	        });
+	        parsed = extractJsonFromText(rawText);
+	        if (parsed) break;
 
-    const parsed = extractJsonFromText(rawText);
-    if (!parsed) {
-      res.status(500).json({ error: 'Unable to parse JSON from model response' });
-      return;
-    }
+	        // Repair attempt: ask to output strict JSON only
+	        rawText = await callGroqChatJson({
+	          apiKey: groqKey,
+	          model,
+	          systemPrompt: 'Return ONLY valid JSON. No markdown. No commentary. No code fences.',
+	          userPrompt: `Fix the following into valid JSON matching this schema exactly:\n\nSCHEMA:\n${spec.schema}\n\nTEXT:\n${rawText}`,
+	          temperature: 0.2,
+	          maxTokens: 2000
+	        });
+	        parsed = extractJsonFromText(rawText);
+	        if (parsed) break;
+	      } catch (err) {
+	        lastError = err;
+	      }
+	    }
 
-    const now = new Date().toISOString();
-    db.artifacts[id] = db.artifacts[id] || {};
-    db.artifacts[id][type] = { type, updatedAt: now, data: parsed };
-    db.companies[id] = { ...company, updatedAt: now };
-    writeCompanyIntelDb(db);
+	    if (!parsed) {
+	      res.status(500).json({
+	        error: 'Unable to parse JSON from model response',
+	        details: lastError?.message || 'Unknown error'
+	      });
+	      return;
+	    }
+
+	    const now = new Date().toISOString();
+	    db.artifacts[id] = db.artifacts[id] || {};
+	    db.artifacts[id][type] = { type, updatedAt: now, data: parsed };
+	    db.companies[id] = { ...company, updatedAt: now };
+	    writeCompanyIntelDb(db);
 
     res.json({ artifact: db.artifacts[id][type] });
   } catch (error) {
