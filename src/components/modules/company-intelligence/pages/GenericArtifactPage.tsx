@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ArtifactRecord } from '../api'
-import { JsonCard } from '../ui/JsonCard'
 
 type Props = {
   title: string
@@ -50,8 +49,6 @@ export function GenericArtifactPage({ title, artifact }: Props) {
         ))}
       </div>
 
-      <JsonCard title={`${title} (Raw JSON)`} data={artifact.data} />
     </div>
   )
 }
-

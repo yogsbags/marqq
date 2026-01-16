@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ArtifactRecord } from '../api'
-import { JsonCard } from '../ui/JsonCard'
 
 type Props = {
   artifact: ArtifactRecord | null
@@ -98,8 +97,6 @@ export function LeadMagnetsPage({ artifact }: Props) {
         </Card>
       ) : null}
 
-      <JsonCard title="Raw JSON" data={artifact.data} />
     </div>
   )
 }
-

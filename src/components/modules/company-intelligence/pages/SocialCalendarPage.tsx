@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import type { ArtifactRecord } from '../api'
-import { JsonCard } from '../ui/JsonCard'
 
 type Props = {
   artifact: ArtifactRecord | null
@@ -183,8 +182,6 @@ export function SocialCalendarPage({ artifact }: Props) {
         </Card>
       </div>
 
-      <JsonCard title="Raw JSON" data={artifact.data} />
     </div>
   )
 }
-
