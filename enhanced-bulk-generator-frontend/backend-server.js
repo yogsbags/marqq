@@ -250,27 +250,56 @@ function inferOfferingsFromHeadings({ h1, h2 }) {
   return uniq.slice(0, 12);
 }
 
+function defaultProductsByIndustry(industry) {
+  const ind = String(industry || '').toLowerCase();
+  if (ind.includes('stock broking') || ind.includes('trading')) {
+    return [
+      { name: 'Online Trading Platform', category: 'Trading', description: 'Equity trading platform for investors and traders.', targetCustomer: 'Retail investors', differentiator: 'Fast execution + reliable platform' },
+      { name: 'Demat & Trading Account', category: 'Accounts', description: 'Account opening and management for market access.', targetCustomer: 'New investors', differentiator: 'Quick onboarding + support' },
+      { name: 'Research & Advisory', category: 'Research', description: 'Market insights, reports, and research-driven ideas.', targetCustomer: 'Active investors', differentiator: 'Data-backed recommendations' },
+      { name: 'Mutual Funds / SIP', category: 'Investments', description: 'Long-term investing via mutual funds and SIPs.', targetCustomer: 'Long-term investors', differentiator: 'Curated fund guidance' },
+      { name: 'IPO / New Issues', category: 'Investments', description: 'Access to IPOs and new investment opportunities.', targetCustomer: 'Retail investors', differentiator: 'Simple application flow' },
+      { name: 'Portfolio & Wealth Services', category: 'Wealth', description: 'Portfolio guidance and wealth solutions.', targetCustomer: 'HNI / mass affluent', differentiator: 'Goal-based advisory' }
+    ];
+  }
+  return [];
+}
+
 function inferCompanyName({ explicitName, websiteUrl, title }) {
   const name = String(explicitName || '').trim();
   if (name) return name;
 
-  const titleText = String(title || '').trim();
-  if (titleText) {
-    const firstChunk = titleText.split(/\s[\|\-–—]\s/)[0]?.trim();
-    if (firstChunk && firstChunk.length >= 2) return firstChunk.slice(0, 80);
-    return titleText.slice(0, 80);
-  }
-
   const urlText = String(websiteUrl || '').trim();
+  let hostBrand = '';
   if (urlText) {
     try {
       const u = new URL(urlText);
       const host = u.hostname.replace(/^www\./i, '');
-      if (host) return host;
+      const sld = host.split('.')[0] || host;
+      if (sld) {
+        hostBrand = sld
+          .replace(/[-_]+/g, ' ')
+          .split(' ')
+          .filter(Boolean)
+          .map((w) => w.slice(0, 1).toUpperCase() + w.slice(1))
+          .join(' ')
+          .slice(0, 80);
+      }
     } catch {
       // ignore
     }
   }
+
+  const titleText = String(title || '').trim();
+  if (titleText) {
+    const firstChunk = titleText.split(/\s[\|\-–—]\s/)[0]?.trim();
+    const candidate = (firstChunk && firstChunk.length >= 2 ? firstChunk : titleText).slice(0, 80);
+    const looksGeneric = /(trusted|online|platform|india|best|top|official|website|stock broker|broking|trading)/i.test(candidate);
+    if (looksGeneric && hostBrand) return hostBrand;
+    return candidate;
+  }
+
+  if (hostBrand) return hostBrand;
 
   return 'Untitled Company';
 }
@@ -320,33 +349,62 @@ app.post('/api/company-intel/companies', async (req, res) => {
       extractedLinks = extractLinksFromHtml(sourceHtml, websiteUrl);
     }
 
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    const requestedModel =
-      process.env.GEMINI_COMPANY_MODEL ||
-      process.env.GEMINI_TEXT_MODEL ||
-      'gemini-3-flash-preview';
+    const inferredName = inferCompanyName({ explicitName: companyName, websiteUrl, title: sourceMeta.title });
+    const keyPages = extractKeyPages(extractedLinks);
+    const socialLinks = extractSocialLinks(extractedLinks);
+
+    // Fetch a few key pages (bounded) to give the LLM more signal for products/services
+    const extraUrls = [keyPages.about, keyPages.productsOrServices, keyPages.pricing, keyPages.contact]
+      .filter(Boolean)
+      .slice(0, 3);
+
+    const extraTexts = [];
+    for (const u of extraUrls) {
+      try {
+        const fetched = await fetchText(u, { timeoutMs: 20000, maxBytes: 1_000_000 });
+        extraTexts.push({
+          url: u,
+          title: extractHtmlMeta(fetched.text || '').title || '',
+          excerpt: stripHtml(fetched.text || '').slice(0, 9000)
+        });
+      } catch {
+        // ignore
+      }
+    }
 
     let profile = null;
-    if (geminiKey && (companyName || websiteUrl)) {
-      const inferredName = inferCompanyName({ explicitName: companyName, websiteUrl, title: sourceMeta.title });
-      const prompt = `You are a senior marketing strategist and brand analyst.
-Use Google Search grounding to accurately identify the company's products/services, positioning, and key pages.
-Return ONLY valid JSON (no markdown, no code fences).
-If the website content is thin/unknown, make best-effort inferences but label uncertain items in "assumptions".
-IMPORTANT: If the provided Company name is unknown, infer it from the website/domain and page title.
+    const groqKey = process.env.GROQ_API_KEY;
+    const groqModel = process.env.GROQ_COMPANY_MODEL || 'llama-3.3-70b-versatile';
+
+    if (groqKey && (companyName || websiteUrl)) {
+      const systemPrompt = `You are a senior brand analyst and product marketing strategist.
+Extract the company's products/services accurately from the provided website excerpts.
+Return ONLY valid JSON. No markdown. No extra keys.`;
+
+      const userPrompt = `Build a concise but information-rich company profile.
+If company name is unknown, infer it from the domain/brand.
 
 Inputs:
 - Company name (may be unknown): ${companyName || '(unknown)'}
-- Inferred brand name (use if needed): ${inferredName}
+- Inferred brand name: ${inferredName}
 - Website: ${websiteUrl || '(none)'}
-- Page title: ${sourceMeta.title || '(unknown)'}
+- Homepage title: ${sourceMeta.title || '(unknown)'}
 - Meta description: ${sourceMeta.metaDescription || '(none)'}
 - H1: ${(sourceMeta.h1 || []).join(' | ') || '(none)'}
 - H2: ${(sourceMeta.h2 || []).join(' | ') || '(none)'}
-- Website text excerpt:
+- Homepage excerpt:
 ${sourceText ? sourceText : '(none)'}
 
-Output JSON schema:
+Extra pages (if available):
+${extraTexts.length ? JSON.stringify(extraTexts, null, 2) : '(none)'}
+
+Detected key pages:
+${JSON.stringify(keyPages, null, 2)}
+
+Detected social links:
+${JSON.stringify(socialLinks, null, 2)}
+
+Output JSON schema (MUST fill productsServices with 6-12 items if possible):
 {
   "companyName": string,
   "websiteUrl": string | null,
@@ -367,72 +425,64 @@ Output JSON schema:
   "assumptions": string[]
 }`;
 
-      const modelCandidates = [
-        requestedModel,
-        'gemini-3-flash-preview',
-        'gemini-3-pro-preview'
-      ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
-
-      let lastErr = null;
-      for (const model of modelCandidates) {
-        try {
-          const rawText = await callGeminiGenerateContentJsonWithTools({
-            apiKey: geminiKey,
-            model,
-            prompt,
-            temperature: 0.4,
-            maxOutputTokens: 1800,
-            tools: [{ google_search: {} }]
-          });
-          profile = extractJsonFromText(rawText);
-          if (profile) break;
-        } catch (e) {
-          lastErr = e;
-        }
+      try {
+        const raw = await callGroqChatJson({
+          apiKey: groqKey,
+          model: groqModel,
+          systemPrompt,
+          userPrompt,
+          temperature: 0.35,
+          maxTokens: 1800
+        });
+        profile = extractJsonFromText(raw);
+      } catch {
+        profile = null;
       }
+    }
 
-      // Fallback: if tools-based grounding isn't supported, try plain JSON generation using the fetched page excerpt.
-      if (!profile) {
-        for (const model of modelCandidates) {
-          try {
-            const rawText = await callGeminiGenerateContentJson({
-              apiKey: geminiKey,
-              model,
-              prompt,
-              temperature: 0.4,
-              maxOutputTokens: 1800
-            });
-            profile = extractJsonFromText(rawText);
-            if (profile) break;
-          } catch (e) {
-            lastErr = e;
-          }
-        }
-      }
+    const baseHeuristicProfile = {
+      companyName: inferredName,
+      websiteUrl: websiteUrl || null,
+      summary: sourceMeta.metaDescription || sourceMeta.title || '',
+      industry: inferIndustry({ title: sourceMeta.title, metaDescription: sourceMeta.metaDescription }),
+      geoFocus: sourceMeta.title.toLowerCase().includes('india') || sourceMeta.metaDescription.toLowerCase().includes('india') ? ['India'] : ['India'],
+      productsServices: [],
+      offerings: inferOfferingsFromHeadings({ h1: sourceMeta.h1, h2: sourceMeta.h2 }),
+      primaryAudience: [],
+      positioning: sourceMeta.metaDescription || '',
+      brandVoice: { tone: 'professional', style: 'clear', dos: [], donts: [] },
+      keywords: [],
+      complianceNotes: [],
+      competitorsHint: [],
+      keyPages,
+      socialLinks,
+      sources: [websiteUrl, ...extraUrls].filter(Boolean),
+      assumptions: profile ? [] : ['Used website metadata extraction; AI enrichment unavailable or failed.']
+    };
 
-      if (!profile && lastErr) {
-        profile = {
-          companyName: inferredName,
-          websiteUrl: websiteUrl || null,
-          summary: sourceMeta.metaDescription || sourceMeta.title || '',
-          industry: inferIndustry({ title: sourceMeta.title, metaDescription: sourceMeta.metaDescription }),
-          geoFocus: sourceMeta.title.toLowerCase().includes('india') || sourceMeta.metaDescription.toLowerCase().includes('india') ? ['India'] : ['India'],
-          productsServices: [],
-          offerings: inferOfferingsFromHeadings({ h1: sourceMeta.h1, h2: sourceMeta.h2 }),
-          primaryAudience: [],
-          positioning: sourceMeta.metaDescription || '',
-          brandVoice: { tone: 'professional', style: 'clear', dos: [], donts: [] },
-          keywords: [],
-          complianceNotes: [],
-          competitorsHint: [],
-          keyPages: extractKeyPages(extractedLinks),
-          socialLinks: extractSocialLinks(extractedLinks),
-          sources: websiteUrl ? [websiteUrl] : [],
-          assumptions: [
-            'Gemini extraction failed; used website metadata heuristics.',
-            String(lastErr?.message || '').slice(0, 200)
-          ].filter(Boolean)
-        };
+    if (!profile || typeof profile !== 'object') {
+      profile = baseHeuristicProfile;
+    } else {
+      profile.keyPages = profile.keyPages && typeof profile.keyPages === 'object' ? profile.keyPages : keyPages;
+      profile.socialLinks = profile.socialLinks && typeof profile.socialLinks === 'object' ? profile.socialLinks : socialLinks;
+      profile.sources = Array.isArray(profile.sources) && profile.sources.length ? profile.sources : baseHeuristicProfile.sources;
+      profile.summary = profile.summary || baseHeuristicProfile.summary;
+      profile.industry = profile.industry || baseHeuristicProfile.industry;
+      profile.geoFocus = Array.isArray(profile.geoFocus) && profile.geoFocus.length ? profile.geoFocus : baseHeuristicProfile.geoFocus;
+      profile.offerings = Array.isArray(profile.offerings) && profile.offerings.length ? profile.offerings : baseHeuristicProfile.offerings;
+      profile.primaryAudience = Array.isArray(profile.primaryAudience) ? profile.primaryAudience : baseHeuristicProfile.primaryAudience;
+      profile.positioning = profile.positioning || baseHeuristicProfile.positioning;
+      profile.brandVoice = profile.brandVoice && typeof profile.brandVoice === 'object' ? profile.brandVoice : baseHeuristicProfile.brandVoice;
+
+      if (!Array.isArray(profile.productsServices) || profile.productsServices.length === 0) {
+        const derivedFromOfferings = (baseHeuristicProfile.offerings || []).slice(0, 10).map((o) => ({
+          name: String(o || '').slice(0, 80) || 'Service',
+          category: baseHeuristicProfile.industry === 'unknown' ? 'Other' : baseHeuristicProfile.industry,
+          description: '',
+          targetCustomer: '',
+          differentiator: ''
+        }));
+        profile.productsServices = derivedFromOfferings.length ? derivedFromOfferings : defaultProductsByIndustry(baseHeuristicProfile.industry);
       }
     }
 
@@ -1548,6 +1598,40 @@ async function callGeminiGenerateContentJsonWithTools({
   const data = await response.json();
   const parts = data?.candidates?.[0]?.content?.parts || [];
   return parts.map((p) => p.text).filter(Boolean).join('\n').trim();
+}
+
+async function callGroqChatJson({
+  apiKey,
+  model,
+  systemPrompt,
+  userPrompt,
+  temperature = 0.4,
+  maxTokens = 1600
+}) {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature,
+      max_tokens: maxTokens
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `Groq API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return (data.choices?.[0]?.message?.content || '').trim();
 }
 
 function extractJsonFromText(text) {
