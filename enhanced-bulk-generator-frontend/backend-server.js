@@ -356,6 +356,68 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Enhanced Bulk Generator Backend API' });
 });
 
+// AI Voice Bot (LiveKit): config + token minting
+app.get('/api/voicebot/livekit/config', (req, res) => {
+  res.json({
+    livekitUrl: process.env.LIVEKIT_URL || null,
+    configured: Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET),
+    providers: {
+      stt: {
+        provider: 'deepgram',
+        configured: Boolean(process.env.DEEPGRAM_API_KEY)
+      },
+      tts: {
+        provider: 'cartesia',
+        model: 'sonic-3-2025-10-27',
+        voices: {
+          en_male: process.env.CARTESIA_VOICE_ID_EN_MALE || '6303e5fb-a0a7-48f9-bb1a-dd42c216dc5d',
+          en_female: process.env.CARTESIA_VOICE_ID_EN_FEMALE || '3b554273-4299-48b9-9aaf-eefd438e3941',
+          hi_male: process.env.CARTESIA_VOICE_ID_HI_MALE || '6303e5fb-a0a7-48f9-bb1a-dd42c216dc5d',
+          hi_female: process.env.CARTESIA_VOICE_ID_HI_FEMALE || '3b554273-4299-48b9-9aaf-eefd438e3941'
+        }
+      },
+      llm: {
+        provider: 'openai',
+        model: 'gpt-4o',
+        configured: Boolean(process.env.OPENAI_API_KEY)
+      }
+    }
+  });
+});
+
+app.post('/api/voicebot/livekit/token', async (req, res) => {
+  try {
+    const livekitUrl = process.env.LIVEKIT_URL;
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    if (!livekitUrl || !apiKey || !apiSecret) {
+      return res.status(400).json({
+        error: 'LiveKit not configured',
+        required: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET']
+      });
+    }
+
+    const roomName = String(req.body?.roomName || 'voicebot-demo').trim() || 'voicebot-demo';
+    const identity = String(req.body?.identity || crypto.randomUUID()).trim();
+    const participantName = String(req.body?.participantName || 'User').trim() || 'User';
+    const publish = req.body?.publish !== false; // default true
+
+    const { AccessToken } = require('livekit-server-sdk');
+    const at = new AccessToken(apiKey, apiSecret, { identity, name: participantName });
+    at.addGrant({
+      roomJoin: true,
+      room: roomName,
+      canPublish: publish,
+      canSubscribe: true
+    });
+
+    const token = await at.toJwt();
+    res.json({ livekitUrl, roomName, identity, participantName, token });
+  } catch (error) {
+    res.status(500).json({ error: 'Token generation failed', details: error.message });
+  }
+});
+
 // Budget Optimization: list available real-time connectors (status only)
 app.get('/api/budget-optimization/connectors', (req, res) => {
   const connectors = [

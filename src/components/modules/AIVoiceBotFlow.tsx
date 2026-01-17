@@ -33,6 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AgentService } from '@/services/agentService';
+import { LiveKitVoiceSession } from './voicebot/LiveKitVoiceSession';
 
 interface WorkflowStep {
   id: string;
@@ -52,6 +53,10 @@ export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('upload');
+  const [voiceLanguage, setVoiceLanguage] = useState<'en' | 'hi'>('en');
+  const [voiceGender, setVoiceGender] = useState<'male' | 'female'>('female');
+  const [previewText, setPreviewText] = useState('Namaste! This is your AI voice bot speaking.');
+  const [previewLoading, setPreviewLoading] = useState(false);
   
   const [steps, setSteps] = useState<WorkflowStep[]>([
     {
@@ -250,6 +255,34 @@ export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
         return <Badge variant="destructive">Error</Badge>;
       default:
         return <Badge variant="secondary">Pending</Badge>;
+    }
+  };
+
+  const previewVoice = async () => {
+    try {
+      setPreviewLoading(true);
+      const resp = await fetch('/api/video-gen/generate-audio', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: previewText,
+          language: voiceLanguage,
+          gender: voiceGender
+        })
+      });
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        throw new Error(json?.error || json?.message || 'Failed to generate audio');
+      }
+      const audioBase64 = json?.audioBase64;
+      if (!audioBase64) throw new Error('No audio returned');
+      const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
+      await audio.play();
+      toast.success('Playing voice preview');
+    } catch (err: any) {
+      toast.error(err?.message || 'Voice preview failed');
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -593,30 +626,37 @@ export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
                   <h4 className="font-medium">Voice Settings</h4>
                   <div className="space-y-3">
                     <div>
-                      <Label htmlFor="voice-gender">Voice Gender</Label>
-                      <select id="voice-gender" className="w-full p-2 border rounded-md bg-white text-gray-900">
-                        <option>Female (Sarah - Professional)</option>
-                        <option>Male (David - Authoritative)</option>
-                        <option>Female (Emma - Friendly)</option>
-                        <option>Male (James - Conversational)</option>
+                      <Label htmlFor="voice-language">Language</Label>
+                      <select
+                        id="voice-language"
+                        className="w-full p-2 border rounded-md bg-white text-gray-900"
+                        value={voiceLanguage}
+                        onChange={(e) => setVoiceLanguage(e.target.value === 'hi' ? 'hi' : 'en')}
+                      >
+                        <option value="en">English</option>
+                        <option value="hi">Hindi</option>
                       </select>
                     </div>
                     <div>
-                      <Label htmlFor="voice-speed">Speaking Speed</Label>
-                      <select id="speaking-speed" className="w-full p-2 border rounded-md bg-white text-gray-900">
-                        <option>Slow (140 WPM)</option>
-                        <option>Normal (160 WPM)</option>
-                        <option>Fast (180 WPM)</option>
+                      <Label htmlFor="voice-gender">Voice</Label>
+                      <select
+                        id="voice-gender"
+                        className="w-full p-2 border rounded-md bg-white text-gray-900"
+                        value={voiceGender}
+                        onChange={(e) => setVoiceGender(e.target.value === 'male' ? 'male' : 'female')}
+                      >
+                        <option value="female">{voiceLanguage === 'hi' ? 'Hindi Female (Cartesia)' : 'English Female (Cartesia)'}</option>
+                        <option value="male">{voiceLanguage === 'hi' ? 'Hindi Male (Cartesia)' : 'English Male (Cartesia)'}</option>
                       </select>
                     </div>
                     <div>
-                      <Label htmlFor="voice-accent">Accent</Label>
-                      <select id="accent" className="w-full p-2 border rounded-md bg-white text-gray-900">
-                        <option>Indian English</option>
-                        <option>American English</option>
-                        <option>British English</option>
-                        <option>Neutral</option>
-                      </select>
+                      <Label htmlFor="preview-text">Voice preview text</Label>
+                      <Textarea
+                        id="preview-text"
+                        value={previewText}
+                        onChange={(e) => setPreviewText(e.target.value)}
+                        className="min-h-[80px]"
+                      />
                     </div>
                   </div>
                 </div>
@@ -647,6 +687,14 @@ export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={previewVoice} disabled={previewLoading || !previewText.trim()}>
+                  <Volume2 className="h-4 w-4 mr-2" />
+                  {previewLoading ? 'Generating…' : 'Preview Cartesia Voice'}
+                </Button>
+                <Badge className="bg-gray-100 text-gray-800">TTS model: sonic-3-2025-10-27</Badge>
               </div>
 
               {/* Voice Bot Capabilities */}
@@ -682,6 +730,14 @@ export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <h4 className="font-medium mb-2">LiveKit Realtime (preview)</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Connect to a LiveKit room with mic audio. (Agent STT/TTS + GPT-4o dialogue will be wired to this session.)
+                </p>
+                <LiveKitVoiceSession />
               </div>
             </CardContent>
           </Card>
