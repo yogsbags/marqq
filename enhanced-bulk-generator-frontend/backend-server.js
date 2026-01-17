@@ -46,6 +46,53 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// In-memory rate limiting + response cache (no permanent storage)
+const budgetOptRateWindowMs = 60_000;
+const budgetOptMaxRequestsPerWindow = 25;
+const budgetOptRequestsByIp = new Map(); // ip -> number[]
+
+const budgetOptCacheTtlMs = 60_000;
+const budgetOptCache = new Map(); // key -> { expiresAt: number, value: any }
+
+function getClientIp(req) {
+  const xf = req.headers['x-forwarded-for'];
+  if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim();
+  if (Array.isArray(xf) && xf[0]) return String(xf[0]);
+  return req.ip || req.connection?.remoteAddress || 'unknown';
+}
+
+function enforceBudgetOptRateLimit(req, res) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const list = budgetOptRequestsByIp.get(ip) || [];
+  const nextList = list.filter((ts) => now - ts < budgetOptRateWindowMs);
+  if (nextList.length >= budgetOptMaxRequestsPerWindow) {
+    res.status(429).json({
+      error: 'Rate limited',
+      limit: `${budgetOptMaxRequestsPerWindow}/minute`,
+      retryAfterSeconds: Math.ceil((budgetOptRateWindowMs - (now - nextList[0])) / 1000)
+    });
+    return false;
+  }
+  nextList.push(now);
+  budgetOptRequestsByIp.set(ip, nextList);
+  return true;
+}
+
+function cacheGet(cacheKey) {
+  const hit = budgetOptCache.get(cacheKey);
+  if (!hit) return null;
+  if (Date.now() > hit.expiresAt) {
+    budgetOptCache.delete(cacheKey);
+    return null;
+  }
+  return hit.value;
+}
+
+function cacheSet(cacheKey, value) {
+  budgetOptCache.set(cacheKey, { expiresAt: Date.now() + budgetOptCacheTtlMs, value });
+}
+
 // Multer configuration for file uploads
 const upload = multer({ dest: '/tmp' });
 
@@ -307,6 +354,188 @@ function inferCompanyName({ explicitName, websiteUrl, title }) {
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Enhanced Bulk Generator Backend API' });
+});
+
+// Budget Optimization: list available real-time connectors (status only)
+app.get('/api/budget-optimization/connectors', (req, res) => {
+  const connectors = [
+    {
+      id: 'meta_ads',
+      name: 'Meta Ads',
+      status: process.env.META_ACCESS_TOKEN ? 'configured' : 'not_configured',
+      notes: 'Planned: ad accounts, insights, creatives, change audit, budget updates'
+    },
+    {
+      id: 'google_ads',
+      name: 'Google Ads',
+      status: process.env.GOOGLE_ADS_DEVELOPER_TOKEN ? 'configured' : 'not_configured',
+      notes: 'Planned: account mapping + GAQL queries'
+    },
+    {
+      id: 'ga4',
+      name: 'Google Analytics 4',
+      status: process.env.GA4_PROPERTY_ID ? 'configured' : 'not_configured',
+      notes: 'Planned: active users, traffic sources, custom reports, funnels'
+    },
+    {
+      id: 'tiktok_ads',
+      name: 'TikTok Ads',
+      status: process.env.TIKTOK_ACCESS_TOKEN ? 'configured' : 'not_configured',
+      notes: 'Planned: insights + creative pull'
+    },
+    {
+      id: 'shopify',
+      name: 'Shopify',
+      status: process.env.SHOPIFY_ACCESS_TOKEN ? 'configured' : 'not_configured',
+      notes: 'Planned: orders + product analytics'
+    },
+    {
+      id: 'snowflake',
+      name: 'Snowflake',
+      status: process.env.SNOWFLAKE_ACCOUNT ? 'configured' : 'not_configured',
+      notes: 'Planned: run SQL against warehouse'
+    },
+    {
+      id: 'manual',
+      name: 'Manual Upload / Paste',
+      status: 'available',
+      notes: 'Upload CSV or paste JSON/CSV for analysis (no permanent storage)'
+    }
+  ];
+
+  res.json({
+    philosophy: 'Real-time fetch; no permanent storage',
+    rateLimit: `${budgetOptMaxRequestsPerWindow}/minute`,
+    cacheTtlSeconds: Math.round(budgetOptCacheTtlMs / 1000),
+    connectors
+  });
+});
+
+// Budget Optimization: analyze performance data + answer questions (Groq)
+app.post('/api/budget-optimization/analyze', async (req, res) => {
+  try {
+    if (!enforceBudgetOptRateLimit(req, res)) return;
+
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) return res.status(400).json({ error: 'GROQ_API_KEY not set' });
+
+    const question = String(req.body?.question || '').trim();
+    const timeframe = String(req.body?.timeframe || 'last_30_days').trim();
+    const currency = String(req.body?.currency || 'INR').trim();
+    const connectorsUsed = Array.isArray(req.body?.connectorsUsed) ? req.body.connectorsUsed.map(String) : [];
+    const dataTextRaw = String(req.body?.dataText || '').trim();
+
+    if (!question) return res.status(400).json({ error: 'question is required' });
+
+    const maxChars = 25_000;
+    const dataText = dataTextRaw.length > maxChars ? dataTextRaw.slice(0, maxChars) : dataTextRaw;
+
+    const cacheKey = crypto
+      .createHash('sha256')
+      .update(JSON.stringify({ question, timeframe, currency, connectorsUsed, dataText }))
+      .digest('hex');
+
+    const cached = cacheGet(cacheKey);
+    if (cached) return res.json({ cached: true, result: cached });
+
+    const systemPrompt = `You are a senior performance marketing analyst and growth strategist for India-focused brands.
+You behave like an "AI agent for performance marketing" (GoMarble-style): you do NOT assume a data warehouse exists.
+You work with REAL-TIME connector data or user-provided exports. You do NOT permanently store any data.
+
+Answer the user's question and output ONLY valid JSON (no markdown, no code fences, no extra keys).
+Be compliance-safe for financial marketing: no guaranteed returns, no personalized investment advice.
+If data is missing, make reasonable inferences and clearly label assumptions in "assumptions".`;
+
+    const schema = `{
+  "timeframe": string,
+  "currency": string,
+  "assumptions": string[],
+  "kpiSnapshot": {
+    "spend": number|null,
+    "revenue": number|null,
+    "roas": number|null,
+    "cpa": number|null,
+    "cpc": number|null,
+    "ctr": number|null,
+    "cvr": number|null
+  },
+  "diagnosis": {
+    "summary": string,
+    "drivers": [{"driver": string, "evidence": string, "impact": "high"|"medium"|"low", "confidence": number}]
+  },
+  "recommendations": [{
+    "title": string,
+    "why": string,
+    "how": string[],
+    "expectedImpact": string,
+    "risk": string,
+    "metricToWatch": string
+  }],
+  "budgetPlan": [{
+    "channel": string,
+    "currentBudget": number|null,
+    "recommendedBudget": number|null,
+    "delta": number|null,
+    "rationale": string
+  }],
+  "creativeInsights": [{
+    "platform": string,
+    "whatWorked": string[],
+    "whatToTest": string[],
+    "doNotDo": string[]
+  }],
+  "reportHtml": string
+}`;
+
+    const userPrompt = `QUESTION:
+${question}
+
+TIMEFRAME: ${timeframe}
+CURRENCY: ${currency}
+CONNECTORS USED (if any): ${connectorsUsed.join(', ') || 'none'}
+
+DATA (CSV/JSON export or notes; may be empty):
+${dataText || '(none provided)'}
+
+Return JSON matching this schema exactly:
+${schema}`;
+
+    const model = process.env.GROQ_BUDGET_OPT_MODEL || 'groq/compound';
+
+    let rawText = await callGroqChatJson({
+      apiKey: groqKey,
+      model,
+      systemPrompt,
+      userPrompt,
+      temperature: 0.35,
+      maxTokens: 2400
+    });
+
+    let parsed = extractJsonFromText(rawText);
+    if (!parsed) {
+      rawText = await callGroqChatJson({
+        apiKey: groqKey,
+        model,
+        systemPrompt: 'Return ONLY valid JSON. No markdown. No commentary. No code fences.',
+        userPrompt: `Fix the following into valid JSON matching this schema exactly:\n\nSCHEMA:\n${schema}\n\nTEXT:\n${rawText}`,
+        temperature: 0.2,
+        maxTokens: 2400
+      });
+      parsed = extractJsonFromText(rawText);
+    }
+
+    if (!parsed) return res.status(500).json({ error: 'Unable to parse JSON from model response' });
+
+    // Light sanitization: drop script tags in reportHtml if present.
+    if (parsed && typeof parsed === 'object' && typeof parsed.reportHtml === 'string') {
+      parsed.reportHtml = parsed.reportHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
+    }
+
+    cacheSet(cacheKey, parsed);
+    return res.json({ cached: false, result: parsed });
+  } catch (error) {
+    res.status(500).json({ error: 'Budget optimization analysis failed', details: error.message });
+  }
 });
 
 // Company Intelligence: list companies

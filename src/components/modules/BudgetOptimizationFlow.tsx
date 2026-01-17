@@ -1,528 +1,597 @@
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { 
-  Upload, 
-  DollarSign, 
-  Brain, 
-  Target, 
-  TrendingUp, 
-  BarChart3, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle,
-  Zap,
-  Calculator,
-  PieChart,
-  LineChart
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { AgentService } from '@/services/agentService';
+import { useEffect, useMemo, useState } from 'react'
+import type { ChangeEvent } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { toast } from 'sonner'
 
-interface WorkflowStep {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<any>;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  progress?: number;
+type ConnectorStatus = 'available' | 'configured' | 'not_configured'
+
+type ConnectorInfo = {
+  id: string
+  name: string
+  status: ConnectorStatus
+  notes?: string
+}
+
+type ConnectorsResponse = {
+  philosophy: string
+  rateLimit: string
+  cacheTtlSeconds: number
+  connectors: ConnectorInfo[]
+}
+
+type BudgetOptResult = {
+  timeframe: string
+  currency: string
+  assumptions: string[]
+  kpiSnapshot: {
+    spend: number | null
+    revenue: number | null
+    roas: number | null
+    cpa: number | null
+    cpc: number | null
+    ctr: number | null
+    cvr: number | null
+  }
+  diagnosis: {
+    summary: string
+    drivers: Array<{
+      driver: string
+      evidence: string
+      impact: 'high' | 'medium' | 'low'
+      confidence: number
+    }>
+  }
+  recommendations: Array<{
+    title: string
+    why: string
+    how: string[]
+    expectedImpact: string
+    risk: string
+    metricToWatch: string
+  }>
+  budgetPlan: Array<{
+    channel: string
+    currentBudget: number | null
+    recommendedBudget: number | null
+    delta: number | null
+    rationale: string
+  }>
+  creativeInsights: Array<{
+    platform: string
+    whatWorked: string[]
+    whatToTest: string[]
+    doNotDo: string[]
+  }>
+  reportHtml: string
+}
+
+function clampText(value: string, maxChars: number) {
+  if (value.length <= maxChars) return value
+  return value.slice(0, maxChars)
+}
+
+function formatMoney(value: number | null, currency: string) {
+  if (value === null || !Number.isFinite(value)) return '—'
+  try {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
+  } catch {
+    return `${currency} ${Math.round(value).toLocaleString()}`
+  }
+}
+
+function formatPct(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${(value * 100).toFixed(2)}%`
+}
+
+function downloadTextFile(filename: string, content: string, mime = 'text/plain;charset=utf-8') {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export function BudgetOptimizationFlow() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState('upload');
-  
-  const [steps, setSteps] = useState<WorkflowStep[]>([
-    {
-      id: 'upload',
-      title: 'Upload Campaign Data',
-      description: 'Upload current campaign performance data',
-      icon: Upload,
-      status: 'pending'
-    },
-    {
-      id: 'analysis',
-      title: 'AI Budget Analysis',
-      description: 'AI analyzes spending patterns and performance',
-      icon: Brain,
-      status: 'pending'
-    },
-    {
-      id: 'recommendations',
-      title: 'Generate Recommendations',
-      description: 'Create optimization recommendations',
-      icon: Target,
-      status: 'pending'
-    },
-    {
-      id: 'modeling',
-      title: 'Scenario Modeling',
-      description: 'Model different budget allocation scenarios',
-      icon: Calculator,
-      status: 'pending'
-    },
-    {
-      id: 'optimization',
-      title: 'Deploy Optimization',
-      description: 'Apply optimized budget allocation',
-      icon: TrendingUp,
-      status: 'pending'
-    },
-    {
-      id: 'tracking',
-      title: 'Performance Tracking',
-      description: 'Monitor optimized campaign performance',
-      icon: BarChart3,
-      status: 'pending'
+  const [connectors, setConnectors] = useState<ConnectorInfo[]>([])
+  const [selectedConnectors, setSelectedConnectors] = useState<string[]>(['manual'])
+  const [connectorsMeta, setConnectorsMeta] = useState<Pick<ConnectorsResponse, 'philosophy' | 'rateLimit' | 'cacheTtlSeconds'> | null>(
+    null
+  )
+
+  const [timeframe, setTimeframe] = useState('last_30_days')
+  const [currency, setCurrency] = useState('INR')
+  const [question, setQuestion] = useState('Why did ROAS dip in the last 7 days? Provide RCA and what to do next.')
+  const [dataText, setDataText] = useState('')
+
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<BudgetOptResult | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const resp = await fetch('/api/budget-optimization/connectors')
+        if (!resp.ok) throw new Error(await resp.text())
+        const json = (await resp.json()) as ConnectorsResponse
+        if (cancelled) return
+        setConnectors(json.connectors || [])
+        setConnectorsMeta({ philosophy: json.philosophy, rateLimit: json.rateLimit, cacheTtlSeconds: json.cacheTtlSeconds })
+      } catch (err: any) {
+        if (cancelled) return
+        setConnectors([])
+        setConnectorsMeta(null)
+        toast.error(`Failed to load connectors: ${err?.message || 'unknown error'}`)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
-  ]);
+  }, [])
 
-  const updateStepStatus = (stepIndex: number, status: WorkflowStep['status'], progress?: number) => {
-    setSteps(prev => prev.map((step, index) => 
-      index === stepIndex ? { ...step, status, progress } : step
-    ));
-  };
+  const selectedConnectorSet = useMemo(() => new Set(selectedConnectors), [selectedConnectors])
 
-  const deployBudgetOptimization = async () => {
-    setIsProcessing(true);
-    
+  function toggleConnector(id: string) {
+    setSelectedConnectors((prev) => {
+      const set = new Set(prev)
+      if (set.has(id)) set.delete(id)
+      else set.add(id)
+      if (set.size === 0) set.add('manual')
+      return Array.from(set)
+    })
+  }
+
+  async function onAnalyze() {
+    setLoading(true)
+    setResult(null)
     try {
-      // Execute actual AI agent tasks for budget optimization
-      const optimizerAgent = AgentService.getAgents().find(agent => agent.role.includes('Optimization'));
-      if (optimizerAgent) {
-        // Execute campaign optimization
-        await AgentService.executeTask(optimizerAgent.id, {
-          type: 'campaign_optimization',
-          description: 'Analyze campaign performance and optimize budget allocation',
-          input: {
-            campaignData: [
-              { name: 'Search Ads', spend: 50000, conversions: 245, ctr: 0.045 },
-              { name: 'Social Media', spend: 30000, conversions: 156, ctr: 0.032 },
-              { name: 'Display Ads', spend: 20000, conversions: 89, ctr: 0.018 }
-            ],
-            totalBudget: 125000,
-            timeframe: '30d'
-          }
-        });
+      const payload = {
+        question: question.trim(),
+        timeframe,
+        currency,
+        connectorsUsed: selectedConnectors,
+        dataText: clampText(dataText.trim(), 25_000)
       }
-
-      for (let i = currentStep; i < steps.length; i++) {
-        updateStepStatus(i, 'processing', 0);
-        
-        for (let progress = 0; progress <= 100; progress += 20) {
-          updateStepStatus(i, 'processing', progress);
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-        
-        updateStepStatus(i, 'completed', 100);
-        
-        if (i < steps.length - 1) {
-          setCurrentStep(i + 1);
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      
-      toast.success('Budget Optimization workflow completed successfully! 🎉');
-      setActiveTab('tracking'); // Auto-switch to last tab
-    } catch (error) {
-      toast.error('Budget Optimization workflow failed. Please try again.');
-      updateStepStatus(currentStep, 'error');
+      const resp = await fetch('/api/budget-optimization/analyze', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      const json = await resp.json().catch(() => null)
+      if (!resp.ok) throw new Error(json?.error || json?.details || 'request failed')
+      setResult(json?.result || null)
+      toast.success(json?.cached ? 'Loaded cached analysis' : 'Analysis generated')
+    } catch (err: any) {
+      toast.error(`Budget optimization failed: ${err?.message || 'unknown error'}`)
     } finally {
-      setIsProcessing(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const validTypes = ['.xlsx', '.xls', '.csv'];
-      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-      
-      if (!validTypes.includes(fileExtension)) {
-        toast.error('Please upload a valid Excel (.xlsx, .xls) or CSV (.csv) file');
-        return;
-      }
-      
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File size must be less than 10MB');
-        return;
-      }
-      
-      setUploadedFile(file);
-      updateStepStatus(0, 'completed');
-      setCurrentStep(1);
-      toast.success(`${file.name} uploaded successfully! 🎉`);
+  async function onUploadFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Max upload size is 10MB')
+      return
     }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const files = event.dataTransfer.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      
-      // Create a synthetic event to reuse the existing upload logic
-      const syntheticEvent = {
-        target: { files: [file] }
-      } as unknown as React.ChangeEvent<HTMLInputElement>;
-      
-      handleFileUpload(syntheticEvent);
+    const text = await file.text().catch(() => '')
+    if (!text.trim()) {
+      toast.error('File was empty')
+      return
     }
-  };
+    setDataText(clampText(text, 25_000))
+    toast.success(`Loaded ${file.name}`)
+  }
 
-  const getStepIcon = (step: WorkflowStep) => {
-    const IconComponent = step.icon;
-    
-    if (step.status === 'completed') {
-      return <CheckCircle className="h-5 w-5 text-green-500" />;
-    } else if (step.status === 'processing') {
-      return <Clock className="h-5 w-5 text-orange-500 animate-spin" />;
-    } else if (step.status === 'error') {
-      return <AlertCircle className="h-5 w-5 text-red-500" />;
-    }
-    
-    return <IconComponent className="h-5 w-5 text-gray-400" />;
-  };
-
-  const getStepStatus = (step: WorkflowStep) => {
-    switch (step.status) {
-      case 'completed':
-        return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
-      case 'processing':
-        return <Badge className="bg-orange-100 text-orange-800">Processing</Badge>;
-      case 'error':
-        return <Badge variant="destructive">Error</Badge>;
-      default:
-        return <Badge variant="secondary">Pending</Badge>;
-    }
-  };
+  const kpi = result?.kpiSnapshot
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-          Campaign Budget Optimization
-        </h1>
-        <p className="text-muted-foreground">
-          Optimize your marketing spend with AI-powered budget allocation and performance tracking
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Budget Optimization</h2>
+          <p className="text-sm text-gray-600">
+            GoMarble-style: real-time connectors + AI insights (no permanent data storage).
+          </p>
+        </div>
+        {connectorsMeta ? (
+          <div className="text-xs text-gray-600">
+            Rate limit: <span className="font-medium">{connectorsMeta.rateLimit}</span> • Cache: {connectorsMeta.cacheTtlSeconds}s
+          </div>
+        ) : null}
       </div>
 
-      {/* Workflow Progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Zap className="h-5 w-5 text-green-500" />
-            <span>Budget Optimization Workflow</span>
-          </CardTitle>
-          <CardDescription>
-            Follow the sequential steps to optimize your campaign budget allocation
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {steps.map((step, index) => (
-              <div
-                key={step.id}
-                className={cn(
-                  "flex items-center space-x-4 p-4 rounded-lg border transition-all duration-300",
-                  index === currentStep ? "border-green-500 bg-green-50 dark:bg-green-900/20" : "border-gray-200",
-                  step.status === 'completed' ? "bg-green-50 dark:bg-green-900/20 border-green-200" : "",
-                  step.status === 'error' ? "bg-red-50 dark:bg-red-900/20 border-red-200" : ""
-                )}
-              >
-                <div className="flex-shrink-0">
-                  {getStepIcon(step)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">{step.title}</h3>
-                    {getStepStatus(step)}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="text-base">Real-Time Data Connectors</CardTitle>
+            <CardDescription className="text-sm">Select data sources for analysis.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {connectors.length ? (
+              connectors.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={[
+                    'w-full text-left border rounded-md p-3 transition',
+                    selectedConnectorSet.has(c.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                  ].join(' ')}
+                  onClick={() => toggleConnector(c.id)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium text-sm text-gray-900">{c.name}</div>
+                    <Badge
+                      className={
+                        c.status === 'configured'
+                          ? 'bg-green-100 text-green-800'
+                          : c.status === 'available'
+                            ? 'bg-gray-100 text-gray-800'
+                            : 'bg-yellow-100 text-yellow-900'
+                      }
+                    >
+                      {c.status === 'not_configured' ? 'not configured' : c.status}
+                    </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{step.description}</p>
-                  {step.status === 'processing' && step.progress !== undefined && (
-                    <Progress value={step.progress} className="mt-2 h-2" />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                  {c.notes ? <div className="text-xs text-gray-600 mt-1">{c.notes}</div> : null}
+                </button>
+              ))
+            ) : (
+              <div className="text-sm text-gray-700">Connectors unavailable.</div>
+            )}
 
-      {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
-          {steps.map((step, index) => (
-            <TabsTrigger
-              key={step.id}
-              value={step.id}
-              className={cn(
-                "text-xs",
-                step.status === 'completed' ? "text-green-600" : "",
-                index === currentStep ? "text-green-600" : ""
-              )}
-            >
-              {step.title.split(' ')[0]}
-            </TabsTrigger>
-          ))}
+            <div className="pt-2 border-t">
+              <div className="text-xs text-gray-600 mb-2">Upload export (CSV/JSON)</div>
+              <Input type="file" accept=".csv,.json,.txt" onChange={onUploadFile} />
+              <div className="text-xs text-gray-500 mt-1">Note: analyzed in-memory; not stored.</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Ask Anything (Natural Language)</CardTitle>
+            <CardDescription className="text-sm">
+              Example: “Why did ROAS dip?” “What budgets should I shift?” “Which creatives are fatiguing?”
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div>
+                <div className="text-xs text-gray-600 mb-1">Timeframe</div>
+                <select
+                  value={timeframe}
+                  onChange={(e) => setTimeframe(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm text-gray-800"
+                >
+                  <option value="last_7_days">Last 7 days</option>
+                  <option value="last_30_days">Last 30 days</option>
+                  <option value="last_90_days">Last 90 days</option>
+                  <option value="month_to_date">Month to date</option>
+                </select>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 mb-1">Currency</div>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm text-gray-800"
+                >
+                  <option value="INR">INR</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <Button className="w-full" onClick={onAnalyze} disabled={loading || !question.trim()}>
+                  {loading ? 'Analyzing…' : 'Analyze'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <div className="text-xs text-gray-600">Question</div>
+              <Textarea value={question} onChange={(e) => setQuestion(e.target.value)} className="min-h-[90px]" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-gray-600">Data (paste CSV/JSON export or notes)</div>
+                {dataText.trim() ? (
+                  <Button variant="ghost" size="sm" onClick={() => setDataText('')}>
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+              <Textarea
+                value={dataText}
+                onChange={(e) => setDataText(clampText(e.target.value, 25_000))}
+                placeholder="Paste your Meta/Google/GA4 export here (optional but recommended)."
+                className="min-h-[140px]"
+              />
+              <div className="text-xs text-gray-500">Max 25,000 characters per request.</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="rca">RCA</TabsTrigger>
+          <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+          <TabsTrigger value="creative">Creative</TabsTrigger>
+          <TabsTrigger value="report">HTML Report</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upload" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Upload className="h-5 w-5 text-blue-500" />
-                <span>Upload Campaign Data</span>
-              </CardTitle>
-              <CardDescription>
-                Upload current campaign performance data
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div 
-                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-green-400 transition-colors cursor-pointer"
-                onDragOver={handleDragOver}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => document.getElementById('budget-file-upload')?.click()}
-              >
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <div className="space-y-2">
-                  <span className="text-lg font-medium">Drop your campaign data file here</span>
-                  <p className="text-sm text-muted-foreground">or click to browse</p>
-                  <p className="text-xs text-muted-foreground">Supports .xlsx, .xls, .csv files (max 10MB)</p>
-                </div>
+        <TabsContent value="overview" className="space-y-4">
+          {!result ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">No analysis yet</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-gray-700">Run analysis to see KPIs, drivers, and a budget plan.</CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Spend</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-lg font-semibold">{formatMoney(kpi?.spend ?? null, result.currency)}</CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Revenue</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-lg font-semibold">{formatMoney(kpi?.revenue ?? null, result.currency)}</CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">ROAS</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-lg font-semibold">{kpi?.roas ?? '—'}</CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">CPA</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-lg font-semibold">{formatMoney(kpi?.cpa ?? null, result.currency)}</CardContent>
+                </Card>
               </div>
-              
-              <Input
-                id="budget-file-upload"
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              
-              {uploadedFile && (
-                <div className="flex items-center space-x-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-green-800 dark:text-green-200">{uploadedFile.name}</span>
-                    <p className="text-xs text-green-600 dark:text-green-300">
-                      {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB • Ready for processing
-                    </p>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
-                    Uploaded
-                  </Badge>
-                </div>
-              )}
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="text-center p-4 border rounded-lg">
-                  <DollarSign className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-                  <h4 className="font-medium">Campaign Spend</h4>
-                  <p className="text-sm text-muted-foreground">Budget allocation, costs</p>
-                </div>
-                <div className="text-center p-4 border rounded-lg">
-                  <TrendingUp className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                  <h4 className="font-medium">Performance Data</h4>
-                  <p className="text-sm text-muted-foreground">ROI, conversions, metrics</p>
-                </div>
-                <div className="text-center p-4 border rounded-lg">
-                  <Target className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-                  <h4 className="font-medium">Channel Data</h4>
-                  <p className="text-sm text-muted-foreground">Platform performance</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Budget Plan</CardTitle>
+                  <CardDescription className="text-sm">Suggested reallocations with rationale.</CardDescription>
+                </CardHeader>
+                <CardContent className="overflow-auto">
+                  {result.budgetPlan?.length ? (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-600 border-b">
+                          <th className="py-2 pr-3">Channel</th>
+                          <th className="py-2 pr-3">Current</th>
+                          <th className="py-2 pr-3">Recommended</th>
+                          <th className="py-2 pr-3">Δ</th>
+                          <th className="py-2">Rationale</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.budgetPlan.map((row, idx) => (
+                          <tr key={idx} className="border-b align-top">
+                            <td className="py-2 pr-3 font-medium">{row.channel}</td>
+                            <td className="py-2 pr-3">{formatMoney(row.currentBudget, result.currency)}</td>
+                            <td className="py-2 pr-3">{formatMoney(row.recommendedBudget, result.currency)}</td>
+                            <td className="py-2 pr-3">
+                              {row.delta === null || !Number.isFinite(row.delta) ? '—' : formatMoney(row.delta, result.currency)}
+                            </td>
+                            <td className="py-2">{row.rationale}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-sm text-gray-700">—</div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {result.assumptions?.length ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Assumptions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1 text-sm">
+                    {result.assumptions.map((a, idx) => (
+                      <div key={idx}>• {a}</div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="analysis" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Brain className="h-5 w-5 text-purple-500" />
-                <span>AI Budget Analysis</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card className="p-4">
-                  <PieChart className="h-8 w-8 text-blue-500 mb-2" />
-                  <h4 className="font-medium">Spend Distribution</h4>
-                  <p className="text-sm text-muted-foreground">Analyzing current allocation</p>
-                </Card>
-                <Card className="p-4">
-                  <LineChart className="h-8 w-8 text-green-500 mb-2" />
-                  <h4 className="font-medium">Performance Trends</h4>
-                  <p className="text-sm text-muted-foreground">Identifying patterns</p>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="rca" className="space-y-4">
+          {!result ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">No RCA yet</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-gray-700">Run analysis to see root causes and drivers.</CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Diagnosis</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-gray-800">{result.diagnosis?.summary || '—'}</CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Key Drivers</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {result.diagnosis?.drivers?.length ? (
+                    result.diagnosis.drivers.map((d, idx) => (
+                      <div key={idx} className="border rounded-md p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-sm">{d.driver}</div>
+                          <Badge className={d.impact === 'high' ? 'bg-red-100 text-red-800' : d.impact === 'medium' ? 'bg-yellow-100 text-yellow-900' : 'bg-gray-100 text-gray-800'}>
+                            {d.impact}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-gray-800 mt-1">{d.evidence}</div>
+                        <div className="text-xs text-gray-600 mt-2">Confidence: {Math.round((Number(d.confidence || 0) || 0) * 100)}%</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-700">—</div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="recommendations" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Target className="h-5 w-5 text-red-500" />
-                <span>Optimization Recommendations</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
-                  <h4 className="font-medium text-green-800 dark:text-green-200">Increase Search Ads Budget</h4>
-                  <p className="text-sm text-green-600 dark:text-green-300">+25% allocation recommended for 18% ROAS improvement</p>
-                </div>
-                <div className="p-4 border rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                  <h4 className="font-medium text-orange-800 dark:text-orange-200">Reduce Display Ads</h4>
-                  <p className="text-sm text-orange-600 dark:text-orange-300">-15% allocation due to low conversion rates</p>
-                </div>
-                <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-200">Optimize Social Media</h4>
-                  <p className="text-sm text-blue-600 dark:text-blue-300">Reallocate budget to high-performing platforms</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {!result ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">No recommendations yet</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-gray-700">Run analysis to get actions and metrics to watch.</CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {result.recommendations?.length ? (
+                result.recommendations.map((r, idx) => (
+                  <Card key={idx}>
+                    <CardHeader>
+                      <CardTitle className="text-base">{r.title}</CardTitle>
+                      <CardDescription className="text-sm">Metric to watch: {r.metricToWatch || '—'}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="text-gray-900">{r.why}</div>
+                      {Array.isArray(r.how) && r.how.length ? (
+                        <div className="space-y-1 text-gray-800">
+                          {r.how.map((h, hIdx) => (
+                            <div key={hIdx}>• {h}</div>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="text-xs text-gray-700">Expected impact: {r.expectedImpact || '—'}</div>
+                      <div className="text-xs text-gray-700">Risk: {r.risk || '—'}</div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">—</CardTitle>
+                  </CardHeader>
+                </Card>
+              )}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="modeling" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calculator className="h-5 w-5 text-purple-500" />
-                <span>Scenario Modeling</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">+18%</div>
-                  <div className="text-sm text-muted-foreground">ROAS Improvement</div>
+        <TabsContent value="creative" className="space-y-4">
+          {!result ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">No creative insights yet</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-gray-700">Run analysis to get creative angles and tests.</CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {result.creativeInsights?.length ? (
+                result.creativeInsights.map((c, idx) => (
+                  <Card key={idx}>
+                    <CardHeader>
+                      <CardTitle className="text-base">{c.platform}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="font-medium text-gray-900 mb-1">What worked</div>
+                        {(Array.isArray(c.whatWorked) ? c.whatWorked : []).map((x, i) => (
+                          <div key={i}>• {x}</div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900 mb-1">What to test</div>
+                        {(Array.isArray(c.whatToTest) ? c.whatToTest : []).map((x, i) => (
+                          <div key={i}>• {x}</div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900 mb-1">Don’t do</div>
+                        {(Array.isArray(c.doNotDo) ? c.doNotDo : []).map((x, i) => (
+                          <div key={i}>• {x}</div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">—</CardTitle>
+                  </CardHeader>
                 </Card>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">₹2.1L</div>
-                  <div className="text-sm text-muted-foreground">Additional Revenue</div>
-                </Card>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">8</div>
-                  <div className="text-sm text-muted-foreground">Campaigns Optimized</div>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="optimization" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <TrendingUp className="h-5 w-5 text-green-500" />
-                <span>Deploy Optimization</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="optimization-name">Optimization Name</Label>
-                  <Input id="optimization-name" placeholder="Q1 2024 Budget Optimization" />
-                </div>
-                <Button className="w-full">Apply Budget Optimization</Button>
+        <TabsContent value="report" className="space-y-4">
+          {!result ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">No report yet</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-gray-700">Run analysis to generate an HTML report.</CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => downloadTextFile('budget-optimization-report.html', result.reportHtml || '', 'text/html;charset=utf-8')}
+                  disabled={!result.reportHtml}
+                >
+                  Download HTML
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tracking" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <BarChart3 className="h-5 w-5 text-indigo-500" />
-                <span>Performance Tracking</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">₹125K</div>
-                  <div className="text-sm text-muted-foreground">Budget Optimized</div>
-                  <div className="text-xs text-green-600">+20% vs last month</div>
-                </Card>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">18.5%</div>
-                  <div className="text-sm text-muted-foreground">Cost Reduction</div>
-                  <div className="text-xs text-green-600">+7% improvement</div>
-                </Card>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-orange-600">3.2x</div>
-                  <div className="text-sm text-muted-foreground">ROAS</div>
-                  <div className="text-xs text-green-600">+11% vs target</div>
-                </Card>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">Real-time</div>
-                  <div className="text-sm text-muted-foreground">Adjustments</div>
-                  <div className="text-xs text-green-600">Active monitoring</div>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">HTML Report Preview</CardTitle>
+                  <CardDescription className="text-sm">Generated by AI; review before sharing.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {result.reportHtml ? (
+                    <div className="border rounded-md p-4 bg-white" dangerouslySetInnerHTML={{ __html: result.reportHtml }} />
+                  ) : (
+                    <div className="text-sm text-gray-700">—</div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
-
-      {/* Deploy Button */}
-      <div className="flex justify-center">
-        <Button
-          onClick={deployBudgetOptimization}
-          disabled={isProcessing}
-          className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-8 py-3 text-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg"
-        >
-          {isProcessing ? (
-            <>
-              <Clock className="mr-2 h-5 w-5 animate-spin" />
-              Optimizing Budget...
-            </>
-          ) : (
-            <>
-              <Zap className="mr-2 h-5 w-5" />
-              Deploy Budget Optimization
-            </>
-          )}
-        </Button>
-      </div>
     </div>
-  );
+  )
 }
+
