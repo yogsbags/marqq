@@ -34,6 +34,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AgentService } from '@/services/agentService';
 import { LiveKitVoiceSession } from './voicebot/LiveKitVoiceSession';
+import { KnowledgeBaseUploader } from './voicebot/KnowledgeBaseUploader';
+import { VoicebotSimulator } from './voicebot/VoicebotSimulator';
 
 interface WorkflowStep {
   id: string;
@@ -739,12 +741,17 @@ export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
                 </p>
                 <LiveKitVoiceSession />
               </div>
+
+              <div className="pt-4 border-t">
+                <KnowledgeBaseUploader />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Test Tab */}
         <TabsContent value="test" className="space-y-4">
+          <VoicebotSimulator />
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">

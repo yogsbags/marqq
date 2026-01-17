@@ -25,6 +25,9 @@ export function LiveKitVoiceSession() {
   const [roomName, setRoomName] = useState('voicebot-demo')
   const [participantName, setParticipantName] = useState('User')
   const [token, setToken] = useState<TokenResponse | null>(null)
+  const [language, setLanguage] = useState<'en' | 'hi'>('en')
+  const [gender, setGender] = useState<'male' | 'female'>('female')
+  const [dispatching, setDispatching] = useState(false)
 
   const canConnect = useMemo(() => Boolean(token?.token && token?.livekitUrl), [token])
 
@@ -63,6 +66,25 @@ export function LiveKitVoiceSession() {
     }
   }
 
+  async function dispatchAgent() {
+    if (!roomName.trim()) return
+    setDispatching(true)
+    try {
+      const resp = await fetch('/api/voicebot/livekit/dispatch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ roomName, language, gender })
+      })
+      const json = await resp.json().catch(() => ({}))
+      if (!resp.ok) throw new Error(json?.error || json?.details || 'Dispatch failed')
+      toast.success('Agent dispatched to room')
+    } catch (err: any) {
+      toast.error(err?.message || 'Dispatch failed')
+    } finally {
+      setDispatching(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -85,6 +107,36 @@ export function LiveKitVoiceSession() {
             <div className="flex items-end">
               <Button className="w-full" onClick={mintToken} disabled={!config?.configured}>
                 Create session
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div>
+              <div className="text-xs text-gray-600 mb-1">Agent language</div>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value === 'hi' ? 'hi' : 'en')}
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm text-gray-800"
+              >
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+              </select>
+            </div>
+            <div>
+              <div className="text-xs text-gray-600 mb-1">Agent voice</div>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value === 'male' ? 'male' : 'female')}
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm text-gray-800"
+              >
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button variant="outline" className="w-full" onClick={dispatchAgent} disabled={!config?.configured || !canConnect || dispatching}>
+                {dispatching ? 'Dispatching…' : 'Start Agent'}
               </Button>
             </div>
           </div>
@@ -126,4 +178,3 @@ export function LiveKitVoiceSession() {
     </div>
   )
 }
-

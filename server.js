@@ -123,7 +123,22 @@ function startBackend() {
   return child
 }
 
+function startVoicebotAgent() {
+  const agentScript = path.join(__dirname, 'voicebot-agent.js')
+  const child = spawn(process.execPath, [agentScript, 'start'], {
+    env: { ...process.env },
+    stdio: 'inherit'
+  })
+
+  child.on('exit', (code, signal) => {
+    console.log(`[voicebot-agent] exited code=${code} signal=${signal}`)
+  })
+
+  return child
+}
+
 const backendProcess = startBackend()
+const voicebotAgentProcess = startVoicebotAgent()
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || '/', 'http://localhost')
@@ -151,6 +166,11 @@ function shutdown() {
   server.close(() => process.exit(0))
   try {
     backendProcess.kill('SIGTERM')
+  } catch {
+    // ignore
+  }
+  try {
+    voicebotAgentProcess.kill('SIGTERM')
   } catch {
     // ignore
   }

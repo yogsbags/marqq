@@ -100,6 +100,7 @@ const upload = multer({ dest: '/tmp' });
 const backendDir = path.join(__dirname, 'backend');
 const mainJsPath = path.join(backendDir, 'main.js');
 const companyIntelDbPath = path.join(backendDir, 'data', 'company-intelligence.json');
+const voicebotKbPath = path.join(backendDir, 'data', 'voicebot-kb.json');
 
 function readCompanyIntelDb() {
   try {
@@ -125,6 +126,51 @@ function writeCompanyIntelDb(nextDb) {
     fs.writeFileSync(companyIntelDbPath, JSON.stringify(nextDb, null, 2));
   } catch (error) {
     console.error('[Company Intel] Failed to write DB:', error);
+  }
+}
+
+function readVoicebotKbDb() {
+  try {
+    if (!fs.existsSync(voicebotKbPath)) {
+      return { files: {} };
+    }
+    const raw = fs.readFileSync(voicebotKbPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return { files: parsed?.files && typeof parsed.files === 'object' ? parsed.files : {} };
+  } catch (error) {
+    console.error('[Voicebot KB] Failed to read DB:', error);
+    return { files: {} };
+  }
+}
+
+function writeVoicebotKbDb(nextDb) {
+  try {
+    const dir = path.dirname(voicebotKbPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(voicebotKbPath, JSON.stringify(nextDb, null, 2));
+  } catch (error) {
+    console.error('[Voicebot KB] Failed to write DB:', error);
+  }
+}
+
+function extractTextFromUploadedFile({ filename, mimetype, buffer }) {
+  const name = String(filename || '').toLowerCase();
+  const type = String(mimetype || '').toLowerCase();
+
+  const isText =
+    type.startsWith('text/') ||
+    name.endsWith('.txt') ||
+    name.endsWith('.md') ||
+    name.endsWith('.csv') ||
+    name.endsWith('.json');
+
+  if (!isText) return null;
+
+  try {
+    const raw = buffer.toString('utf-8');
+    return raw.replace(/\u0000/g, '').trim().slice(0, 200_000);
+  } catch {
+    return null;
   }
 }
 
@@ -415,6 +461,304 @@ app.post('/api/voicebot/livekit/token', async (req, res) => {
     res.json({ livekitUrl, roomName, identity, participantName, token });
   } catch (error) {
     res.status(500).json({ error: 'Token generation failed', details: error.message });
+  }
+});
+
+// AI Voice Bot: dispatch the LiveKit Agents worker into a room
+app.post('/api/voicebot/livekit/dispatch', async (req, res) => {
+  try {
+    const livekitUrl = process.env.LIVEKIT_URL;
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    if (!livekitUrl || !apiKey || !apiSecret) {
+      return res.status(400).json({
+        error: 'LiveKit not configured',
+        required: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET']
+      });
+    }
+
+    const roomName = String(req.body?.roomName || '').trim();
+    if (!roomName) return res.status(400).json({ error: 'roomName is required' });
+
+    const agentName = String(process.env.LIVEKIT_AGENT_NAME || 'martech-voicebot');
+    const language = String(req.body?.language || 'en').trim().toLowerCase();
+    const gender = String(req.body?.gender || 'female').trim().toLowerCase();
+
+    const { AgentDispatchClient } = require('livekit-server-sdk');
+    const client = new AgentDispatchClient(livekitUrl, apiKey, apiSecret);
+
+    const dispatch = await client.createDispatch(roomName, agentName, {
+      metadata: JSON.stringify({
+        language: language === 'hi' ? 'hi' : 'en',
+        gender: gender === 'male' ? 'male' : 'female'
+      })
+    });
+
+    res.json({ dispatch });
+  } catch (error) {
+    res.status(500).json({ error: 'Dispatch failed', details: error.message });
+  }
+});
+
+// AI Voice Bot (KB): upload/list/delete/search (files uploaded from UI)
+app.get('/api/voicebot/kb/files', (req, res) => {
+  const db = readVoicebotKbDb();
+  const files = Object.values(db.files || {}).sort((a, b) => {
+    const aTs = new Date(a?.createdAt || 0).getTime();
+    const bTs = new Date(b?.createdAt || 0).getTime();
+    return bTs - aTs;
+  });
+  res.json({ files });
+});
+
+app.post('/api/voicebot/kb/upload', upload.array('files', 10), async (req, res) => {
+  try {
+    const incoming = Array.isArray(req.files) ? req.files : [];
+    if (!incoming.length) return res.status(400).json({ error: 'No files uploaded' });
+
+    const db = readVoicebotKbDb();
+    const createdAt = new Date().toISOString();
+    const added = [];
+    const rejected = [];
+
+    for (const f of incoming) {
+      const fileId = crypto.randomUUID();
+      const buffer = fs.readFileSync(f.path);
+      const text = extractTextFromUploadedFile({
+        filename: f.originalname,
+        mimetype: f.mimetype,
+        buffer
+      });
+
+      if (!text) {
+        rejected.push({ name: f.originalname, reason: 'Unsupported file type (use txt/md/csv/json)' });
+        await unlink(f.path).catch(() => {});
+        continue;
+      }
+
+      db.files[fileId] = {
+        id: fileId,
+        name: f.originalname,
+        mime: f.mimetype,
+        size: f.size,
+        createdAt,
+        text
+      };
+      added.push({ id: fileId, name: f.originalname });
+      await unlink(f.path).catch(() => {});
+    }
+
+    writeVoicebotKbDb(db);
+    res.json({ added, rejected });
+  } catch (error) {
+    res.status(500).json({ error: 'Upload failed', details: error.message });
+  }
+});
+
+app.delete('/api/voicebot/kb/files/:id', (req, res) => {
+  const id = String(req.params.id || '');
+  const db = readVoicebotKbDb();
+  if (!db.files?.[id]) return res.status(404).json({ error: 'Not found' });
+  delete db.files[id];
+  writeVoicebotKbDb(db);
+  res.json({ ok: true });
+});
+
+function keywordSearchKb(db, query, { limit = 6 } = {}) {
+  const q = String(query || '').toLowerCase().trim();
+  if (!q) return [];
+  const files = Object.values(db.files || {});
+  const hits = [];
+  for (const f of files) {
+    const text = String(f?.text || '');
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(q);
+    if (idx === -1) continue;
+    const start = Math.max(0, idx - 300);
+    const end = Math.min(text.length, idx + 900);
+    hits.push({
+      fileId: f.id,
+      fileName: f.name,
+      snippet: text.slice(start, end),
+      score: 1
+    });
+  }
+  return hits.slice(0, limit);
+}
+
+app.post('/api/voicebot/kb/search', async (req, res) => {
+  const query = String(req.body?.query || '').trim();
+  if (!query) return res.status(400).json({ error: 'query is required' });
+  const db = readVoicebotKbDb();
+  const results = keywordSearchKb(db, query, { limit: 6 });
+  res.json({ results });
+});
+
+// AI Voice Bot: Deepgram STT (prerecorded)
+app.post('/api/voicebot/stt', upload.single('audio'), async (req, res) => {
+  try {
+    const key = process.env.DEEPGRAM_API_KEY;
+    if (!key) return res.status(400).json({ error: 'DEEPGRAM_API_KEY not set' });
+
+    const language = String(req.body?.language || 'en').trim().toLowerCase();
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'audio file is required' });
+
+    const audioBytes = fs.readFileSync(file.path);
+    await unlink(file.path).catch(() => {});
+
+    const url = new URL('https://api.deepgram.com/v1/listen');
+    url.searchParams.set('model', 'nova-2');
+    url.searchParams.set('smart_format', 'true');
+    if (language === 'hi') url.searchParams.set('language', 'hi');
+    else url.searchParams.set('language', 'en');
+
+    const dgResp = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${key}`,
+        'Content-Type': file.mimetype || 'application/octet-stream'
+      },
+      body: audioBytes
+    });
+
+    if (!dgResp.ok) {
+      const text = await dgResp.text().catch(() => '');
+      return res.status(500).json({ error: 'Deepgram error', details: text || `HTTP ${dgResp.status}` });
+    }
+
+    const json = await dgResp.json();
+    const transcript =
+      json?.results?.channels?.[0]?.alternatives?.[0]?.transcript ||
+      json?.results?.channels?.[0]?.alternatives?.[0]?.paragraphs?.transcript ||
+      '';
+
+    res.json({ transcript: String(transcript || '') });
+  } catch (error) {
+    res.status(500).json({ error: 'STT failed', details: error.message });
+  }
+});
+
+// AI Voice Bot: GPT-4o dialogue + tool calling over uploaded KB
+app.post('/api/voicebot/dialogue', async (req, res) => {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'OPENAI_API_KEY not set' });
+
+    const sessionId = String(req.body?.sessionId || '').trim() || crypto.randomUUID();
+    const userText = String(req.body?.userText || '').trim();
+    const language = String(req.body?.language || 'en').trim().toLowerCase();
+    const voiceGender = String(req.body?.voiceGender || 'female').trim().toLowerCase();
+
+    if (!userText) return res.status(400).json({ error: 'userText is required' });
+
+    const OpenAI = require('openai');
+    const client = new OpenAI({ apiKey });
+
+    const db = readVoicebotKbDb();
+
+    // Very small in-memory conversation state (ephemeral)
+    global.__voicebotSessions = global.__voicebotSessions || {};
+    const sessions = global.__voicebotSessions;
+    sessions[sessionId] = sessions[sessionId] || [];
+
+    const system = `You are an AI Voice Bot for outbound/inbound calls.
+You must follow the current voicebot workflow stages: greeting -> value prop -> qualification -> CTA -> close.
+You are polite, concise, and India-context friendly.
+
+Language:
+- If language=hi, respond in Hindi (Devanagari).
+- If language=en, respond in English.
+
+Voice constraints:
+- Keep responses short enough for natural spoken delivery (1-3 sentences).
+- Ask at most one question per turn.
+
+Compliance (finance): No guaranteed returns, no personalized investment advice, no promises.
+
+You have access to a knowledge base of uploaded client documents via a tool. Use it to fetch client details when needed.`;
+
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'search_client_kb',
+          description: 'Search uploaded client knowledge base files for relevant details and return short snippets.',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: { type: 'string' },
+              limit: { type: 'number' }
+            },
+            required: ['query']
+          }
+        }
+      }
+    ];
+
+    const messages = [
+      { role: 'system', content: system },
+      ...sessions[sessionId],
+      { role: 'user', content: userText }
+    ];
+
+    const model = process.env.OPENAI_VOICEBOT_MODEL || 'gpt-4o';
+
+    let completion = await client.chat.completions.create({
+      model,
+      messages,
+      tools,
+      tool_choice: 'auto',
+      temperature: 0.4
+    });
+
+    const toolCalls = completion?.choices?.[0]?.message?.tool_calls || [];
+    const citations = [];
+
+    if (toolCalls.length) {
+      const toolMessages = [];
+      for (const tc of toolCalls) {
+        if (tc.type !== 'function') continue;
+        if (tc.function?.name !== 'search_client_kb') continue;
+        let args = {};
+        try {
+          args = JSON.parse(tc.function.arguments || '{}');
+        } catch {
+          args = { query: String(tc.function.arguments || '') };
+        }
+        const query = String(args.query || '').trim();
+        const limit = Number(args.limit || 6) || 6;
+        const results = keywordSearchKb(db, query, { limit });
+        for (const r of results) citations.push({ fileId: r.fileId, fileName: r.fileName });
+        toolMessages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: JSON.stringify({ results })
+        });
+      }
+
+      completion = await client.chat.completions.create({
+        model,
+        messages: [...messages, ...toolMessages],
+        temperature: 0.4
+      });
+    }
+
+    const assistantText = String(completion?.choices?.[0]?.message?.content || '').trim();
+    if (!assistantText) return res.status(500).json({ error: 'No assistant response' });
+
+    sessions[sessionId].push({ role: 'user', content: userText });
+    sessions[sessionId].push({ role: 'assistant', content: assistantText });
+
+    res.json({
+      sessionId,
+      language,
+      voiceGender,
+      assistantText,
+      citations: Array.from(new Map(citations.map((c) => [`${c.fileId}`, c])).values())
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Dialogue failed', details: error.message });
   }
 });
 
