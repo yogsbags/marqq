@@ -1342,6 +1342,10 @@ function getArtifactSpec(type) {
       label: 'Competitor Intelligence',
       schema: `{"topCompetitors":[{"name":string,"website":string|null,"whyRelevant":string,"positioningSnapshot":string,"strengths":string[],"weaknesses":string[]}],"comparison":{"yourDifferentiators":string[],"messagingGaps":string[],"opportunities":string[]},"notes":string[]}`
     },
+    website_audit: {
+      label: 'Website Audit',
+      schema: `{"summary":string,"firstImpression":{"clarityScore":number,"trustScore":number,"visualHierarchyScore":number,"notes":string[]},"conversionFunnel":{"primaryCta":string,"frictionPoints":string[],"recommendedCtas":string[]},"homepageSections":[{"section":string,"whatWorks":string[],"issues":string[],"recommendations":string[]}],"copyRecommendations":{"headlineOptions":string[],"subheadlineOptions":string[],"ctaCopyOptions":string[]},"uxRecommendations":{"quickWins":string[],"highImpactChanges":string[],"a11yNotes":string[]},"seoNotes":string[],"experiments":[{"name":string,"hypothesis":string,"implementation":string[],"successMetric":string}],"priorityPlan":[{"priority":"high"|"medium"|"low","task":string,"why":string,"effort":"low"|"medium"|"high","ownerHint":string}]}`
+    },
     opportunities: {
       label: 'Opportunities',
       schema: `{"summary":string,"quickWins":[{"title":string,"priority":"high"|"medium"|"low","description":string,"expectedImpact":string,"timeToValue":string}],"opportunities":[{"title":string,"category":string,"priority":"high"|"medium"|"low","description":string,"expectedImpact":string,"effort":"low"|"medium"|"high","requirements":string[],"nextSteps":string[]}],"risksAndMitigations":[{"risk":string,"mitigation":string}],"90DayPlan":[{"week":number,"focus":string,"keyActivities":string[]}]}`
@@ -1390,6 +1394,7 @@ function getAllArtifactTypes() {
   // Keep this in sync with getArtifactSpec keys
   return [
     'competitor_intelligence',
+    'website_audit',
     'opportunities',
     'client_profiling',
     'partner_profiling',

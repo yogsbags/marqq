@@ -9,6 +9,7 @@ import { MarketingStrategyPage } from './company-intelligence/pages/MarketingStr
 import { SocialCalendarPage } from './company-intelligence/pages/SocialCalendarPage'
 import { CompetitorIntelligencePage } from './company-intelligence/pages/CompetitorIntelligencePage'
 import { OpportunitiesPage } from './company-intelligence/pages/OpportunitiesPage'
+import { WebsiteAuditPage } from './company-intelligence/pages/WebsiteAuditPage'
 import { IcpsPage } from './company-intelligence/pages/IcpsPage'
 import { ClientProfilingPage } from './company-intelligence/pages/ClientProfilingPage'
 import { PartnerProfilingPage } from './company-intelligence/pages/PartnerProfilingPage'
@@ -240,6 +241,7 @@ export function CompanyIntelligenceFlow() {
               ) : null}
               {activePage === 'social_calendar' ? <SocialCalendarPage artifact={activeArtifact} /> : null}
               {activePage === 'competitor_intelligence' ? <CompetitorIntelligencePage artifact={activeArtifact} /> : null}
+              {activePage === 'website_audit' ? <WebsiteAuditPage artifact={activeArtifact} /> : null}
               {activePage === 'opportunities' ? <OpportunitiesPage artifact={activeArtifact} /> : null}
               {activePage === 'icps' ? <IcpsPage artifact={activeArtifact} /> : null}
 

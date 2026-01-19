@@ -42,6 +42,7 @@ function parseCompanyIntelPageFromHash(): string {
 const COMPANY_INTEL_SUBMENU = [
   { id: 'overview', title: 'Company Snapshot' },
   { id: 'competitor_intelligence', title: 'Competitor Intelligence' },
+  { id: 'website_audit', title: 'Website Audit' },
   { id: 'opportunities', title: 'Opportunities' },
   { id: 'client_profiling', title: 'Client Profiling Analytics' },
   { id: 'partner_profiling', title: 'Partner Profiling Analytics' },

@@ -1,6 +1,7 @@
 export type CompanyIntelPageId =
   | 'overview'
   | 'competitor_intelligence'
+  | 'website_audit'
   | 'opportunities'
   | 'client_profiling'
   | 'partner_profiling'
@@ -15,6 +16,7 @@ export type CompanyIntelPageId =
 export const COMPANY_INTEL_PAGES: Array<{ id: CompanyIntelPageId; title: string; artifactType?: string }> = [
   { id: 'overview', title: 'Company Overview' },
   { id: 'competitor_intelligence', title: 'Competitor Intelligence', artifactType: 'competitor_intelligence' },
+  { id: 'website_audit', title: 'Website Audit', artifactType: 'website_audit' },
   { id: 'opportunities', title: 'Opportunities', artifactType: 'opportunities' },
   { id: 'client_profiling', title: 'Client Profiling Analytics', artifactType: 'client_profiling' },
   { id: 'partner_profiling', title: 'Partner Profiling Analytics', artifactType: 'partner_profiling' },
