@@ -651,6 +651,12 @@ class MasterSEOResearcher {
           }
 
           if (parsedResult && parsedResult.content_gaps) {
+            // Validate gap count
+            const gapCount = parsedResult.content_gaps.length;
+            if (gapCount < 10) {
+              console.warn(`⚠️  WARNING: Only ${gapCount} gaps generated (expected 10). The AI may not have followed the instruction to generate exactly 10 gaps.`);
+            }
+            
             // Add metadata
             parsedResult.model_used = modelToTry;
             if (!parsedResult.parsed_with) {
@@ -666,7 +672,7 @@ class MasterSEOResearcher {
                 score: r.score
               })) || [];
             }
-            console.log(`✅ Successfully structured ${parsedResult.content_gaps.length} gaps using ${parsedResult.parsed_with}`);
+            console.log(`✅ Successfully structured ${gapCount} gaps using ${parsedResult.parsed_with}`);
             return parsedResult;
           }
 
@@ -1149,7 +1155,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
         {
           gap_id: 'GAP-FB-001',
           topic_area: 'mutual_funds',
-          gap_title: 'Index Funds vs Mutual Funds: 2025 Complete Analysis',
+          gap_title: `Index Funds vs Mutual Funds: ${new Date().getFullYear()} Complete Analysis`,
           search_volume: 12000,
           keyword_difficulty: 28,
           commercial_intent: 'High',
@@ -1158,7 +1164,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
           estimated_ranking_time: '45-60 days',
           priority_score: 95,
           primary_keyword: 'index funds vs mutual funds',
-          secondary_keywords: 'best index funds 2025,index fund calculator,mutual fund comparison',
+          secondary_keywords: `best index funds ${new Date().getFullYear()},index fund calculator,mutual fund comparison`,
           content_type_recommendation: 'ymyl',
           word_count_target: 2500,
           expert_required: 'true',
@@ -1169,7 +1175,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
         {
           gap_id: 'GAP-FB-002',
           topic_area: 'tax_planning',
-          gap_title: 'ELSS vs Tax-Saving FDs: 2025 Tax Benefits Comparison',
+          gap_title: `ELSS vs Tax-Saving FDs: ${new Date().getFullYear()} Tax Benefits Comparison`,
           search_volume: 8500,
           keyword_difficulty: 32,
           commercial_intent: 'High',
@@ -1189,7 +1195,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
         {
           gap_id: 'GAP-FB-003',
           topic_area: 'stock_market',
-          gap_title: 'Small Cap vs Mid Cap vs Large Cap: Performance Analysis 2025',
+          gap_title: `Small Cap vs Mid Cap vs Large Cap: Performance Analysis ${new Date().getFullYear()}`,
           search_volume: 6800,
           keyword_difficulty: 25,
           commercial_intent: 'Medium',
@@ -1209,7 +1215,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
         {
           gap_id: 'GAP-FB-004',
           topic_area: 'retirement_planning',
-          gap_title: 'NPS vs PPF vs ELSS: Best Retirement Strategy 2025',
+          gap_title: `NPS vs PPF vs ELSS: Best Retirement Strategy ${new Date().getFullYear()}`,
           search_volume: 9200,
           keyword_difficulty: 35,
           commercial_intent: 'High',
@@ -1229,7 +1235,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
         {
           gap_id: 'GAP-FB-005',
           topic_area: 'personal_finance',
-          gap_title: 'Emergency Fund Calculator: 2025 Savings Guide',
+          gap_title: `Emergency Fund Calculator: ${new Date().getFullYear()} Savings Guide`,
           search_volume: 4500,
           keyword_difficulty: 18,
           commercial_intent: 'Medium',
@@ -1250,7 +1256,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
       quick_wins: [
         {
           gap_id: 'GAP-FB-002',
-          topic_title: 'ELSS vs Tax-Saving FDs: 2025 Tax Benefits Comparison',
+          topic_title: `ELSS vs Tax-Saving FDs: ${new Date().getFullYear()} Tax Benefits Comparison`,
           search_volume: 8500,
           keyword_difficulty: 32,
           ranking_probability: '85%',
@@ -1259,7 +1265,7 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
         },
         {
           gap_id: 'GAP-FB-003',
-          topic_title: 'Small Cap vs Mid Cap vs Large Cap: Performance Analysis 2025',
+          topic_title: `Small Cap vs Mid Cap vs Large Cap: Performance Analysis ${new Date().getFullYear()}`,
           search_volume: 6800,
           keyword_difficulty: 25,
           ranking_probability: '90%',
@@ -1291,6 +1297,9 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
     // Use customTopic if provided, otherwise fall back to category focus
     let focusSection = '';
     let focusArea = '';
+    
+    // Dynamic date context
+    const currentYear = new Date().getFullYear();
 
     if (this.customTopic) {
       focusSection = `\n\n⚠️ CUSTOM TOPIC FOCUS: Primary research focus on "${this.customTopic}". All content gaps should be related to this topic.\n`;
@@ -1316,8 +1325,10 @@ For each competitor identify:
 - Topical authority areas
 
 2. CONTENT GAP OPPORTUNITIES${focusArea ? ` (Focus on ${focusArea})` : ''}
-Find 10 high-value content opportunities${focusArea ? ` primarily related to "${focusArea}"` : ' in these categories (distributed proportionally)'}:
+🚨 CRITICAL REQUIREMENT: You MUST identify and return EXACTLY 10 high-value content opportunities${focusArea ? ` primarily related to "${focusArea}"` : ' in these categories (distributed proportionally)'}:
 ${focusArea ? `- ${focusArea} (PRIMARY FOCUS - at least 7 out of 10 gaps)\n` : ''}${this.customTopic ? '' : Object.entries(this.contentCategories).map(([cat]) => `- ${cat.replace('_', ' ').toUpperCase()}`).join('\n')}
+
+⚠️ MANDATORY: The content_gaps array in your JSON response MUST contain exactly 10 gap objects. Do not return 2, 3, 5, or any other number - it must be exactly 10 gaps.
 
 For each gap, analyze:
 - Why competitors are weak here
@@ -1351,16 +1362,16 @@ OUTPUT FORMAT - Return ONLY valid JSON (no markdown, no explanations):
     {
       "gap_id": "GAP-001",
       "topic_area": "mutual_funds",
-      "gap_title": "Complete Guide to Index Funds vs Mutual Funds 2025",
+      "gap_title": "Complete Guide to Index Funds vs Mutual Funds ${currentYear}",
       "search_volume": 12000,
       "keyword_difficulty": 28,
       "commercial_intent": "High",
-      "competitor_weakness": "Groww has outdated 2023 data; Zerodha focuses only on passive investing",
-      "our_competitive_edge": "Include 2025 expense ratio changes, calculator tool, video comparison",
+      "competitor_weakness": "Groww has outdated data; Zerodha focuses only on passive investing",
+      "our_competitive_edge": "Include ${currentYear} expense ratio changes, calculator tool, video comparison",
       "estimated_ranking_time": "45-60 days",
       "priority_score": 95,
       "primary_keyword": "index funds vs mutual funds",
-      "secondary_keywords": "best index funds 2025,index fund calculator,index fund returns",
+      "secondary_keywords": "best index funds ${currentYear},index fund calculator,index fund returns",
       "content_type_recommendation": "ymyl",
       "word_count_target": 2500,
       "expert_required": "true",
@@ -1368,6 +1379,7 @@ OUTPUT FORMAT - Return ONLY valid JSON (no markdown, no explanations):
       "quick_win": "false",
       "authority_builder": "true"
     }
+    // IMPORTANT: You must provide exactly 10 gap objects (GAP-001 through GAP-010) in the content_gaps array above
   ],
   "quick_wins": [
     {
