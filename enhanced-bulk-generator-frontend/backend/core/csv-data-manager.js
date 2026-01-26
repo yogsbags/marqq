@@ -14,7 +14,7 @@ const { stringify } = require('csv-stringify/sync');
 let googleSheetsSyncModule;
 try {
   // Path goes up 3 levels: backend/core -> backend -> enhanced-bulk-generator-frontend -> martech -> scripts
-  const syncPath = path.resolve(__dirname, '../../../scripts/sync-google-sheets');
+  const syncPath = path.resolve(__dirname, '../../../scripts/sync-google-sheets.cjs');
   googleSheetsSyncModule = require(syncPath);
 } catch (error) {
   // Google Sheets sync module not available (expected in some environments)

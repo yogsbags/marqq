@@ -7,11 +7,11 @@
  *   GOOGLE_CLIENT_ID="your-client-id" \
  *   GOOGLE_CLIENT_SECRET="your-client-secret" \
  *   GOOGLE_REFRESH_TOKEN="your-refresh-token" \
- *   node scripts/sync-google-sheets.js
+ *   node scripts/sync-google-sheets.cjs
  *
  * Usage (Service Account - Legacy):
  *   GOOGLE_CREDENTIALS_JSON='{"type":"service_account",...}' \
- *   node scripts/sync-google-sheets.js
+ *   node scripts/sync-google-sheets.cjs
  *
  * Requirements:
  *   - OAuth credentials OR service account with Sheets API access
