@@ -1,8 +1,41 @@
 // Test Supabase Authentication
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const supabaseUrl = 'https://vjtiakvseztvrqlbdwmf.supabase.co';
-const supabaseAnonKey = 'sb_publishable_AAVBipa8Tf3-dTywoIn4LA_bqg1njxT';
+// Load environment variables from .env file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+function loadEnv() {
+  try {
+    const envFile = readFileSync(join(__dirname, '.env'), 'utf-8');
+    const envVars = {};
+    envFile.split('\n').forEach(line => {
+      const match = line.match(/^([^#=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        const value = match[2].trim().replace(/^["']|["']$/g, '');
+        envVars[key] = value;
+      }
+    });
+    return envVars;
+  } catch (error) {
+    console.warn('⚠️  Could not load .env file, using process.env');
+    return {};
+  }
+}
+
+const env = loadEnv();
+const supabaseUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase credentials in .env file!');
+  console.error('   Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

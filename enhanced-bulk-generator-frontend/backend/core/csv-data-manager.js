@@ -341,6 +341,30 @@ class CSVDataManager {
   }
 
   /**
+   * Normalize a topic-research object to schema columns with safe string values.
+   * This is used for Stage 3 (Deep Topic Research) so that large JSON/markdown
+   * blobs don't introduce raw newlines that can confuse CSV parsers or the UI.
+   */
+  normalizeTopicResearchForCSV(item) {
+    const cols = this.getSchemaColumns('topicResearch');
+    if (!cols) return item;
+    const out = {};
+    for (const key of cols) {
+      const v = item[key];
+      if (v === undefined || v === null) {
+        out[key] = '';
+      } else if (typeof v === 'string') {
+        out[key] = this._sanitizeForCSV(v);
+      } else if (typeof v === 'object') {
+        out[key] = this._sanitizeForCSV(JSON.stringify(v));
+      } else {
+        out[key] = this._sanitizeForCSV(String(v));
+      }
+    }
+    return out;
+  }
+
+  /**
    * Save quick wins (separate from research gaps)
    */
   saveQuickWins(quickWins) {
@@ -521,8 +545,10 @@ class CSVDataManager {
       };
     });
 
-    this.appendCSV(this.files.topicResearch, dataWithTimestamp);
-    return dataWithTimestamp;
+    // Normalize for CSV to avoid multiline / malformed fields in Stage 3 output
+    const normalized = dataWithTimestamp.map(item => this.normalizeTopicResearchForCSV(item));
+    this.appendCSV(this.files.topicResearch, normalized);
+    return normalized;
   }
 
   /**
@@ -621,7 +647,7 @@ class CSVDataManager {
         console.warn(`⚠️  Warning: content_upgrades is empty for content_id: ${item.content_id || `CONTENT-${paddedId}`}`);
       }
 
-      return {
+      const record = {
         ...item,
         content_id: item.content_id || `CONTENT-${paddedId}`,
         topic_id: item.topic_id || '',
@@ -636,6 +662,26 @@ class CSVDataManager {
         approval_status: item.approval_status || 'Pending',
         created_at: timestamp
       };
+
+      // Normalize for CSV so Stage 4 rows don't contain raw newlines in critical fields
+      const cols = this.getSchemaColumns('createdContent');
+      if (!cols) {
+        return record;
+      }
+      const normalized = {};
+      for (const key of cols) {
+        const v = record[key];
+        if (v === undefined || v === null) {
+          normalized[key] = '';
+        } else if (typeof v === 'string') {
+          normalized[key] = this._sanitizeForCSV(v);
+        } else if (typeof v === 'object') {
+          normalized[key] = this._sanitizeForCSV(JSON.stringify(v));
+        } else {
+          normalized[key] = this._sanitizeForCSV(String(v));
+        }
+      }
+      return normalized;
     });
 
     this.appendCSV(this.files.createdContent, dataWithIds);
