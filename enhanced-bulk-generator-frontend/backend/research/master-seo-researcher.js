@@ -970,20 +970,32 @@ IMPORTANT: Extract ALL fields from the source text including content_gaps, quick
         .replace(/}(\s*){/g, '},{') // Add commas between objects
         .replace(/](\s*)\[/g, '],['); // Add commas between arrays
 
-      // Step 8: Fix common value formatting issues
+      // Step 8: Fix simple unquoted scalar values without corrupting rich strings.
+      // The previous implementation was too aggressive and could break values
+      // containing commas or ranges (e.g. "800-2,000 words"), causing them to
+      // be split across fields. Here we only auto-quote *simple* tokens that
+      // look like identifiers (no spaces or punctuation), and leave everything
+      // else untouched.
       fixed = fixed.replace(/:\s*([^",\[\]{}:\n]+?)(\s*[,}\]\n])/g, (match, value, suffix) => {
         const trimmedValue = value.trim();
-        // Don't quote numbers, booleans, null, undefined
-        if (/^(true|false|null|undefined|-?\d+\.?\d*([eE][+-]?\d+)?)$/.test(trimmedValue)) {
+        // Don't touch empty values
+        if (!trimmedValue) return `: ${trimmedValue}${suffix}`;
+        // Don't quote numbers, booleans, null, or undefined
+        if (/^(true|false|null|undefined|-?\d+\.?\d*(?:[eE][+-]?\d+)?)$/i.test(trimmedValue)) {
           return `: ${trimmedValue}${suffix}`;
         }
         // Don't double-quote already quoted strings
         if (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) {
           return `: ${trimmedValue}${suffix}`;
         }
-        // Quote everything else
-        const escaped = trimmedValue.replace(/"/g, '\\"');
-        return `: "${escaped}"${suffix}`;
+        // Only auto-quote simple identifier-like tokens (no spaces or commas).
+        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmedValue)) {
+          const escaped = trimmedValue.replace(/"/g, '\\"');
+          return `: "${escaped}"${suffix}`;
+        }
+        // For anything more complex (contains spaces, punctuation, ranges, etc.),
+        // leave it as-is so we don't mangle the content.
+        return `: ${value}${suffix}`;
       });
 
       // Step 9: Balance braces and brackets
