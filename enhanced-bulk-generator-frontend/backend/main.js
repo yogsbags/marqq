@@ -536,6 +536,7 @@ async function main() {
           stageOptions.limit = generator.config.topicLimit;
         } else if (stageName === 'deep-research') {
           stageOptions.limit = generator.config.deepResearchLimit;
+          stageOptions.customTitle = generator.config.customTitle;
         } else if (stageName === 'content') {
           stageOptions.limit = generator.config.contentLimit;
         } else if (stageName === 'publication') {
