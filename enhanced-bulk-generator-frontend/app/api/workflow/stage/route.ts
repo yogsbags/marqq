@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
         const customTopic = body.customTopic || ''
         const customTitle = body.customTitle || ''
         const contentOutline = body.contentOutline || ''
+        const autoApprove = body.autoApprove !== undefined ? body.autoApprove : true  // Default to true for UI flows
 
         if (!stageId || !STAGE_NAMES[stageId]) {
           throw new Error(`Invalid stage ID: ${stageId}`)
@@ -50,6 +51,9 @@ export async function POST(req: NextRequest) {
         sendEvent({ log: `🔧 Executing Stage ${stageId}: ${stageName}...` })
         sendEvent({ log: `📊 Topic Limit: ${topicLimit}` })
         sendEvent({ log: `📂 Category Focus: ${category}` })
+        if (autoApprove) {
+          sendEvent({ log: `🤖 Auto-Approval: ENABLED` })
+        }
         if (customTopic) {
           sendEvent({ log: `✨ Custom Topic: "${customTopic}"` })
         }
@@ -71,7 +75,11 @@ export async function POST(req: NextRequest) {
           CONTENT_OUTLINE: contentOutline
         }
 
-        const args = [mainJsPath, 'stage', stageName, '--auto-approve', '--topic-limit', topicLimit.toString(), '--category', category]
+        const args = [mainJsPath, 'stage', stageName]
+        if (autoApprove) {
+          args.push('--auto-approve')
+        }
+        args.push('--topic-limit', topicLimit.toString(), '--category', category)
         if (customTopic) {
           args.push('--custom-topic', customTopic)
         }

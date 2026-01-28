@@ -151,12 +151,19 @@ export default function Home() {
       try {
         if (stageId === 2) {
           await approveAllForStage(1, 'research gap(s) for topic generation')
+          // Add small delay to ensure CSV write completes before next stage reads
+          addLog(`⏳ Waiting for CSV synchronization...`)
+          await new Promise(resolve => setTimeout(resolve, 1000))
         } else if (stageId === 3 && !customTitle) {
           await approveAllForStage(2, 'topic(s) for deep research')
+          addLog(`⏳ Waiting for CSV synchronization...`)
+          await new Promise(resolve => setTimeout(resolve, 1000))
         } else if (stageId === 3 && customTitle) {
           addLog(`🚀 Custom title mode: Skipping topic approval (bypasses topic generation)`)
         } else if (stageId === 4) {
           await approveAllForStage(3, 'deep research item(s) for content creation')
+          addLog(`⏳ Waiting for CSV synchronization...`)
+          await new Promise(resolve => setTimeout(resolve, 1000))
         }
       } catch (approveError) {
         addLog(`⚠️  Warning: Could not auto-approve: ${approveError instanceof Error ? approveError.message : 'Unknown error'}`)
@@ -166,7 +173,15 @@ export default function Home() {
       const response = await fetch('/api/workflow/stage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stageId, topicLimit, category: selectedCategory, customTopic, customTitle, contentOutline }),
+        body: JSON.stringify({
+          stageId,
+          topicLimit,
+          category: selectedCategory,
+          customTopic,
+          customTitle,
+          contentOutline,
+          autoApprove: true  // Always enable auto-approval in staged mode
+        }),
       })
 
       if (!response.ok) {
@@ -228,7 +243,14 @@ export default function Home() {
       const response = await fetch('/api/workflow/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicLimit, category: selectedCategory, customTopic, customTitle, contentOutline }),
+        body: JSON.stringify({
+          topicLimit,
+          category: selectedCategory,
+          customTopic,
+          customTitle,
+          contentOutline,
+          autoApprove: true  // Always enable auto-approval in full workflow mode
+        }),
       })
 
       if (!response.ok) {

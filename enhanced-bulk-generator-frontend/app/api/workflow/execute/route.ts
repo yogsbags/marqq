@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
         const customTopic = body.customTopic || ''
         const customTitle = body.customTitle || ''
         const contentOutline = body.contentOutline || ''
+        const autoApprove = body.autoApprove !== undefined ? body.autoApprove : true  // Default to true for UI flows
 
         // Check if we're in Netlify environment
         if (process.env.NETLIFY === 'true' || process.env.AWS_LAMBDA_FUNCTION_NAME) {
@@ -105,6 +106,9 @@ export async function POST(req: NextRequest) {
           sendEvent({ log: `📍 Working Dir: ${workingDir}` })
           sendEvent({ log: `📊 Topic Limit: ${topicLimit}` })
           sendEvent({ log: `📂 Category Focus: ${category}` })
+          if (autoApprove) {
+            sendEvent({ log: `🤖 Auto-Approval: ENABLED` })
+          }
           if (customTopic) {
             sendEvent({ log: `✨ Custom Topic: "${customTopic}"` })
           }
@@ -117,7 +121,11 @@ export async function POST(req: NextRequest) {
           }
 
           // Execute main.js with 'full' command, topic limit, category, custom topic, and custom title
-          const args = [mainJsPath, 'full', '--auto-approve', '--topic-limit', topicLimit.toString(), '--category', category]
+          const args = [mainJsPath, 'full']
+          if (autoApprove) {
+            args.push('--auto-approve')
+          }
+          args.push('--topic-limit', topicLimit.toString(), '--category', category)
           if (customTopic) {
             args.push('--custom-topic', customTopic)
           }
