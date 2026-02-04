@@ -4112,6 +4112,47 @@ async function gtmCallGeminiJsonWithFallback({ apiKey, models, prompt, temperatu
   throw new Error(`${msg} (models tried: ${tried.join(', ') || 'none'})`);
 }
 
+function gtmFindQuestionArray(parsed) {
+  if (!parsed) return [];
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.questions)) return parsed.questions;
+  if (Array.isArray(parsed?.interview_questions)) return parsed.interview_questions;
+  if (Array.isArray(parsed?.interviewQuestions)) return parsed.interviewQuestions;
+
+  if (parsed && typeof parsed === 'object') {
+    for (const value of Object.values(parsed)) {
+      if (!Array.isArray(value) || value.length === 0) continue;
+      const first = value[0];
+      if (first && typeof first === 'object' && typeof first.question === 'string') {
+        return value;
+      }
+    }
+  }
+
+  return [];
+}
+
+function gtmFindSectionsArray(parsed) {
+  if (!parsed) return [];
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.sections)) return parsed.sections;
+  if (Array.isArray(parsed?.gtm_sections)) return parsed.gtm_sections;
+  if (Array.isArray(parsed?.gtmSections)) return parsed.gtmSections;
+
+  if (parsed && typeof parsed === 'object') {
+    for (const value of Object.values(parsed)) {
+      if (!Array.isArray(value) || value.length === 0) continue;
+      const first = value[0];
+      if (!first || typeof first !== 'object') continue;
+      if (typeof first.title === 'string' && (Array.isArray(first.bullets) || typeof first.summary === 'string')) {
+        return value;
+      }
+    }
+  }
+
+  return [];
+}
+
 function gtmClampArray(value, maxLen) {
   if (!Array.isArray(value)) return [];
   return value.slice(0, maxLen);
@@ -4230,13 +4271,23 @@ Return ONLY JSON with this schema:
 
     const parsed = extractJsonFromText(raw);
     const title = gtmSafeString(parsed?.title, prompt || 'GTM Interview');
-    const questionsRaw = Array.isArray(parsed?.questions) ? parsed.questions : [];
+    const questionsRaw = gtmFindQuestionArray(parsed);
     const normalizedQuestions = gtmClampArray(questionsRaw, 6)
       .map((q, idx) => gtmNormalizeQuestion(q, idx))
       .filter(Boolean);
 
     if (normalizedQuestions.length < 5) {
-      return res.status(500).json({ error: 'Failed to generate a valid interview plan' });
+      const preview = String(raw || '').slice(0, 900);
+      console.warn('[GTM] Invalid interview plan shape:', {
+        modelUsed,
+        promptLen: prompt.length,
+        rawLen: String(raw || '').length,
+        preview
+      });
+      return res.status(502).json({
+        error: 'Failed to generate a valid interview plan',
+        details: { modelUsed, preview }
+      });
     }
 
     return res.json({ title, questions: normalizedQuestions, model: modelUsed });
@@ -4348,17 +4399,27 @@ Return ONLY JSON with this schema:
     });
 
     const parsed = extractJsonFromText(raw);
-    const title = gtmSafeString(parsed?.title, 'GTM Strategy');
-    const executiveSummary = gtmSafeString(parsed?.executiveSummary);
+    const title = gtmSafeString(parsed?.title || parsed?.strategyTitle, 'GTM Strategy');
+    const executiveSummary = gtmSafeString(parsed?.executiveSummary || parsed?.executive_summary || parsed?.summary);
     const assumptions = gtmClampArray(parsed?.assumptions, 12).map((a) => gtmSafeString(a)).filter(Boolean);
     const nextSteps = gtmClampArray(parsed?.nextSteps, 12).map((n) => gtmSafeString(n)).filter(Boolean);
-    const sectionsRaw = Array.isArray(parsed?.sections) ? parsed.sections : [];
+    const sectionsRaw = gtmFindSectionsArray(parsed);
     const sections = gtmClampArray(sectionsRaw, 12)
       .map((s, idx) => gtmNormalizeStrategySection(s, idx))
       .filter(Boolean);
 
     if (!executiveSummary || sections.length < 5) {
-      return res.status(500).json({ error: 'Failed to generate a valid GTM strategy' });
+      const preview = String(raw || '').slice(0, 900);
+      console.warn('[GTM] Invalid GTM strategy shape:', {
+        modelUsed,
+        promptLen: prompt.length,
+        rawLen: String(raw || '').length,
+        preview
+      });
+      return res.status(502).json({
+        error: 'Failed to generate a valid GTM strategy',
+        details: { modelUsed, preview }
+      });
     }
 
     const allowedSet = new Set(allowedAgentTargets);

@@ -124,6 +124,11 @@ function startBackend() {
 }
 
 function startVoicebotAgent() {
+  if (String(process.env.ENABLE_VOICEBOT_AGENT || '').toLowerCase() !== 'true') {
+    console.log('[voicebot-agent] disabled (set ENABLE_VOICEBOT_AGENT=true to enable)')
+    return null
+  }
+
   const agentScript = path.join(__dirname, 'voicebot-agent.js')
   const child = spawn(process.execPath, [agentScript, 'start'], {
     env: { ...process.env },
@@ -170,7 +175,7 @@ function shutdown() {
     // ignore
   }
   try {
-    voicebotAgentProcess.kill('SIGTERM')
+    voicebotAgentProcess?.kill('SIGTERM')
   } catch {
     // ignore
   }
