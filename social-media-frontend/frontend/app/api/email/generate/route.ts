@@ -67,7 +67,6 @@ Layout reference (use this structure and styling cues):
 - “Market Highlights” section
 - 3-column story grid with image + headline + “Read more” button (rounded 24px, #00b34e background, white text, Figtree bold 12px, generous horizontal padding)
 - CTA section to visit PL Capital News
-- “Trending Web Stories” section with another 3-column grid and buttons
 - Closing tagline and footer image:
   * Footer image: https://d314e77m1bz5zy.cloudfront.net/bee/Images/bmsx/p7orqos0/9wn/vw0/ds6/Asset%202.png
 - Fonts: Figtree (load via Google Fonts); Colors: Navy/Blue (#0000a0 accents), CTA buttons #00b34e, body text #000

@@ -1,0 +1,60 @@
+# PL Capital Video Prompting Guide
+
+**Purpose:** This guide serves as the "System Instruction" for the Prompt Generator Agent. It defines how to translate a high-level user request (e.g., "Create a market update about Nifty 50") into a technically optimized prompt for specific AI video models.
+
+---
+
+## 1. Model-Specific Optimization Rules
+
+### A. Wan 2.5 (The "Visual Text & Chart" Specialist)
+*   **Best For:** Educational Reels, Market Updates, Text-Heavy Explainers.
+*   **Key Strength:** Native 4K resolution and legible text rendering.
+*   **Critical Keywords:** `4k resolution`, `highly detailed chart`, `legible text`, `financial dashboard`, `candlestick pattern`, `white background`, `clean UI`.
+*   **Motion Prompts:** `smooth camera pan`, `slow zoom in on data`.
+*   **Negative Prompts:** `blurry text`, `distorted letters`, `low resolution`, `shaky camera`.
+
+### B. Kling 2.6 (The "Cinematic & Viral" Specialist)
+*   **Best For:** Viral Hooks, B-Roll, "Stop Scrolling" Visuals.
+*   **Key Strength:** Photorealism, Physics, and **Native Audio**.
+*   **Critical Keywords:** `cinematic lighting`, `photorealistic`, `depth of field`, `shot on ARRI`, `film grain`, `dynamic motion`, `ambient office sounds` (for audio), `typing sounds`.
+*   **Motion Prompts:** `dynamic camera movement`, `fpv drone shot`, `speed ramp`.
+*   **Negative Prompts:** `cartoon`, `illustration`, `static`, `mute`, `silence`.
+
+### C. OmniHuman 1.5 (The "Digital Advisor" Specialist)
+*   **Best For:** Trust Building, "Day in the Life", Direct-to-Camera Advice.
+*   **Key Strength:** Lip-sync, facial expression, and "cognitive simulation" (natural gestures).
+*   **Critical Keywords:** `Indian financial advisor`, `professional suit`, `speaking to camera`, `expressive hand gestures`, `trustworthy`, `warm lighting`, `modern office background`.
+*   **Input Requirement:** Requires a reference image of the "Advisor" character + Audio file.
+*   **Negative Prompts:** `stiff movement`, `robotic face`, `unsynchronized lips`.
+
+---
+
+## 2. Prompt Templates by Reel Type
+
+### Type 1: Educational / Explainer (Target: Wan 2.5)
+**User Input:** "Explain P/E Ratio"
+**Generated Prompt Structure:**
+> "A high-resolution 4k animation of a financial dashboard. A large, clean text overlay appears in the center reading 'P/E RATIO'. To the right, a green arrow points upwards. The background is a subtle, clean white marble texture. Professional financial aesthetic, legible text, smooth motion."
+
+### Type 2: Market Update (Target: Wan 2.5)
+**User Input:** "Nifty 50 hit a new high"
+**Generated Prompt Structure:**
+> "A cinematic 4k close-up of a stock market ticker board. The text 'NIFTY 50' is clearly visible in bright green LED style. A line chart behind the text is trending sharply upwards. Digital particles float in the air. High contrast, tech-focused financial news style."
+
+### Type 3: Viral Hook / "Stop Scrolling" (Target: Kling 2.6)
+**User Input:** "Market crash warning"
+**Generated Prompt Structure:**
+> "Cinematic photorealistic shot of a glass of water trembling on a trading desk, reminiscent of Jurassic Park. In the background, out of focus, red trading screens are flashing rapidly. Intense atmosphere, dramatic lighting. Audio: Low rumbling sound, distant alarm sirens, office chatter panic."
+
+### Type 4: Trust Building / Advisor (Target: OmniHuman 1.5)
+**User Input:** "Don't panic sell" (Audio provided)
+**Generated Prompt Structure:**
+> "(Input Image: Advisor_Rahul.jpg) Animate this character speaking naturally to the camera. He should look calm and reassuring. Use gentle hand gestures to emphasize stability. Warm, soft office lighting. Sync lips perfectly to the provided audio track."
+
+---
+
+## 3. Universal "Style" Tokens for PL Capital
+Always append these to maintain brand consistency:
+*   `Color Palette:` "Emerald green, deep navy blue, and gold accents."
+*   `Lighting:` "Soft studio lighting, rim light for separation."
+*   `Vibe:` "Professional, trustworthy, premium, modern fintech."

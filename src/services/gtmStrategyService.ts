@@ -4,16 +4,23 @@ function hasErrorField(value: unknown): value is { error: unknown } {
   return !!value && typeof value === 'object' && 'error' in value;
 }
 
+function hasDetailsField(value: unknown): value is { details?: { modelUsed?: string; preview?: string } } {
+  return !!value && typeof value === 'object' && 'details' in value;
+}
+
 async function readJsonOrThrow<T>(res: Response): Promise<T> {
   const contentType = res.headers.get('content-type') || '';
   const isJson = contentType.includes('application/json');
   const body = isJson ? await res.json().catch(() => null) : await res.text().catch(() => '');
 
   if (!res.ok) {
-    const message =
+    let message =
       typeof body === 'string'
         ? body
         : (hasErrorField(body) ? String(body.error) : `HTTP ${res.status}`);
+    if (res.status === 502 && hasDetailsField(body) && body.details?.modelUsed) {
+      message += ` (model: ${body.details.modelUsed})`;
+    }
     throw new Error(message);
   }
 

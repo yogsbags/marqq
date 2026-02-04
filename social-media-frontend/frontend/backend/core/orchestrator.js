@@ -33,15 +33,38 @@ class SocialMediaOrchestrator {
       return bTs - aTs;
     };
 
-    const normalizedTopic = (topic || '').trim();
+    const normalizedTopic = (topic || '').trim().replace(/\s+/g, ' ');
     if (normalizedTopic) {
       const match = planningEntries
-        .filter((e) => (e?.topic || '').trim() === normalizedTopic)
+        .filter((e) => (e?.topic || '').trim().replace(/\s+/g, ' ') === normalizedTopic)
         .sort(byCompletedAtDesc)[0];
       if (match) return match;
     }
 
     return planningEntries.sort(byCompletedAtDesc)[0];
+  }
+
+  /**
+   * Extract the "Direct image prompt" paragraph from Stage 1 creative prompt text.
+   * Used so WhatsApp creative image generation adheres to the detailed prompt from planning.
+   * @param {string} creativePromptText - Full Stage 1 creative prompt (may include markdown)
+   * @returns {string|null} The direct image prompt paragraph, or null if not found
+   */
+  _extractDirectImagePrompt(creativePromptText) {
+    if (!creativePromptText || typeof creativePromptText !== 'string') return null;
+    const text = creativePromptText.trim();
+    if (!text) return null;
+
+    const marker = /Direct image prompt\s*(?:\([^)]*\))?\s*:?\s*/i;
+    const match = text.match(marker);
+    if (!match) return null;
+
+    const startIdx = text.indexOf(match[0]) + match[0].length;
+    let afterMarker = text.slice(startIdx).trim();
+    afterMarker = afterMarker.replace(/^\s*\*+\s*/, '');
+    const endOfParagraph = afterMarker.search(/\n\s*\n/);
+    const paragraph = (endOfParagraph === -1 ? afterMarker : afterMarker.slice(0, endOfParagraph)).trim();
+    return paragraph.length > 30 ? paragraph : null;
   }
 
   async _generateHeyGenScript(options) {
@@ -69,14 +92,14 @@ Return ONLY the spoken script as plain text. No bullet points. No headings. No s
 
     const languageName = this._getLanguageName(language);
     const isInstagramReel = platform === 'instagram' || /reel/i.test(format || '');
+    const isYouTubeShort = platform === 'youtube' || /short/i.test(format || '') || /youtube-short/i.test(options.type || '');
     const needsDisclaimer = /(english|hinglish)/i.test(language);
-    const styleGuidance = isInstagramReel
-      ? `Style (Instagram Reels, Indian audience):
-- Hook in the first sentence (pattern interrupt).
+    const viralReelStyle = `Style (viral reel/short, Indian audience):
+- Hook in the first sentence (pattern interrupt — stop the scroll).
 - Short punchy sentences, spoken like a credible Indian finfluencer (not cheesy).
 - Use everyday India cues where relevant (₹, SIP, tax, salary day) without giving personalized advice.
-- Close with a strong CTA: "Save this", "Share", "Follow", or "Comment 'PLAN'".`
-      : '';
+- Close with a strong CTA: "Save this", "Share", "Follow", or "Comment 'PLAN'".`;
+    const styleGuidance = (isInstagramReel || isYouTubeShort) ? viralReelStyle : '';
     const userPrompt = `Write a single spoken script for an AI avatar video.
 
 Constraints:
@@ -143,6 +166,359 @@ Output rules:
     }
 
     return script;
+  }
+
+  /**
+   * Generate carousel content (slide count, cover, slides) for LinkedIn/Instagram using Groq.
+   * Returns { slideCount, coverText, slides: [{ title, body, highlight, visualCue }], finalSlideCta, disclaimerLine }.
+   * @private
+   */
+  async _generateCarouselContent(options) {
+    const topic = (options.topic || 'Quick Investing Checklist').trim();
+    const platform = options.platform || 'linkedin';
+    const language = options.language || 'english';
+    const planning = this._getLatestCampaignPlanningEntry(topic);
+    const planningText = (planning?.creativePrompt || planning?.output || '').trim().slice(0, 2000);
+
+    const defaults = {
+      slideCount: 7,
+      coverText: topic || 'Quick Investing Checklist',
+      slides: [
+        { title: 'Myth 1', body: 'Swipe for the truth.', highlight: 'Busted', visualCue: 'Bold myth vs fact icon' },
+        { title: 'Myth 2', body: 'One clear takeaway.', highlight: 'Key idea', visualCue: 'Simple icon + mini chart' },
+        { title: 'Myth 3', body: 'One actionable step.', highlight: 'Tip', visualCue: 'Checklist icon' },
+        { title: 'Myth 4', body: 'One clear takeaway.', highlight: 'Key idea', visualCue: 'Simple icon' },
+        { title: 'Myth 5', body: 'One actionable step.', highlight: 'Tip', visualCue: 'Mini chart' },
+        { title: 'Quick recap', body: 'Save this checklist • Follow PL Capital', highlight: 'Save', visualCue: 'Checklist icons + CTA' }
+      ],
+      finalSlideCta: 'Save this checklist • Follow PL Capital',
+      disclaimerLine: 'Market risks apply.'
+    };
+
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return defaults;
+    }
+
+    const systemPrompt = `You are an expert at creating carousel post content for financial services (PL Capital). Your output MUST be valid JSON only, no markdown or explanation.
+
+Output a single JSON object with exactly these keys:
+- "slideCount": number between 5 and 12 (total slides including cover and final)
+- "coverText": string, punchy headline for the cover slide (max 6 words)
+- "slides": array of objects. Each object has: "title" (short headline, max 6 words), "body" (1-2 lines, very short), "highlight" (one word or short badge, e.g. "Tip", "Busted"), "visualCue" (short description for the image, e.g. "Simple icon + mini chart"). Length of slides array should equal slideCount (cover = index 0, final = last index). Cover slide: title = coverText, body = "Swipe →" or "Swipe →\\nSave later" for Instagram. Final slide: CTA and disclaimer.
+- "finalSlideCta": string, call-to-action for last slide (e.g. "Save this checklist • Follow PL Capital")
+- "disclaimerLine": string, exact compliance line (e.g. "Market risks apply.")
+
+Rules: No guaranteed returns, no "sure-shot" claims. Professional, compliant, scroll-stopping. Platform: ${platform}.
+
+IMPORTANT – Continuation and theme: The carousel must read as one coherent story. Each slide must logically continue from the previous (same theme, narrative flow, and key points in order). Keep the same brand voice and visual language across all slides so the generated images can share one consistent look (colors, typography, style).`;
+
+    const userPrompt = `Create carousel content for topic: ${topic}
+Language: ${language}
+Platform: ${platform}
+Slides must form a logical sequence: cover → key points in order → final CTA. Same theme and brand tone throughout so visuals stay consistent.
+${planningText ? `Optional creative direction from planning:\n${planningText}\n` : ''}
+Output ONLY the JSON object, no other text.`;
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_CAROUSEL_MODEL || 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.6,
+          max_tokens: 2000
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.log(`   ⚠️ Groq carousel API error: ${response.status} ${text}`);
+        return defaults;
+      }
+
+      const data = await response.json();
+      let raw = (data.choices?.[0]?.message?.content || '').trim();
+      raw = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+      const parsed = JSON.parse(raw);
+
+      const slideCount = Math.min(12, Math.max(5, Number(parsed.slideCount) || 7));
+      const coverText = typeof parsed.coverText === 'string' ? parsed.coverText.trim() : defaults.coverText;
+      const slides = Array.isArray(parsed.slides) ? parsed.slides.slice(0, slideCount) : defaults.slides;
+      const finalSlideCta = typeof parsed.finalSlideCta === 'string' ? parsed.finalSlideCta.trim() : defaults.finalSlideCta;
+      const disclaimerLine = typeof parsed.disclaimerLine === 'string' ? parsed.disclaimerLine.trim() : defaults.disclaimerLine;
+
+      const normalizedSlides = slides.map((s, i) => ({
+        title: typeof s?.title === 'string' ? s.title.trim() : (i === 0 ? coverText : `Point ${i + 1}`),
+        body: typeof s?.body === 'string' ? s.body.trim() : 'One clear takeaway.',
+        highlight: typeof s?.highlight === 'string' ? s.highlight.trim() : 'Key idea',
+        visualCue: typeof s?.visualCue === 'string' ? s.visualCue.trim() : 'Simple icon + mini chart'
+      }));
+      while (normalizedSlides.length < slideCount) {
+        normalizedSlides.push({
+          title: `Point ${normalizedSlides.length + 1}`,
+          body: 'One clear takeaway.',
+          highlight: 'Key idea',
+          visualCue: 'Simple icon + mini chart'
+        });
+      }
+
+      return {
+        slideCount,
+        coverText,
+        slides: normalizedSlides.slice(0, slideCount),
+        finalSlideCta,
+        disclaimerLine
+      };
+    } catch (err) {
+      console.log(`   ⚠️ Carousel content generation failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      return defaults;
+    }
+  }
+
+  /**
+   * Generate infographic blueprint (title, subtitle, keyStats, sections, footerCta, disclaimerLine).
+   * Uses Gemini gemini-3-flash-preview when GEMINI_API_KEY is set; otherwise falls back to Groq.
+   * @private
+   */
+  async _generateInfographicContent(options) {
+    const topic = (options.topic || 'Quick Finance Infographic').trim();
+    const platform = options.platform || 'linkedin';
+    const language = options.language || 'english';
+    const planning = this._getLatestCampaignPlanningEntry(topic);
+    const planningText = (planning?.creativePrompt || planning?.output || '').trim().slice(0, 2000);
+
+    const defaults = {
+      title: topic || 'Quick Finance Infographic',
+      subtitle: 'Key points in 30 seconds',
+      keyStats: [
+        { label: 'Returns', value: 'See facts' },
+        { label: 'Risk', value: 'Market risks apply' }
+      ],
+      sections: [
+        { heading: 'Why it matters', bullets: ['Data-driven', 'Transparent', 'No guarantees'] }
+      ],
+      footerCta: 'Save this • Follow PL Capital',
+      disclaimerLine: 'Market risks apply.'
+    };
+
+    const systemPrompt = `You are an expert at creating finance infographic content for PL Capital. Your output MUST be valid JSON only, no markdown or explanation.
+
+Output a single JSON object with exactly these keys:
+- "title": string, punchy headline (max 10 words)
+- "subtitle": string, supporting line (max 90 chars)
+- "keyStats": array of objects, each with "label" (max 4 words) and "value" (max 18 chars). Up to 5 stats.
+- "sections": array of objects, each with "heading" (max 4 words) and "bullets" (array of strings, max 4 bullets, 8 words each). Up to 5 sections.
+- "footerCta": string, call-to-action (e.g. "Save this • Follow PL Capital")
+- "disclaimerLine": string, exact compliance line (e.g. "Market risks apply.")
+
+Rules: No guaranteed returns, no "sure-shot", no exaggerated claims. Professional, compliant. Platform: ${platform}.`;
+
+    const userPrompt = `Create infographic content for topic: ${topic}
+Language: ${language}
+Platform: ${platform}
+${planningText ? `Optional creative direction from planning:\n${planningText}\n` : ''}
+Output ONLY the JSON object, no other text.`;
+
+    const parseAndNormalize = (raw) => {
+      raw = (raw || '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+      const parsed = JSON.parse(raw);
+      return {
+        title: typeof parsed.title === 'string' ? parsed.title.trim() : defaults.title,
+        subtitle: typeof parsed.subtitle === 'string' ? parsed.subtitle.trim() : defaults.subtitle,
+        keyStats: Array.isArray(parsed.keyStats) ? parsed.keyStats.slice(0, 5).map((s) => ({
+          label: typeof s?.label === 'string' ? s.label.trim() : 'Key',
+          value: typeof s?.value === 'string' ? s.value.trim() : '…'
+        })) : defaults.keyStats,
+        sections: Array.isArray(parsed.sections) ? parsed.sections.slice(0, 5).map((sec) => ({
+          heading: typeof sec?.heading === 'string' ? sec.heading.trim() : 'Section',
+          bullets: (Array.isArray(sec?.bullets) ? sec.bullets : []).slice(0, 4).map((b) => (typeof b === 'string' ? b.trim() : '')).filter(Boolean)
+        })) : defaults.sections,
+        footerCta: typeof parsed.footerCta === 'string' ? parsed.footerCta.trim() : defaults.footerCta,
+        disclaimerLine: typeof parsed.disclaimerLine === 'string' ? parsed.disclaimerLine.trim() : defaults.disclaimerLine
+      };
+    };
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: geminiKey });
+        const model = 'gemini-3-flash-preview';
+        const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+        const response = await ai.models.generateContent({
+          model,
+          contents: fullPrompt,
+          config: { temperature: 0.6, maxOutputTokens: 1500 }
+        });
+        let raw = (response?.text ?? '').trim();
+        if (!raw && response?.candidates?.[0]?.content?.parts) {
+          const textPart = response.candidates[0].content.parts.find((p) => p.text != null);
+          raw = (textPart?.text ?? '').trim();
+        }
+        if (!raw) {
+          console.log('   ⚠️ Gemini infographic: empty response');
+          return defaults;
+        }
+        return parseAndNormalize(raw);
+      } catch (err) {
+        console.log(`   ⚠️ Gemini infographic failed: ${err instanceof Error ? err.message : 'unknown'}`);
+        // fall through to Groq
+      }
+    }
+
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return defaults;
+    }
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_INFOGRAPHIC_MODEL || 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.6,
+          max_tokens: 1500
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.log(`   ⚠️ Groq infographic API error: ${response.status} ${text}`);
+        return defaults;
+      }
+
+      const data = await response.json();
+      const raw = (data.choices?.[0]?.message?.content || '').trim();
+      return parseAndNormalize(raw);
+    } catch (err) {
+      console.log(`   ⚠️ Infographic content generation failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      return defaults;
+    }
+  }
+
+  /**
+   * Generate Twitter/X thread content (array of tweets, each ≤280 chars).
+   * Uses Gemini gemini-3-flash-preview when GEMINI_API_KEY is set; otherwise falls back to Groq.
+   * @private
+   */
+  async _generateThreadContent(options) {
+    const topic = (options.topic || 'Quick Finance Thread').trim();
+    const language = options.language || 'english';
+    const planning = this._getLatestCampaignPlanningEntry(topic);
+    const planningText = (planning?.creativePrompt || planning?.output || '').trim().slice(0, 2000);
+
+    const defaults = {
+      tweets: [
+        `🧵 Thread: ${topic || 'Quick finance insights'}`,
+        'Key point 1 — clear, punchy. No fluff.',
+        'Key point 2 — one idea per tweet. Max 280 chars.',
+        'Key point 3 — actionable or memorable.',
+        'Recap + CTA: Save this thread • Follow for more. Market risks apply.'
+      ]
+    };
+
+    const systemPrompt = `You are an expert at creating Twitter/X thread content for PL Capital (finance). Your output MUST be valid JSON only, no markdown or explanation.
+
+Output a single JSON object with exactly one key:
+- "tweets": array of strings. Each string is ONE tweet (max 280 characters). Typically 5–12 tweets for a thread.
+  - First tweet: hook (number the thread e.g. "1/7" or "🧵", punchy opener).
+  - Middle tweets: one clear idea per tweet, educational or insight, compliant (no guaranteed returns).
+  - Last tweet: recap or CTA (e.g. "Save this thread • Follow @PLCapital. Market risks apply.").
+
+Rules: No guaranteed returns, no "sure-shot", no exaggerated claims. Professional, scroll-stopping, thread-native. Language: ${language}.`;
+
+    const userPrompt = `Create a Twitter/X thread for topic: ${topic}
+Language: ${language}
+${planningText ? `Optional creative direction from planning:\n${planningText}\n` : ''}
+Output ONLY the JSON object, no other text.`;
+
+    const parseAndNormalize = (raw) => {
+      raw = (raw || '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+      const parsed = JSON.parse(raw);
+      const tweets = Array.isArray(parsed.tweets) ? parsed.tweets : defaults.tweets;
+      return {
+        tweets: tweets.slice(0, 15).map((t) => {
+          const s = typeof t === 'string' ? t.trim() : String(t).trim();
+          return s.length > 280 ? s.slice(0, 277) + '...' : s;
+        }).filter(Boolean)
+      };
+    };
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: geminiKey });
+        const model = 'gemini-3-flash-preview';
+        const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+        const response = await ai.models.generateContent({
+          model,
+          contents: fullPrompt,
+          config: { temperature: 0.6, maxOutputTokens: 2000 }
+        });
+        let raw = (response?.text ?? '').trim();
+        if (!raw && response?.candidates?.[0]?.content?.parts) {
+          const textPart = response.candidates[0].content.parts.find((p) => p.text != null);
+          raw = (textPart?.text ?? '').trim();
+        }
+        if (!raw) {
+          console.log('   ⚠️ Gemini thread: empty response');
+          return defaults;
+        }
+        return parseAndNormalize(raw);
+      } catch (err) {
+        console.log(`   ⚠️ Gemini thread failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      }
+    }
+
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) return defaults;
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_THREAD_MODEL || 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.6,
+          max_tokens: 2000
+        })
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.log(`   ⚠️ Groq thread API error: ${response.status} ${text}`);
+        return defaults;
+      }
+      const data = await response.json();
+      const raw = (data.choices?.[0]?.message?.content || '').trim();
+      return parseAndNormalize(raw);
+    } catch (err) {
+      console.log(`   ⚠️ Thread content generation failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      return defaults;
+    }
   }
 
   /**
@@ -241,7 +617,7 @@ Output rules:
       'instagram-carousel': this.runInstagramCarousel.bind(this),
       'youtube-explainer': this.runYouTubeExplainer.bind(this),
       'youtube-short': this.runYouTubeShort.bind(this),
-      'facebook-community': this.runFacebookCommunity.bind(this),
+      'facebook-reel': this.runFacebookReel.bind(this),
       'twitter-thread': this.runTwitterThread.bind(this),
       'email-newsletter': this.runEmailNewsletter.bind(this)
     };
@@ -466,23 +842,38 @@ Output rules:
 
     if (isWhatsAppImage) {
       console.log('   📷 Generating WhatsApp static creative with Gemini 3 Pro Image Preview...');
-      // If Stage 2 content pack created a WhatsApp headline/body/cta, allow it to drive the image prompt
-      const waHeadline = options.whatsappHeadline || options.headline;
-      const waBody = options.whatsappBody || options.body;
-      const waCta = options.whatsappCta || options.ctaText || options.cta;
-
-      const prompt = options.prompt || this._buildVisualPrompt({
-        platform: 'whatsapp',
-        format: 'image',
-        topic: options.topic,
-        type: options.type,
-        brandSettings: options.brandSettings,
-        whatsapp: {
-          headline: waHeadline,
-          body: waBody,
-          cta: waCta
+      let prompt = options.prompt || null;
+      if (!prompt) {
+        await this.stateManager.initialize();
+        const planning = this._getLatestCampaignPlanningEntry(options.topic);
+        const creativePrompt = (planning?.creativePrompt || planning?.output || '').trim();
+        const directPrompt = creativePrompt ? this._extractDirectImagePrompt(creativePrompt) : null;
+        if (directPrompt) {
+          prompt = directPrompt;
+          console.log('   📋 Using Direct image prompt from Stage 1 planning');
+        } else if (creativePrompt) {
+          console.log('   ⚠️ Stage 1 creative prompt found but no "Direct image prompt" paragraph; using fallback.');
+        } else {
+          console.log('   ⚠️ No Stage 1 planning found for topic; using fallback prompt.');
         }
-      });
+      }
+      if (!prompt) {
+        const waHeadline = options.whatsappHeadline || options.headline;
+        const waBody = options.whatsappBody || options.body;
+        const waCta = options.whatsappCta || options.ctaText || options.cta;
+        prompt = this._buildVisualPrompt({
+          platform: 'whatsapp',
+          format: 'image',
+          topic: options.topic,
+          type: options.type,
+          brandSettings: options.brandSettings,
+          whatsapp: {
+            headline: waHeadline,
+            body: waBody,
+            cta: waCta
+          }
+        });
+      }
 
       // If a reference image path is provided (via env), use edit mode
       const referenceImagePath = process.env.REFERENCE_IMAGE_PATH;
@@ -572,6 +963,137 @@ Output rules:
 
       console.log('   ⚠️ WhatsApp creative generation failed or returned no result');
       return;
+    }
+
+    // Carousel (LinkedIn/Instagram): generate slide structure and save to state for Stage 3
+    const isCarousel = options.format === 'carousel' && (options.platform === 'linkedin' || options.platform === 'instagram');
+    if (isCarousel) {
+      const carouselPlatform = options.platform;
+      const platformLabel = carouselPlatform === 'instagram' ? 'Instagram' : 'LinkedIn';
+      console.log(`   🧩 Generating ${platformLabel} carousel content (slides + copy)...`);
+
+      const carousel = await this._generateCarouselContent({
+        topic: options.topic,
+        platform: carouselPlatform,
+        language: options.language
+      });
+
+      const contentPack = {
+        platforms: {
+          [carouselPlatform]: {
+            carousel: {
+              slideCount: carousel.slideCount,
+              coverText: carousel.coverText,
+              slides: carousel.slides,
+              finalSlideCta: carousel.finalSlideCta,
+              disclaimerLine: carousel.disclaimerLine
+            }
+          }
+        }
+      };
+
+      const contentId = `CONT-carousel-${Date.now()}`;
+      await this.stateManager.addContent({
+        id: contentId,
+        topic: (options.topic || '').trim() || 'Carousel',
+        contentPack,
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      });
+
+      console.log(`   ✅ Carousel content saved (${carousel.slideCount} slides) — ready for Stage 3 visuals`);
+      return {
+        success: true,
+        contentId,
+        slideCount: carousel.slideCount,
+        coverText: carousel.coverText,
+        message: `${platformLabel} carousel content generated`
+      };
+    }
+
+    // Infographic: generate blueprint (title, subtitle, keyStats, sections) and save for Stage 3
+    const isInfographicContent = options.format === 'infographic' || options.type === 'infographic';
+    if (isInfographicContent) {
+      const infographicPlatform = options.platform || 'linkedin';
+      const platformLabelMap = { linkedin: 'LinkedIn', instagram: 'Instagram', facebook: 'Facebook', twitter: 'Twitter/X' };
+      const platformLabel = platformLabelMap[infographicPlatform] || infographicPlatform;
+      console.log(`   📊 Generating ${platformLabel} infographic content (blueprint)...`);
+
+      const blueprint = await this._generateInfographicContent({
+        topic: options.topic,
+        platform: infographicPlatform,
+        language: options.language
+      });
+
+      const contentPack = {
+        platforms: {
+          [infographicPlatform]: {
+            infographic: {
+              title: blueprint.title,
+              subtitle: blueprint.subtitle,
+              keyStats: blueprint.keyStats,
+              sections: blueprint.sections,
+              footerCta: blueprint.footerCta,
+              disclaimerLine: blueprint.disclaimerLine
+            }
+          }
+        }
+      };
+
+      const contentId = `CONT-infographic-${Date.now()}`;
+      await this.stateManager.addContent({
+        id: contentId,
+        topic: (options.topic || '').trim() || 'Infographic',
+        contentPack,
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      });
+
+      console.log(`   ✅ Infographic content saved — ready for Stage 3 visuals`);
+      return {
+        success: true,
+        contentId,
+        message: `${platformLabel} infographic content generated`
+      };
+    }
+
+    // Twitter/X thread: generate tweet list and save (text-only, no Stage 3 visuals)
+    const isThreadContent = options.format === 'thread' && options.platform === 'twitter';
+    if (isThreadContent) {
+      console.log('   🧵 Generating Twitter/X thread content (tweets)...');
+
+      const thread = await this._generateThreadContent({
+        topic: options.topic,
+        language: options.language
+      });
+
+      const contentPack = {
+        platforms: {
+          twitter: {
+            thread: {
+              tweets: thread.tweets
+            }
+          }
+        }
+      };
+
+      const contentId = `CONT-thread-${Date.now()}`;
+      await this.stateManager.addContent({
+        id: contentId,
+        topic: (options.topic || '').trim() || 'Twitter Thread',
+        contentPack,
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      });
+
+      console.log(`   ✅ Thread content saved (${thread.tweets.length} tweets) — ready to copy or publish`);
+      return {
+        success: true,
+        contentId,
+        tweetCount: thread.tweets.length,
+        tweets: thread.tweets,
+        message: 'Twitter/X thread content generated'
+      };
     }
 
     // TODO: Implement other AI content generation
@@ -672,10 +1194,12 @@ Output rules:
 	        };
 
 	        const topic = (options.topic || '').trim();
+	        // Prefer content entries that have carousel data for this platform (from Stage 2)
+	        const withCarousel = contentEntries.filter((e) => e?.contentPack?.platforms?.[carouselPlatform]?.carousel);
 	        const latestContent =
-	          (topic
-	            ? contentEntries.filter((e) => (e?.topic || '').trim() === topic).sort(byCompletedAtDesc)[0]
-	            : null) || contentEntries.sort(byCompletedAtDesc)[0] || null;
+	          (withCarousel.length > 0
+	            ? (topic ? withCarousel.filter((e) => (e?.topic || '').trim() === topic).sort(byCompletedAtDesc)[0] : null) || withCarousel.sort(byCompletedAtDesc)[0]
+	            : null) || (topic ? contentEntries.filter((e) => (e?.topic || '').trim() === topic).sort(byCompletedAtDesc)[0] : null) || contentEntries.sort(byCompletedAtDesc)[0] || null;
 
 	        const carousel = latestContent?.contentPack?.platforms?.[carouselPlatform]?.carousel || null;
 	        const slideCount = Math.min(12, Math.max(5, Number(carousel?.slideCount || 7)));
@@ -736,6 +1260,8 @@ Output rules:
 	          };
 	        });
 
+	        const brandStyle = 'PL Capital brand: Navy (#0e0e6a), Blue (#3c3cf8), Teal (#00d084), Green (#66e766), Figtree typography. Professional, clean, no exaggerated claims.';
+	        const carouselPlatformLabel = carouselPlatform === 'instagram' ? 'Instagram' : 'LinkedIn';
 	        const generatedImages = [];
 
 	        for (let i = 0; i < resolvedSlides.length; i++) {
@@ -749,7 +1275,8 @@ Output rules:
 	          const safeHighlight = clampLines(slide.highlight, 1, 18);
 	          const safeVisualCue = clampLines(slide.visualCue, 2, 60);
 
-	          const slidePrompt = carouselPlatform === 'instagram'
+	          if (i === 0) {
+	            const slidePrompt = carouselPlatform === 'instagram'
 	            ? `Design ONE visually stunning Instagram carousel slide (1:1 square) for PL Capital (India, finance).
 Slide ${slideNumber}/${total}.
 Goal: swipe-stopping + saveable, premium, clean, and compliant.
@@ -797,19 +1324,69 @@ Highlight: ${safeHighlight}
 Visual cue: ${safeVisualCue}
 Constraints: no guaranteed returns, no “sure-shot” claims. No exaggerated claims.`;
 
-          console.log(`   ⏳ Generating carousel slide ${slideNumber}/${total}...`);
-          const slideResult = await generator.generateSocialGraphic(slidePrompt, carouselPlatform, {
-            imageSize: '4K',
-            useGrounding: false,
-            aspectRatio: '1:1',
-            language: options.language,
-            numberOfImages: 1
-          });
-
-	          const first = slideResult?.images?.[0];
-	          if (first) {
-	            generatedImages.push(first);
-	            console.log(`   ✅ Slide ${slideNumber} generated: ${first.path || first.url || 'success'}`);
+	            console.log(`   ⏳ Generating carousel slide ${slideNumber}/${total} (first slide)...`);
+	            const slideResult = await generator.generateSocialGraphic(slidePrompt, carouselPlatform, {
+	              imageSize: '4K',
+	              useGrounding: false,
+	              aspectRatio: '1:1',
+	              language: options.language,
+	              numberOfImages: 1
+	            });
+	            const first = slideResult?.images?.[0];
+	            if (first) {
+	              generatedImages.push(first);
+	              console.log(`   ✅ Slide ${slideNumber} generated: ${first.path || first.url || 'success'}`);
+	            }
+	          } else {
+	            const prevImage = generatedImages[i - 1];
+	            const prevPath = prevImage?.path || prevImage?.url;
+	            if (!prevPath) {
+	              console.log(`   ⚠️ No previous slide image; generating slide ${slideNumber} standalone.`);
+	              const fallbackPrompt = carouselPlatform === 'instagram'
+	                ? `Design ONE Instagram carousel slide (1:1) for PL Capital. Slide ${slideNumber}/${total}. Headline: ${safeTitle}. Body: ${safeBody}. Highlight: ${safeHighlight}. Visual: ${safeVisualCue}. ${brandStyle}`
+	                : `Design ONE LinkedIn carousel slide (1:1) for PL Capital. Slide ${slideNumber}/${total}. Headline: ${safeTitle}. Body: ${safeBody}. Highlight: ${safeHighlight}. Visual: ${safeVisualCue}. ${brandStyle}`;
+	              const fallbackResult = await generator.generateSocialGraphic(fallbackPrompt, carouselPlatform, {
+	                imageSize: '4K',
+	                useGrounding: false,
+	                aspectRatio: '1:1',
+	                language: options.language,
+	                numberOfImages: 1
+	              });
+	              const first = fallbackResult?.images?.[0];
+	              if (first) generatedImages.push(first);
+	              continue;
+	            }
+	            const continuationPrompt = `Create the NEXT ${carouselPlatformLabel} carousel slide (1:1). Match the exact visual style, color palette, typography, and brand look of the reference image (same PL Capital branding). This is slide ${slideNumber} of ${total}. New content for THIS slide only: Headline: "${safeTitle}". Body: "${safeBody}". Highlight: "${safeHighlight}". Visual: ${safeVisualCue}. Do not copy the reference image; create a new slide that continues the carousel with the same theme and brand guidelines.`;
+	            console.log(`   ⏳ Generating carousel slide ${slideNumber}/${total} (continuation from previous)...`);
+	            let editResult;
+	            try {
+	              editResult = await generator.editImage(continuationPrompt, prevPath, {
+	                aspectRatio: '1:1',
+	                imageSize: '4K',
+	                useGrounding: false,
+	                language: options.language
+	              });
+	            } catch (err) {
+	              console.log(`   ⚠️ Continuation edit failed for slide ${slideNumber}, generating standalone: ${err.message}`);
+	              const fallbackPrompt = carouselPlatform === 'instagram'
+	                ? `Design ONE Instagram carousel slide (1:1) for PL Capital. Slide ${slideNumber}/${total}. Headline: ${safeTitle}. Body: ${safeBody}. Highlight: ${safeHighlight}. Visual: ${safeVisualCue}. ${brandStyle}`
+	                : `Design ONE LinkedIn carousel slide (1:1) for PL Capital. Slide ${slideNumber}/${total}. Headline: ${safeTitle}. Body: ${safeBody}. Highlight: ${safeHighlight}. Visual: ${safeVisualCue}. ${brandStyle}`;
+	              const fallbackResult = await generator.generateSocialGraphic(fallbackPrompt, carouselPlatform, {
+	                imageSize: '4K',
+	                useGrounding: false,
+	                aspectRatio: '1:1',
+	                language: options.language,
+	                numberOfImages: 1
+	              });
+	              const first = fallbackResult?.images?.[0];
+	              if (first) generatedImages.push(first);
+	              continue;
+	            }
+	            const first = editResult?.images?.[0];
+	            if (first) {
+	              generatedImages.push(first);
+	              console.log(`   ✅ Slide ${slideNumber} generated (continuation): ${first.path || first.url || 'success'}`);
+	            }
 	          }
 	        }
 
@@ -856,10 +1433,12 @@ Constraints: no guaranteed returns, no “sure-shot” claims. No exaggerated cl
 	        };
 
 	        const topic = (options.topic || '').trim();
+	        // Prefer content entries that have infographic blueprint for this platform (from Stage 2)
+	        const withInfographic = contentEntries.filter((e) => e?.contentPack?.platforms?.[infographicPlatform]?.infographic);
 	        const latestContent =
-	          (topic
-	            ? contentEntries.filter((e) => (e?.topic || '').trim() === topic).sort(byCompletedAtDesc)[0]
-	            : null) || contentEntries.sort(byCompletedAtDesc)[0] || null;
+	          (withInfographic.length > 0
+	            ? (topic ? withInfographic.filter((e) => (e?.topic || '').trim() === topic).sort(byCompletedAtDesc)[0] : null) || withInfographic.sort(byCompletedAtDesc)[0]
+	            : null) || (topic ? contentEntries.filter((e) => (e?.topic || '').trim() === topic).sort(byCompletedAtDesc)[0] : null) || contentEntries.sort(byCompletedAtDesc)[0] || null;
 
 	        const blueprint = latestContent?.contentPack?.platforms?.[infographicPlatform]?.infographic || null;
 	        const title = (blueprint?.title || options.topic || 'Quick Finance Infographic').trim();
@@ -1198,14 +1777,21 @@ ${brandGuidance}`;
       if (isAvatarMode && !isHeyGenAvatar) {
         console.log('   🎭 Avatar mode detected (VEO-based)');
 
-        const avatarDescription = options.avatarDescription || 'Indian male professional in formal business attire, confident posture, warm expression';
-        const voiceDescription = options.voiceDescription || 'Deep, confident Indian male voice with slight accent, clear articulation';
+        // Male/female from avatarId (generic-indian-male / generic-indian-female) or options
+        const isFemale = options.avatarGender === 'female' || (options.avatarId && String(options.avatarId).toLowerCase().includes('female'));
+        const genderTerm = isFemale ? 'female' : 'male';
+        const voiceGender = isFemale ? 'Confident Indian female voice, clear articulation, professional tone' : 'Deep, confident Indian male voice with slight accent, clear articulation';
+
+        const skinRealism = 'Hyperrealistic, photorealistic skin with visible pores, subtle skin texture and natural blemishes; no smooth or plastic AI skin; documentary-style realism.';
+        const avatarDescription = options.avatarDescription || `Indian ${genderTerm} professional in formal business attire, confident posture, warm expression. ${skinRealism}`;
+        const voiceDescription = options.voiceDescription || voiceGender;
 
         // Auto-generate script instruction if not provided
+        const userScript = options.scriptText || options.avatarScriptText;
         let scriptInstruction;
-        if (options.scriptText) {
-          scriptInstruction = `speaking the following script: "${options.scriptText}"`;
-          console.log(`   📝 Script: ${options.scriptText.substring(0, 60)}...`);
+        if (userScript) {
+          scriptInstruction = `speaking the following script: "${userScript}"`;
+          console.log(`   📝 Script: ${userScript.substring(0, 60)}...`);
         } else {
           // Generate script instruction based on platform and topic
           const topic = options.topic || 'financial services and investment opportunities';
@@ -1224,8 +1810,15 @@ ${brandGuidance}`;
         console.log(`   👤 Avatar: ${avatarDescription}`);
         console.log(`   🎙️  Voice: ${voiceDescription}`);
 
-        // Augment prompt with avatar and voice context
-        const avatarPrompt = `Professional video featuring ${avatarDescription}. ${voiceDescription} ${scriptInstruction}. Camera: Medium shot, professional framing, slight depth of field. Lighting: Soft key light, professional studio setup with subtle rim lighting. Background: Elegant office environment with soft bokeh, professional corporate setting. ${prompt}`;
+        // Viral reel optimization for Instagram Reels / Facebook Reels / YouTube Shorts
+        const isReelOrShort = options.platform === 'instagram' || options.platform === 'facebook' || options.platform === 'youtube' || /reel|short/i.test(options.format || '') || /youtube-short/i.test(options.type || '');
+        const viralGuidance = isReelOrShort
+          ? ' Pacing: viral reel style — strong visual hook in the first 1–2 seconds (avatar catches attention immediately), punchy delivery, ending that feels loopable. Include a clear on-screen CTA moment (e.g. "Save this", "Follow for more").'
+          : '';
+
+        // Veo 3.1 best practices for avatar: [Cinematography] + [Subject] + [Action] + [Context] + [Style & Ambiance]. Do not append faceless base prompt.
+        const topicContext = options.topic ? ` Topic/context: ${options.topic}.` : '';
+        const avatarPrompt = `Professional video featuring ${avatarDescription}. ${voiceDescription} ${scriptInstruction}. Camera: Medium shot, professional framing, slight depth of field. Lighting: Soft key light, professional studio setup with subtle rim lighting. Skin: hyperrealistic, natural pores and subtle texture, avoid smooth plastic AI skin. Background: Elegant office environment with soft bokeh, professional corporate setting.${viralGuidance}${topicContext}`;
 
         prompt = avatarPrompt;
         console.log('   ✅ Avatar prompt constructed\n');
@@ -1254,10 +1847,11 @@ ${brandGuidance}`;
           throw new Error('HEYGEN_API_KEY environment variable is required for HeyGen avatar generation');
         }
 
-        // Generate or use script
+        // Generate or use script (frontend sends avatarScriptText; CLI may send scriptText)
+        const userScript = options.scriptText || options.avatarScriptText;
         let scriptText;
-        if (options.scriptText) {
-          scriptText = options.scriptText;
+        if (userScript) {
+          scriptText = userScript;
           console.log(`   📝 Script: ${scriptText.substring(0, 60)}...`);
         } else {
           // Generate a REAL spoken script (not meta-instructions)
@@ -1485,7 +2079,8 @@ ${brandGuidance}`;
         console.log(`   Target Duration: ${requestedDuration}s`);
         console.log(`   Mode: ${isAvatarMode ? 'Avatar' : 'Faceless'}`);
 
-        const autoScenePrompts = this._generateAutoScenePrompts(prompt, requestedDuration, isAvatarMode);
+        const avatarScript = options.scriptText || options.avatarScriptText;
+        const autoScenePrompts = this._generateAutoScenePrompts(prompt, requestedDuration, isAvatarMode, avatarScript);
         console.log(`   Auto Scenes: ${autoScenePrompts.length}\n`);
 
         // Initialize VEO generator
@@ -1617,7 +2212,17 @@ Editing: jump cuts, zooms, whip transitions, whoosh SFX (no copyrighted music/ly
         return `Faceless educational ${format || 'explainer'} video about ${topic || 'wealth building'}. NO PEOPLE, NO FACES, NO HUMANS. Animated educational graphics, step-by-step visual diagrams, 3D charts and statistics, icon animations, timeline visualizations. Clear visual hierarchy. Professional presentation with smooth transitions. Clean modern design with focus on information delivery. 16:9 landscape format.${languageInstruction}`;
       })(),
 
-      facebook: `Faceless community-focused ${format || 'post'} video about ${topic || 'financial planning'}. NO PEOPLE, NO FACES, NO HUMANS. Friendly animated graphics, simple infographics, icon-based storytelling, warm color palette, accessible visual language. Relatable abstract symbols and metaphors. Clear messaging through visuals and text overlays. 1:1 or 16:9 format.${languageInstruction}`,
+      facebook: (() => {
+        const isReel = /reel/i.test(format || '');
+        if (isReel) {
+          return `Facebook Reels-style faceless ${format || 'reel'} about ${topic || 'money tips'} for an Indian audience. NO PEOPLE, NO FACES, NO HUMANS.
+Editing & format: 9:16 vertical, 0.5–1.2s fast cuts, strong hook in first 1–2 seconds, loopable ending, bold subtitles throughout, high contrast, trending finfluencer pacing.
+Visual style: clean motion graphics + relatable India cues (₹ symbol, SIP, tax calendar, salary-day motif, Indian market charts) WITHOUT giving personalized advice. Use modern gradients, kinetic typography, animated charts, icons, quick zooms, whip transitions.
+On-screen text: short punchy lines (max ~36 chars/line), 6–8 lines across the video; emphasize 1–2 key numbers (e.g., "₹100 SIP", "3-step checklist") without promises.
+Audio note: suggest energetic background beat (no copyrighted lyrics). End with a clear CTA on screen like "Save this" / "Follow for more".${languageInstruction}`;
+        }
+        return `Faceless community-focused ${format || 'post'} video about ${topic || 'financial planning'}. NO PEOPLE, NO FACES, NO HUMANS. Friendly animated graphics, simple infographics, icon-based storytelling, warm color palette, accessible visual language. Relatable abstract symbols and metaphors. Clear messaging through visuals and text overlays. 1:1 or 16:9 format.${languageInstruction}`;
+      })(),
 
       twitter: `Faceless concise ${format || 'update'} video about ${topic || 'market insights'}. NO PEOPLE, NO FACES, NO HUMANS. Quick-cut motion graphics, animated statistics, bold data visualizations, minimal design. High contrast colors for attention. Fast-paced transitions. Optimized for quick engagement and shareability. Clean professional look. 16:9 format.${languageInstruction}`,
 
@@ -1918,12 +2523,59 @@ Editing: jump cuts, zooms, whip transitions, whoosh SFX (no copyrighted music/ly
     console.log('📱 YouTube Short - Not yet implemented');
   }
 
-  async runFacebookCommunity(options) {
-    console.log('👥 Facebook Community - Not yet implemented');
+  async runFacebookReel(options) {
+    console.log('📱 Facebook Reel Campaign');
+    console.log(`   Topic: ${options.topic}`);
+    console.log(`   Duration: ${options.duration}s\n`);
+
+    // Same flow as Instagram Reel: short-form vertical video for Facebook
+    await this.stageContent({
+      platform: 'facebook',
+      format: 'reel',
+      topic: options.topic,
+      duration: options.duration,
+      language: options.language
+    });
+
+    await this.stageVideo({
+      platform: 'facebook',
+      format: 'reel',
+      aspectRatio: options.aspectRatio || '9:16',
+      duration: options.duration,
+      useVeo: options.useVeo,
+      useAvatar: options.useAvatar,
+      language: options.language,
+      waitForCompletion: options.waitForCompletion
+    });
+
+    if (options.autoPublish) {
+      await this.stagePublishing({ platform: 'facebook' });
+    }
+
+    console.log('\n✅ Facebook reel ready!');
   }
 
   async runTwitterThread(options) {
-    console.log('🐦 Twitter Thread - Not yet implemented');
+    console.log('🐦 Twitter/X Thread Campaign');
+    console.log(`   Topic: ${options.topic}`);
+    if (options.language) {
+      console.log(`   Language: ${this._getLanguageName(options.language)}`);
+    }
+    console.log('');
+
+    // Stage 2: Generate thread content (tweets), save to state
+    await this.stageContent({
+      platform: 'twitter',
+      format: 'thread',
+      topic: options.topic,
+      language: options.language
+    });
+
+    if (options.autoPublish) {
+      await this.stagePublishing({ platform: 'twitter' });
+    }
+
+    console.log('\n✅ Twitter thread ready!');
   }
 
   async runEmailNewsletter(options) {
@@ -2037,21 +2689,35 @@ Editing: jump cuts, zooms, whip transitions, whoosh SFX (no copyrighted music/ly
   }
 
   /**
-   * Auto-generate scene variations from a single prompt
-   * Creates base + extension prompts for scene extension without JSON timeline
+   * Auto-generate scene variations from a single prompt (Veo 3.1 best practices)
+   * Creates base + extension prompts for scene extension without JSON timeline.
+   * Extension prompts follow Veo 3.1 format: continuation + segment timing + (avatar: script chunk) + cinematography + constraints.
    * @private
-   * @param {string} basePrompt - The original video prompt
+   * @param {string} basePrompt - The original video prompt (already Veo 3.1-style from _buildVideoPrompt)
    * @param {number} targetDuration - Desired video duration in seconds
    * @param {boolean} isAvatarMode - Whether this is avatar video (vs faceless)
-   * @returns {Array<string>} Array of scene prompts [base, variations...]
+   * @param {string} [avatarScript] - Full script for avatar mode; split by segment for extension prompts
+   * @returns {Array<string>} Array of scene prompts [base, extensions...]
    */
-  _generateAutoScenePrompts(basePrompt, targetDuration, isAvatarMode = false) {
-    // Calculate number of extensions needed
-    // Base = 8s, each extension = 7s
+  _generateAutoScenePrompts(basePrompt, targetDuration, isAvatarMode = false, avatarScript = null) {
+    // Base = 8s, each extension = 7s (Veo 3.1)
     const extensionsNeeded = Math.max(0, Math.ceil((targetDuration - 8) / 7));
-    const scenePrompts = [basePrompt]; // Base scene
+    const scenePrompts = [basePrompt];
 
-    // Scene variation phrases based on mode
+    // Split script by segment for avatar extensions (~2.2 words/sec for clear speech)
+    const wordsPerBase = Math.round(8 * 2.2);   // ~18 words for 8s
+    const wordsPerExtension = Math.round(7 * 2.2); // ~15 words per 7s
+    let scriptChunks = [];
+    if (isAvatarMode && avatarScript && typeof avatarScript === 'string') {
+      const words = avatarScript.trim().split(/\s+/).filter(Boolean);
+      let start = wordsPerBase;
+      for (let i = 0; i < extensionsNeeded && i < 20; i++) {
+        const end = Math.min(start + wordsPerExtension, words.length);
+        scriptChunks.push(words.slice(start, end).join(' '));
+        start = end;
+      }
+    }
+
     const facelessVariations = [
       'Camera orbits around the visual elements with dynamic lighting transitions',
       'Zoom into key data points revealing intricate details and patterns',
@@ -2076,11 +2742,27 @@ Editing: jump cuts, zooms, whip transitions, whoosh SFX (no copyrighted music/ly
 
     const variations = isAvatarMode ? avatarVariations : facelessVariations;
 
-    // Generate extension prompts with variations
     for (let i = 0; i < extensionsNeeded && i < 20; i++) {
+      const segmentStart = 8 + i * 7;
+      const segmentEnd = segmentStart + 7;
+      const timeRange = `Segment ${segmentStart}-${segmentEnd}s`;
       const variation = variations[i % variations.length];
-      const extensionPrompt = `${basePrompt} ${variation}.`;
-      scenePrompts.push(extensionPrompt);
+
+      if (isAvatarMode) {
+        // Avatar: continuation + segment + script for this segment + camera variation + same speaker/setting
+        const scriptChunk = scriptChunks[i];
+        const scriptPart = scriptChunk
+          ? `Speaking the next part of the script: "${scriptChunk}". `
+          : '';
+        scenePrompts.push(
+          `Continue the same shot. ${timeRange}. ${scriptPart}${variation}. Same speaker, setting, and professional delivery.`
+        );
+      } else {
+        // Faceless: continuation + segment + cinematography + reinforce NO PEOPLE (Veo 3.1 best practice)
+        scenePrompts.push(
+          `Continue the same scene. ${timeRange}. ${variation}. Same subject, style, and visual language. NO PEOPLE, NO FACES, NO HUMANS.`
+        );
+      }
     }
 
     return scenePrompts;

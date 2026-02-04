@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 
 const AGENT_NAME = process.env.LIVEKIT_AGENT_NAME || 'martech-voicebot'
-const BACKEND_ORIGIN = process.env.VOICEBOT_BACKEND_ORIGIN || 'http://127.0.0.1:3006'
+const BACKEND_ORIGIN = process.env.VOICEBOT_BACKEND_ORIGIN || 'http://127.0.0.1:3008'
 
 function pickVoiceId({ language, gender }) {
   const lang = language === 'hi' ? 'hi' : 'en'
@@ -140,4 +140,3 @@ export default defineAgent({
 })
 
 cli.runApp(new ServerOptions({ agent: fileURLToPath(import.meta.url) }))
-

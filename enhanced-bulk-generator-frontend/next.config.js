@@ -5,10 +5,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Externalize server packages (no longer experimental in Next.js 16)
-  serverComponentsExternalPackages: ['child_process'],
-  // Experimental features for Next.js 16
+  // Experimental features for Next.js 14
   experimental: {
+    // Externalize server packages to prevent bundling issues
+    serverComponentsExternalPackages: ['child_process'],
     // Include backend workflow files in serverless function bundles
     // This tells Next.js to copy these files when deploying API routes
     outputFileTracingIncludes: {

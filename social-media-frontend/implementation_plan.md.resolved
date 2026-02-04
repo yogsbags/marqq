@@ -1,0 +1,48 @@
+# Implementation Plan - Social Media Video Generation Frontend
+
+# Goal Description
+Build a frontend prototype for PL Capital to generate social media videos using the best-researched AI models (Wan 2.1 and Kling AI). The system will use **Fal.ai** (or Replicate) as the API provider to generate videos from text prompts and images, specifically tailored for financial use cases (charts, text overlays, professional b-roll).
+
+## User Review Required
+> [!IMPORTANT]
+> **API Key Requirement**: The user needs to provide a **Fal.ai** or **Replicate** API key to function.
+> **Cost Implication**: Generating videos costs money per generation (approx $0.05/video).
+
+## Proposed Changes
+
+### Frontend Application
+#### [NEW] [video-generator-ui]
+- Create a new Next.js application (or add to existing project if specified).
+- **Components:**
+    - `VideoPromptInput`: Text area for user prompt.
+    - `StoryboardBuilder`: **[NEW]** Interface to add multiple scenes (Scene 1, Scene 2, etc.) and reorder them.
+    - `ModelSelector`: Dropdown to choose between **Wan 2.5** (4K Charts), **Kling 2.6** (Audio/Cinematic), and **OmniHuman 1.5** (Talking Avatar).
+    - `LanguageSelector`: **[NEW]** Toggle for English / Hindi / Hinglish.
+    - `VideoDisplay`: Player to show the generated video.
+    - `History`: List of previously generated videos.
+
+### Backend / API Integration
+#### [NEW] [api-handler]
+- Implement API route handlers to securely call Fal.ai/Replicate.
+- Handle polling for video completion (since video generation is asynchronous).
+- **[NEW]** Implement `stitch-videos` endpoint using `fluent-ffmpeg` to combine generated clips into a single file.
+- **[NEW]** Integrate **ElevenLabs API** for multilingual TTS (Hindi/English).
+- **[NEW]** Implement FFmpeg text overlay for Hindi text (to bypass model limitations).
+- **[NEW]** Integrate **SyncLabs API** for post-generation lip-syncing (optional premium feature).
+- **[NEW]** Add "Audio Upload" support to Kling API handler to support native lip-sync.
+
+## Verification Plan
+
+### Automated Tests
+- **Unit Tests:** Test the API request payload construction for Fal.ai/Replicate.
+- **Integration Tests:** Mock the Fal.ai API response to verify the frontend correctly handles "pending", "success", and "error" states.
+
+### Manual Verification
+- **Test Flow 1 (Text/Chart):**
+    1. Select "Wan 2.1".
+    2. Prompt: "A rising green stock chart on a white background with text 'Market Up'".
+    3. Verify: Video generates, plays, and text is legible.
+- **Test Flow 2 (Cinematic):**
+    1. Select "Kling AI".
+    2. Prompt: "Cinematic shot of a modern glass office building in Mumbai".
+    3. Verify: Video generates with high realism.

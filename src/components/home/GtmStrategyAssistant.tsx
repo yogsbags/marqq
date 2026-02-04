@@ -1,5 +1,3 @@
-import { useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +7,55 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { generateGtmInterviewPlan, generateGtmStrategy } from '@/services/gtmStrategyService';
 import type { AgentTarget, GtmInterviewPlan, GtmInterviewQuestion, GtmStrategyResponse } from '@/types/gtm';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HiChat as Bot, HiRefresh as Refresh, HiSparkles as Sparkles } from 'react-icons/hi';
+import { toast } from 'sonner';
+
+const GTM_STORAGE_KEY = 'martech_gtm_state';
+
+const DEFAULT_INTRO_CHAT: ChatLine[] = [
+  {
+    id: 'intro',
+    role: 'assistant',
+    type: 'text',
+    text:
+      'Tell me what you want to launch. I’ll ask you 5–6 questions one at a time; answer each and I’ll draft a GTM strategy you can execute with agents.',
+  },
+];
+
+function loadGtmState(): {
+  chat: ChatLine[];
+  plan: GtmInterviewPlan | null;
+  questionIndex: number;
+  answers: Record<string, unknown>;
+  prompt: string;
+  strategy: GtmStrategyResponse | null;
+} {
+  try {
+    const raw = sessionStorage.getItem(GTM_STORAGE_KEY);
+    if (!raw) return { chat: DEFAULT_INTRO_CHAT, plan: null, questionIndex: 0, answers: {}, prompt: '', strategy: null };
+    const data = JSON.parse(raw) as {
+      chat?: ChatLine[];
+      plan?: GtmInterviewPlan | null;
+      questionIndex?: number;
+      answers?: Record<string, unknown>;
+      prompt?: string;
+      strategy?: GtmStrategyResponse | null;
+    };
+    const plan = data.plan ?? null;
+    const questionsLength = plan?.questions?.length ?? 1;
+    return {
+      chat: Array.isArray(data.chat) && data.chat.length > 0 ? data.chat : DEFAULT_INTRO_CHAT,
+      plan,
+      questionIndex: typeof data.questionIndex === 'number' ? Math.min(data.questionIndex, questionsLength - 1) : 0,
+      answers: data.answers && typeof data.answers === 'object' ? data.answers : {},
+      prompt: typeof data.prompt === 'string' ? data.prompt : '',
+      strategy: data.strategy ?? null,
+    };
+  } catch {
+    return { chat: DEFAULT_INTRO_CHAT, plan: null, questionIndex: 0, answers: {}, prompt: '', strategy: null };
+  }
+}
 
 type ChatLine =
   | { id: string; role: 'assistant' | 'user'; type: 'text'; text: string }
@@ -36,27 +82,21 @@ export interface DeployRequest {
 
 interface GtmStrategyAssistantProps {
   onDeployAgent: (req: DeployRequest) => void;
+  onOpenWorkflow?: (context?: { nextStep?: string }) => void;
 }
 
-export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProps) {
-  const [prompt, setPrompt] = useState('');
+export function GtmStrategyAssistant({ onDeployAgent, onOpenWorkflow }: GtmStrategyAssistantProps) {
+  const loaded = useMemo(() => loadGtmState(), []);
+  const [prompt, setPrompt] = useState(loaded.prompt);
   const [isPlanning, setIsPlanning] = useState(false);
-  const [plan, setPlan] = useState<GtmInterviewPlan | null>(null);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, unknown>>({});
-  const [chat, setChat] = useState<ChatLine[]>([
-    {
-      id: 'intro',
-      role: 'assistant',
-      type: 'text',
-      text:
-        'Tell me what you want to launch, and I’ll ask a short set of questions (5–6) before I draft a GTM strategy you can execute with agents.',
-    },
-  ]);
+  const [plan, setPlan] = useState<GtmInterviewPlan | null>(loaded.plan);
+  const [questionIndex, setQuestionIndex] = useState(loaded.questionIndex);
+  const [answers, setAnswers] = useState<Record<string, unknown>>(loaded.answers);
+  const [chat, setChat] = useState<ChatLine[]>(loaded.chat);
   const [currentFreeText, setCurrentFreeText] = useState('');
   const [currentMulti, setCurrentMulti] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [strategy, setStrategy] = useState<GtmStrategyResponse | null>(null);
+  const [strategy, setStrategy] = useState<GtmStrategyResponse | null>(loaded.strategy);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -66,6 +106,30 @@ export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProp
   }, [plan, questionIndex]);
 
   const hasActiveInterview = !!plan && !!currentQuestion && !strategy;
+
+  // Persist to sessionStorage when state changes (so it survives screen navigation)
+  useEffect(() => {
+    const hasData = chat.length > 1 || plan != null || Object.keys(answers).length > 0 || strategy != null || prompt.trim() !== '';
+    if (!hasData) {
+      sessionStorage.removeItem(GTM_STORAGE_KEY);
+      return;
+    }
+    try {
+      sessionStorage.setItem(
+        GTM_STORAGE_KEY,
+        JSON.stringify({
+          chat,
+          plan,
+          questionIndex,
+          answers,
+          prompt,
+          strategy,
+        })
+      );
+    } catch {
+      // ignore quota or serialization errors
+    }
+  }, [chat, plan, questionIndex, answers, prompt, strategy]);
 
   const resetAll = () => {
     setPrompt('');
@@ -77,15 +141,8 @@ export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProp
     setCurrentMulti([]);
     setIsGenerating(false);
     setStrategy(null);
-    setChat([
-      {
-        id: 'intro',
-        role: 'assistant',
-        type: 'text',
-        text:
-          'Tell me what you want to launch, and I’ll ask a short set of questions (5–6) before I draft a GTM strategy you can execute with agents.',
-      },
-    ]);
+    setChat(DEFAULT_INTRO_CHAT);
+    sessionStorage.removeItem(GTM_STORAGE_KEY);
   };
 
   const addLine = (line: ChatLine) => {
@@ -121,19 +178,24 @@ export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProp
       setPlan(nextPlan);
       setQuestionIndex(0);
 
+      const firstQ = nextPlan.questions[0];
+      const firstQText = firstQ.helperText
+        ? `${firstQ.question}\n\n${firstQ.helperText}`
+        : firstQ.question;
       addLine({
-        id: `a_plan_${Date.now()}`,
+        id: `a_q1_${Date.now()}`,
         role: 'assistant',
         type: 'text',
-        text: `Interview ready: ${nextPlan.questions.length} questions. Answer them and I’ll generate your GTM strategy.`,
+        text: `Question 1 of ${nextPlan.questions.length}: ${firstQText}`,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to generate questions.');
+      const message = err instanceof Error ? err.message : 'Failed to generate questions.';
+      toast.error(message);
       addLine({
         id: `a_err_${Date.now()}`,
         role: 'assistant',
         type: 'text',
-        text: 'I ran into an error generating the interview. Please try again.',
+        text: `I ran into an error generating the interview: ${message} Please try again after fixing the issue.`,
       });
     } finally {
       setIsPlanning(false);
@@ -158,13 +220,17 @@ export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProp
     setCurrentMulti([]);
 
     if (nextIndex < plan.questions.length) {
-      setQuestionIndex(nextIndex);
+      const nextQ = plan.questions[nextIndex];
+      const nextQText = nextQ.helperText
+        ? `${nextQ.question}\n\n${nextQ.helperText}`
+        : nextQ.question;
       addLine({
-        id: `a_next_${Date.now()}`,
+        id: `a_q${nextIndex + 1}_${Date.now()}`,
         role: 'assistant',
         type: 'text',
-        text: 'Thanks — next question.',
+        text: `Question ${nextIndex + 1} of ${plan.questions.length}: ${nextQText}`,
       });
+      setQuestionIndex(nextIndex);
       return;
     }
 
@@ -329,7 +395,7 @@ export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProp
                   Create GTM strategy
                 </Button>
                 <Badge variant="outline" className="rounded-full">
-                  Model: {strategy?.model || plan?.model || 'gemini-3-flash-preview'}
+                  Model: {strategy?.model || plan?.model || 'gemini'}
                 </Badge>
               </div>
             </CardHeader>
@@ -382,7 +448,7 @@ export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProp
                   Start
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  You’ll answer 5–6 questions before the strategy is generated.
+                  I’ll ask 5–6 questions one at a time; answer each to continue.
                 </span>
               </div>
             </div>
@@ -470,13 +536,41 @@ export function GtmStrategyAssistant({ onDeployAgent }: GtmStrategyAssistantProp
               </div>
 
               {strategy.nextSteps?.length ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="text-sm font-semibold">Next steps</div>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {strategy.nextSteps.map((n) => (
-                      <li key={n}>{n}</li>
+                  <div className="space-y-2">
+                    {strategy.nextSteps.map((n, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <p className="text-sm text-muted-foreground">{n}</p>
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(n);
+                              toast.success('Step copied to clipboard');
+                            }}
+                          >
+                            Copy
+                          </Button>
+                          {onOpenWorkflow ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="bg-orange-500 hover:bg-orange-600"
+                              onClick={() => onOpenWorkflow({ nextStep: n })}
+                            >
+                              Open workflow
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               ) : null}
             </div>

@@ -172,6 +172,26 @@ export async function POST(request: NextRequest) {
                 : null
             const baseUrl = envBase || requestOrigin
 
+            // Ingest reference images: upload to ImgBB so we have URLs to pass to prompt generator
+            let referenceImageUrls: string[] = []
+            if (files?.referenceImages?.length > 0) {
+              sendEvent({ log: `🖼️  Ingesting ${files.referenceImages.length} reference image(s) for creative brief...` })
+              for (let i = 0; i < files.referenceImages.length; i++) {
+                const ref = files.referenceImages[i]
+                const dataUrl = ref.data?.startsWith('data:') ? ref.data : `data:image/png;base64,${ref.data}`
+                const url = process.env.IMGBB_API_KEY ? await uploadToImgbb(dataUrl) : null
+                if (url) {
+                  referenceImageUrls.push(url)
+                  sendEvent({ log: `   ✅ Reference image ${i + 1}: uploaded` })
+                }
+              }
+              if (referenceImageUrls.length > 0) {
+                sendEvent({ log: `   Reference images will be passed downstream to image/video stages.` })
+              } else if (files.referenceImages.length > 0) {
+                sendEvent({ log: `   ⚠️ Set IMGBB_API_KEY to upload references for Stage 1; they will still be passed when running Stage 3/4.` })
+              }
+            }
+
             const promptResponse = await fetch(`${baseUrl}/api/prompt/generate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -184,7 +204,10 @@ export async function POST(request: NextRequest) {
                 contentType,
                 duration,
                 language,
-                brandSettings
+                aspectRatio,
+                brandSettings,
+                referenceImageUrls: referenceImageUrls.length > 0 ? referenceImageUrls : undefined,
+                referenceImagesProvided: files?.referenceImages?.length > 0
               })
             })
 
@@ -197,7 +220,7 @@ export async function POST(request: NextRequest) {
 
             sendEvent({ log: '✅ Creative prompt generated successfully!' })
 
-            // Save the generated prompt as stage 1 data
+            // Save the generated prompt as stage 1 data (include reference image URLs so downstream knows they were ingested)
             const stageData = {
               topic,
               campaignType,
@@ -205,7 +228,8 @@ export async function POST(request: NextRequest) {
               status: 'completed',
               type: 'campaign-planning',
               creativePrompt: generatedPrompt,
-              promptModel: promptData.model
+              promptModel: promptData.model,
+              ...(referenceImageUrls.length > 0 && { referenceImageUrls })
             }
 
             saveStageData(stageId, stageData)
@@ -358,14 +382,18 @@ export async function POST(request: NextRequest) {
         if (campaignType) {
           args.push('--type', campaignType)
 
-          // Extract platform from campaignType (e.g., "linkedin-testimonial" -> "linkedin")
-          const platform = campaignType.split('-')[0]
+          // Single-word types (e.g. "infographic"): use format = type, platform = first selected or default
+          const isSingleWordType = !campaignType.includes('-')
+          const platform = isSingleWordType
+            ? (Array.isArray(platforms) && platforms.length > 0 ? platforms[0] : 'linkedin')
+            : campaignType.split('-')[0]
+          const format = isSingleWordType
+            ? campaignType
+            : campaignType.split('-').slice(1).join('-')
+
           if (platform) {
             args.push('--platform', platform)
           }
-
-          // Extract format from campaignType (e.g., "linkedin-testimonial" -> "testimonial")
-          const format = campaignType.split('-').slice(1).join('-')
           if (format) {
             args.push('--format', format)
           }
@@ -533,6 +561,23 @@ export async function POST(request: NextRequest) {
               stageData.type = 'publishing'
             } else if (stageId === 6) {
               stageData.type = 'analytics'
+            }
+
+            // Stage 3: merge backend output images (with hostedUrl from ImgBB) so edit popup has image URL and View Image
+            if (stageId === 3 && outputBuffer) {
+              const match = outputBuffer.match(/__STAGE3_IMAGES__([^\n]+)/)
+              if (match) {
+                try {
+                  const images = JSON.parse(match[1]) as Array<{ path?: string; url?: string; hostedUrl?: string }>
+                  if (Array.isArray(images) && images.length > 0) {
+                    stageData.images = images
+                    const first = images[0]
+                    stageData.imageUrl = first?.hostedUrl || first?.url || ''
+                  }
+                } catch (_) {
+                  // ignore parse errors
+                }
+              }
             }
 
             // Save to workflow state file

@@ -38,6 +38,14 @@ export function HomePanel({ onModuleSelect }: HomePanelProps) {
     navigate(destination.moduleId, { hash: destination.hash });
   };
 
+  const openWorkflow = ({ nextStep }: { nextStep?: string } = {}) => {
+    onModuleSelect('company-intelligence');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (nextStep) {
+      window.location.hash = '#ci=overview';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -47,7 +55,7 @@ export function HomePanel({ onModuleSelect }: HomePanelProps) {
         </p>
       </div>
 
-      <GtmStrategyAssistant onDeployAgent={deployAgent} />
+      <GtmStrategyAssistant onDeployAgent={deployAgent} onOpenWorkflow={openWorkflow} />
     </div>
   );
 }

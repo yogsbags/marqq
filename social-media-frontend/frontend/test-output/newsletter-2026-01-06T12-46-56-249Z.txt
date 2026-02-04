@@ -1,0 +1,31 @@
+Navigate Market Volatility with Smart Portfolio Strategies
+
+Discover risk‑management tactics and adaptive allocation methods for portfolios over ₹1 Cr.
+
+When markets swing, sophisticated investors need more than intuition—they need data‑driven, quantitative tactics that preserve capital while positioning for upside. Below, we share actionable strategies that have helped portfolios exceeding ₹1 Cr stay resilient during recent volatility.
+
+---
+Market Highlights
+- US equity volatility (VIX) held at 22‑24% over the last 30 days – a 40% rise from the previous month.
+- Gold price surged 7% YoY, offering a low‑correlation hedge for large‑cap equity exposure.
+- Indian corporate bond spreads widened by 45 bps, signalling credit‑risk premium opportunities.
+---
+Dynamic Asset Allocation
+Use a quantitative risk‑budget model that caps equity exposure at a volatility‑adjusted 12% of portfolio value.
+Read more: https://plindia.com/strategies/dynamic-allocation
+---
+Tail‑Risk Hedging
+Deploy a 2‑% portfolio allocation to long‑dated put spreads on major indices to limit downside beyond 15%.
+Read more: https://plindia.com/strategies/tail-risk
+---
+Quantitative Alpha Signals
+Leverage a multi‑factor model (value, momentum, low‑vol) that historically outperformed the NIFTY by 2.3% annualised.
+Read more: https://plindia.com/strategies/alpha-signals
+---
+Visit PL Capital News for more insights: https://plindia.com/news
+
+Empowering your portfolio with data‑driven insight.
+
+© 2024 Prabhudas Lilladher. All rights reserved.
+123, Business Bay, Mumbai, India 400001
+Unsubscribe: *|UNSUB|*

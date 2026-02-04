@@ -5,25 +5,28 @@
  * Handles all CSV operations, data validation, and approval workflows
  */
 
-const fs = require('fs');
-const path = require('path');
-const { parse } = require('csv-parse/sync');
-const { stringify } = require('csv-stringify/sync');
+const fs = require("fs");
+const path = require("path");
+const { parse } = require("csv-parse/sync");
+const { stringify } = require("csv-stringify/sync");
 
 // Import Google Sheets sync (optional - fails gracefully if not configured)
 let googleSheetsSyncModule;
 try {
   // Path goes up 3 levels: backend/core -> backend -> enhanced-bulk-generator-frontend -> martech -> scripts
-  const syncPath = path.resolve(__dirname, '../../../scripts/sync-google-sheets.cjs');
+  const syncPath = path.resolve(
+    __dirname,
+    "../../../scripts/sync-google-sheets.cjs",
+  );
   googleSheetsSyncModule = require(syncPath);
 } catch (error) {
   // Google Sheets sync module not available (expected in some environments)
   googleSheetsSyncModule = null;
-  console.log('⚠️  Google Sheets sync module not found:', error.message);
+  console.log("⚠️  Google Sheets sync module not found:", error.message);
 }
 
 class CSVDataManager {
-  constructor(dataDir = '../data', options = {}) {
+  constructor(dataDir = "../data", options = {}) {
     this.dataDir = path.resolve(__dirname, dataDir);
     this.ensureDataDirectory();
 
@@ -33,14 +36,14 @@ class CSVDataManager {
 
     // CSV file paths
     this.files = {
-      masterResearch: path.join(this.dataDir, 'master-research.csv'),
-      researchGaps: path.join(this.dataDir, 'research-gaps.csv'),
-      quickWins: path.join(this.dataDir, 'quick-wins.csv'),
-      generatedTopics: path.join(this.dataDir, 'generated-topics.csv'),
-      topicResearch: path.join(this.dataDir, 'topic-research.csv'),
-      createdContent: path.join(this.dataDir, 'created-content.csv'),
-      publishedContent: path.join(this.dataDir, 'published-content.csv'),
-      workflowStatus: path.join(this.dataDir, 'workflow-status.csv')
+      masterResearch: path.join(this.dataDir, "master-research.csv"),
+      researchGaps: path.join(this.dataDir, "research-gaps.csv"),
+      quickWins: path.join(this.dataDir, "quick-wins.csv"),
+      generatedTopics: path.join(this.dataDir, "generated-topics.csv"),
+      topicResearch: path.join(this.dataDir, "topic-research.csv"),
+      createdContent: path.join(this.dataDir, "created-content.csv"),
+      publishedContent: path.join(this.dataDir, "published-content.csv"),
+      workflowStatus: path.join(this.dataDir, "workflow-status.csv"),
     };
   }
 
@@ -60,51 +63,135 @@ class CSVDataManager {
   getSchemaColumns(csvType) {
     const schemas = {
       masterResearch: [
-        'research_id', 'research_date', 'total_gaps_identified', 'competitors_analyzed',
-        'phase_1_focus', 'phase_2_focus', 'phase_3_focus', 'estimated_traffic_growth',
-        'approval_status', 'notes', 'created_at'
+        "research_id",
+        "research_date",
+        "total_gaps_identified",
+        "competitors_analyzed",
+        "phase_1_focus",
+        "phase_2_focus",
+        "phase_3_focus",
+        "estimated_traffic_growth",
+        "approval_status",
+        "notes",
+        "created_at",
       ],
       researchGaps: [
-        'gap_id', 'topic_area', 'gap_title', 'search_volume', 'keyword_difficulty',
-        'commercial_intent', 'competitor_weakness', 'our_competitive_edge',
-        'estimated_ranking_time', 'priority_score', 'primary_keyword',
-        'secondary_keywords', 'content_type_recommendation', 'word_count_target',
-        'expert_required', 'regulatory_compliance', 'quick_win', 'authority_builder',
-        'source', 'approval_status', 'created_at'
+        "gap_id",
+        "topic_area",
+        "gap_title",
+        "search_volume",
+        "keyword_difficulty",
+        "commercial_intent",
+        "competitor_weakness",
+        "our_competitive_edge",
+        "estimated_ranking_time",
+        "priority_score",
+        "primary_keyword",
+        "secondary_keywords",
+        "content_type_recommendation",
+        "word_count_target",
+        "expert_required",
+        "regulatory_compliance",
+        "quick_win",
+        "authority_builder",
+        "source",
+        "approval_status",
+        "created_at",
       ],
       quickWins: [
-        'gap_id', 'topic_title', 'topic_area', 'search_volume', 'keyword_difficulty',
-        'primary_keyword', 'content_type', 'estimated_time', 'approval_status', 'created_at'
+        "gap_id",
+        "topic_title",
+        "topic_area",
+        "search_volume",
+        "keyword_difficulty",
+        "primary_keyword",
+        "content_type",
+        "estimated_time",
+        "approval_status",
+        "created_at",
       ],
       generatedTopics: [
-        'topic_id', 'research_gap_id', 'content_type', 'topic_title', 'category',
-        'primary_keyword', 'secondary_keywords', 'search_volume', 'keyword_difficulty',
-        'priority', 'topic_type', 'target_competitor', 'our_competitive_advantage',
-        'word_count_target', 'expert_required', 'estimated_ranking_time',
-        'estimated_monthly_traffic', 'internal_linking_opportunities',
-        'content_upgrade_idea', 'regulatory_requirements', 'approval_status',
-        'created_at'
+        "topic_id",
+        "research_gap_id",
+        "content_type",
+        "topic_title",
+        "category",
+        "primary_keyword",
+        "secondary_keywords",
+        "search_volume",
+        "keyword_difficulty",
+        "priority",
+        "topic_type",
+        "target_competitor",
+        "our_competitive_advantage",
+        "word_count_target",
+        "expert_required",
+        "estimated_ranking_time",
+        "estimated_monthly_traffic",
+        "internal_linking_opportunities",
+        "content_upgrade_idea",
+        "regulatory_requirements",
+        "approval_status",
+        "created_at",
       ],
       topicResearch: [
-        'topic_research_id', 'topic_id', 'research_date', 'primary_keyword',
-        'top_10_competitors', 'content_gaps', 'search_intent', 'related_questions',
-        'content_superiority_plan', 'resource_requirements', 'regulatory_compliance',
-        'estimated_impact', 'content_outline', 'source_urls', 'approval_status', 'created_at'
+        "topic_research_id",
+        "topic_id",
+        "research_date",
+        "primary_keyword",
+        "top_10_competitors",
+        "content_gaps",
+        "search_intent",
+        "related_questions",
+        "content_superiority_plan",
+        "resource_requirements",
+        "regulatory_compliance",
+        "estimated_impact",
+        "content_outline",
+        "source_urls",
+        "approval_status",
+        "created_at",
       ],
       createdContent: [
-        'content_id', 'topic_id', 'creation_date', 'seo_metadata', 'article_content',
-        'content_upgrades', 'compliance', 'quality_metrics', 'sources', 'hero_image',
-        'approval_status', 'created_at'
+        "content_id",
+        "topic_id",
+        "creation_date",
+        "seo_metadata",
+        "article_content",
+        "content_upgrades",
+        "compliance",
+        "quality_metrics",
+        "sources",
+        "hero_image",
+        "approval_status",
+        "created_at",
       ],
       publishedContent: [
-        'publish_id', 'content_id', 'topic_id', 'wordpress_url', 'uat_wordpress_url', 'sanity_url', 'sanity_desk_url',
-        'publish_date', 'status', 'performance_metrics', 'created_at'
+        "publish_id",
+        "content_id",
+        "topic_id",
+        "wordpress_url",
+        "uat_wordpress_url",
+        "sanity_url",
+        "sanity_desk_url",
+        "publish_date",
+        "status",
+        "performance_metrics",
+        "created_at",
       ],
       workflowStatus: [
-        'topic_id', 'current_stage', 'overall_status', 'research_approval',
-        'topic_approval', 'deep_research_approval', 'content_approval',
-        'seo_approval', 'publication_approval', 'last_updated', 'notes'
-      ]
+        "topic_id",
+        "current_stage",
+        "overall_status",
+        "research_approval",
+        "topic_approval",
+        "deep_research_approval",
+        "content_approval",
+        "seo_approval",
+        "publication_approval",
+        "last_updated",
+        "notes",
+      ],
     };
 
     return schemas[csvType] || null;
@@ -116,7 +203,7 @@ class CSVDataManager {
   initializeCSVFiles() {
     const csvTypes = Object.keys(this.files);
 
-    csvTypes.forEach(csvType => {
+    csvTypes.forEach((csvType) => {
       const filePath = this.files[csvType];
       const headers = this.getSchemaColumns(csvType);
 
@@ -127,7 +214,7 @@ class CSVDataManager {
 
       if (!fs.existsSync(filePath)) {
         // For array headers, write directly as CSV string
-        const csvContent = headers.join(',') + '\n';
+        const csvContent = headers.join(",") + "\n";
         fs.writeFileSync(filePath, csvContent);
         console.log(`📄 Initialized ${csvType}.csv with headers`);
       }
@@ -155,7 +242,7 @@ class CSVDataManager {
         return [];
       }
 
-      const fileContent = fs.readFileSync(filePath, 'utf-8');
+      const fileContent = fs.readFileSync(filePath, "utf-8");
       if (!fileContent.trim()) {
         return [];
       }
@@ -163,7 +250,7 @@ class CSVDataManager {
       return parse(fileContent, {
         columns: true,
         skip_empty_lines: true,
-        trim: true
+        trim: true,
       });
     } catch (error) {
       console.error(`❌ Error reading CSV file ${filePath}:`, error.message);
@@ -195,10 +282,10 @@ class CSVDataManager {
       const csvContent = stringify(data, {
         header: options.header !== false,
         columns: columns,
-        quoted: true,  // Always quote fields to handle embedded commas, quotes, newlines
-        quoted_string: true,  // Quote all string fields
-        escape: '"',  // Use double-quote escaping (standard CSV)
-        ...options
+        quoted: true, // Always quote fields to handle embedded commas, quotes, newlines
+        quoted_string: true, // Quote all string fields
+        escape: '"', // Use double-quote escaping (standard CSV)
+        ...options,
       });
 
       fs.writeFileSync(filePath, csvContent);
@@ -218,7 +305,10 @@ class CSVDataManager {
       const updatedData = [...existingData, ...data];
       return this.writeCSV(filePath, updatedData);
     } catch (error) {
-      console.error(`❌ Error appending to CSV file ${filePath}:`, error.message);
+      console.error(
+        `❌ Error appending to CSV file ${filePath}:`,
+        error.message,
+      );
       return false;
     }
   }
@@ -236,8 +326,8 @@ class CSVDataManager {
 
       if (existingData.length === 0) {
         // First entry - return prefix with 001
-        if (prefix.includes('RESEARCH-')) {
-          const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        if (prefix.includes("RESEARCH-")) {
+          const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
           return `RESEARCH-${date}-001`;
         }
         return `${prefix}001`;
@@ -245,25 +335,25 @@ class CSVDataManager {
 
       // Extract all numeric IDs
       const numericIds = existingData
-        .map(row => row[idField])
-        .filter(id => id && id.startsWith(prefix))
-        .map(id => {
+        .map((row) => row[idField])
+        .filter((id) => id && id.startsWith(prefix))
+        .map((id) => {
           // Extract the numeric part from the ID
           const match = id.match(/(\d+)$/);
           return match ? parseInt(match[1], 10) : 0;
         })
-        .filter(num => !isNaN(num));
+        .filter((num) => !isNaN(num));
 
       // Find the highest ID
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       const nextId = maxId + 1;
 
       // Format with leading zeros (3 digits)
-      const paddedId = String(nextId).padStart(3, '0');
+      const paddedId = String(nextId).padStart(3, "0");
 
       // Handle special case for RESEARCH IDs
-      if (prefix.includes('RESEARCH-')) {
-        const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      if (prefix.includes("RESEARCH-")) {
+        const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
         return `RESEARCH-${date}-${paddedId}`;
       }
 
@@ -280,9 +370,12 @@ class CSVDataManager {
    * returns multiline text inside a single field.
    */
   _sanitizeForCSV(value) {
-    if (value == null || value === '') return '';
+    if (value == null || value === "") return "";
     const str = String(value).trim();
-    return str.replace(/\r\n|\r|\n/g, ' ').replace(/\s+/g, ' ').trim();
+    return str
+      .replace(/\r\n|\r|\n/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   /**
@@ -290,17 +383,19 @@ class CSVDataManager {
    * Ensures each field is a single-line value so CSV parsing doesn't misalign columns.
    */
   normalizeResearchGapForCSV(gap) {
-    const cols = this.getSchemaColumns('researchGaps');
+    const cols = this.getSchemaColumns("researchGaps");
     if (!cols) return gap;
     const out = {};
     for (const key of cols) {
       const v = gap[key];
-      if (typeof v === 'string') {
+      if (typeof v === "string") {
         out[key] = this._sanitizeForCSV(v);
       } else if (v !== undefined && v !== null) {
-        out[key] = String(v).replace(/\r\n|\r|\n/g, ' ').trim();
+        out[key] = String(v)
+          .replace(/\r\n|\r|\n/g, " ")
+          .trim();
       } else {
-        out[key] = '';
+        out[key] = "";
       }
     }
     return out;
@@ -315,24 +410,24 @@ class CSVDataManager {
     // Get the next ID based on existing data once (not per gap)
     const existingData = this.readCSV(this.files.researchGaps);
     const numericIds = existingData
-      .map(row => row.gap_id)
-      .filter(id => id && id.startsWith('GAP-'))
-      .map(id => {
+      .map((row) => row.gap_id)
+      .filter((id) => id && id.startsWith("GAP-"))
+      .map((id) => {
         const match = id.match(/GAP-(\d+)$/);
         return match ? parseInt(match[1], 10) : 0;
       })
-      .filter(num => !isNaN(num));
+      .filter((num) => !isNaN(num));
     const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
 
     // Generate incremental IDs and normalize each gap for CSV (single-line fields)
     const dataWithTimestamp = gaps.map((gap, index) => {
       const nextId = maxId + index + 1;
-      const paddedId = String(nextId).padStart(3, '0');
+      const paddedId = String(nextId).padStart(3, "0");
       const normalized = this.normalizeResearchGapForCSV({
         ...gap,
         gap_id: `GAP-${paddedId}`,
-        approval_status: gap.approval_status || 'Pending',
-        created_at: timestamp
+        approval_status: gap.approval_status || "Pending",
+        created_at: timestamp,
       });
       return normalized;
     });
@@ -346,16 +441,16 @@ class CSVDataManager {
    * blobs don't introduce raw newlines that can confuse CSV parsers or the UI.
    */
   normalizeTopicResearchForCSV(item) {
-    const cols = this.getSchemaColumns('topicResearch');
+    const cols = this.getSchemaColumns("topicResearch");
     if (!cols) return item;
     const out = {};
     for (const key of cols) {
       const v = item[key];
       if (v === undefined || v === null) {
-        out[key] = '';
-      } else if (typeof v === 'string') {
+        out[key] = "";
+      } else if (typeof v === "string") {
         out[key] = this._sanitizeForCSV(v);
-      } else if (typeof v === 'object') {
+      } else if (typeof v === "object") {
         out[key] = this._sanitizeForCSV(JSON.stringify(v));
       } else {
         out[key] = this._sanitizeForCSV(String(v));
@@ -374,27 +469,27 @@ class CSVDataManager {
     const dataWithTimestamp = quickWins.map((qw, index) => {
       const existingData = this.readCSV(this.files.quickWins);
       const numericIds = existingData
-        .map(row => row.gap_id)
-        .filter(id => id && id.startsWith('GAP-QW-'))
-        .map(id => {
+        .map((row) => row.gap_id)
+        .filter((id) => id && id.startsWith("GAP-QW-"))
+        .map((id) => {
           const match = id.match(/GAP-QW-(\d+)$/);
           return match ? parseInt(match[1], 10) : 0;
         })
-        .filter(num => !isNaN(num));
+        .filter((num) => !isNaN(num));
 
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       const nextId = maxId + index + 1;
-      const paddedId = String(nextId).padStart(3, '0');
+      const paddedId = String(nextId).padStart(3, "0");
 
       return {
         ...qw,
         gap_id: `GAP-QW-${paddedId}`,
-        approval_status: qw.approval_status || 'Pending',
-        created_at: timestamp
+        approval_status: qw.approval_status || "Pending",
+        created_at: timestamp,
       };
     });
 
-    const quickWinsFile = path.join(this.dataDir, 'quick-wins.csv');
+    const quickWinsFile = path.join(this.dataDir, "quick-wins.csv");
     return this.appendCSV(quickWinsFile, dataWithTimestamp);
   }
 
@@ -403,39 +498,47 @@ class CSVDataManager {
    */
   saveMasterResearch(researchData) {
     const timestamp = new Date().toISOString();
-    const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
 
     // Get next incremental research ID
     const existingData = this.readCSV(this.files.masterResearch);
     const todayPrefix = `RESEARCH-${date}-`;
 
     const numericIds = existingData
-      .map(row => row.research_id)
-      .filter(id => id && id.startsWith(todayPrefix))
-      .map(id => {
+      .map((row) => row.research_id)
+      .filter((id) => id && id.startsWith(todayPrefix))
+      .map((id) => {
         const match = id.match(/(\d+)$/);
         return match ? parseInt(match[1], 10) : 0;
       })
-      .filter(num => !isNaN(num));
+      .filter((num) => !isNaN(num));
 
     const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
     const nextId = maxId + 1;
-    const paddedId = String(nextId).padStart(3, '0');
+    const paddedId = String(nextId).padStart(3, "0");
 
     const masterRecord = {
       research_id: `RESEARCH-${date}-${paddedId}`,
-      research_date: researchData.research_date || new Date().toISOString().split('T')[0],
-      total_gaps_identified: researchData.total_gaps_identified || researchData.content_gaps?.length || 0,
+      research_date:
+        researchData.research_date || new Date().toISOString().split("T")[0],
+      total_gaps_identified:
+        researchData.total_gaps_identified ||
+        researchData.content_gaps?.length ||
+        0,
       competitors_analyzed: Array.isArray(researchData.competitors_analyzed)
-        ? researchData.competitors_analyzed.join('; ')
-        : researchData.competitors_analyzed || '',
-      phase_1_focus: researchData.strategic_recommendations?.phase_1_focus || '',
-      phase_2_focus: researchData.strategic_recommendations?.phase_2_focus || '',
-      phase_3_focus: researchData.strategic_recommendations?.phase_3_focus || '',
-      estimated_traffic_growth: researchData.strategic_recommendations?.estimated_traffic_growth || '',
-      approval_status: researchData.approval_status || 'Pending',
-      notes: '',
-      created_at: timestamp
+        ? researchData.competitors_analyzed.join("; ")
+        : researchData.competitors_analyzed || "",
+      phase_1_focus:
+        researchData.strategic_recommendations?.phase_1_focus || "",
+      phase_2_focus:
+        researchData.strategic_recommendations?.phase_2_focus || "",
+      phase_3_focus:
+        researchData.strategic_recommendations?.phase_3_focus || "",
+      estimated_traffic_growth:
+        researchData.strategic_recommendations?.estimated_traffic_growth || "",
+      approval_status: researchData.approval_status || "Pending",
+      notes: "",
+      created_at: timestamp,
     };
 
     return this.appendCSV(this.files.masterResearch, [masterRecord]);
@@ -446,7 +549,7 @@ class CSVDataManager {
    */
   getApprovedResearchGaps() {
     const gaps = this.readCSV(this.files.researchGaps);
-    return gaps.filter(gap => gap.approval_status === 'Yes');
+    return gaps.filter((gap) => gap.approval_status === "Yes");
   }
 
   /**
@@ -459,23 +562,23 @@ class CSVDataManager {
     const dataWithTimestamp = topics.map((topic, index) => {
       const existingData = this.readCSV(this.files.generatedTopics);
       const numericIds = existingData
-        .map(row => row.topic_id)
-        .filter(id => id && id.startsWith('TOPIC-'))
-        .map(id => {
+        .map((row) => row.topic_id)
+        .filter((id) => id && id.startsWith("TOPIC-"))
+        .map((id) => {
           const match = id.match(/TOPIC-(\d+)$/);
           return match ? parseInt(match[1], 10) : 0;
         })
-        .filter(num => !isNaN(num));
+        .filter((num) => !isNaN(num));
 
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       const nextId = maxId + index + 1;
-      const paddedId = String(nextId).padStart(3, '0');
+      const paddedId = String(nextId).padStart(3, "0");
 
       return {
         ...topic,
         topic_id: topic.topic_id || `TOPIC-${paddedId}`,
-        approval_status: topic.approval_status || 'Pending',
-        created_at: timestamp
+        approval_status: topic.approval_status || "Pending",
+        created_at: timestamp,
       };
     });
 
@@ -487,7 +590,7 @@ class CSVDataManager {
    */
   getApprovedTopics() {
     const topics = this.readCSV(this.files.generatedTopics);
-    return topics.filter(topic => topic.approval_status === 'Yes');
+    return topics.filter((topic) => topic.approval_status === "Yes");
   }
 
   /**
@@ -507,23 +610,23 @@ class CSVDataManager {
     const dataWithTimestamp = research.map((item, index) => {
       const existingData = this.readCSV(this.files.topicResearch);
       const numericIds = existingData
-        .map(row => row.topic_research_id)
-        .filter(id => id && id.startsWith('TR-'))
-        .map(id => {
+        .map((row) => row.topic_research_id)
+        .filter((id) => id && id.startsWith("TR-"))
+        .map((id) => {
           const match = id.match(/TR-(\d+)$/);
           return match ? parseInt(match[1], 10) : 0;
         })
-        .filter(num => !isNaN(num));
+        .filter((num) => !isNaN(num));
 
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       const nextId = maxId + index + 1;
-      const paddedId = String(nextId).padStart(3, '0');
+      const paddedId = String(nextId).padStart(3, "0");
 
       // Serialize all complex fields for CSV storage
       const serializeField = (field) => {
-        if (!field) return '';
-        if (typeof field === 'string') return field;
-        if (typeof field === 'object') return JSON.stringify(field);
+        if (!field) return "";
+        if (typeof field === "string") return field;
+        if (typeof field === "object") return JSON.stringify(field);
         return String(field);
       };
 
@@ -539,14 +642,18 @@ class CSVDataManager {
         regulatory_compliance: serializeField(item.regulatory_compliance),
         estimated_impact: serializeField(item.estimated_impact),
         content_outline: serializeField(item.content_outline),
-        source_urls: Array.isArray(item.source_urls) ? JSON.stringify(item.source_urls) : (item.source_urls || '[]'),
-        approval_status: item.approval_status || 'Pending',
-        created_at: timestamp
+        source_urls: Array.isArray(item.source_urls)
+          ? JSON.stringify(item.source_urls)
+          : item.source_urls || "[]",
+        approval_status: item.approval_status || "Pending",
+        created_at: timestamp,
       };
     });
 
     // Normalize for CSV to avoid multiline / malformed fields in Stage 3 output
-    const normalized = dataWithTimestamp.map(item => this.normalizeTopicResearchForCSV(item));
+    const normalized = dataWithTimestamp.map((item) =>
+      this.normalizeTopicResearchForCSV(item),
+    );
     this.appendCSV(this.files.topicResearch, normalized);
     return normalized;
   }
@@ -561,23 +668,23 @@ class CSVDataManager {
 
     // Fields that may contain serialized JSON
     const jsonFields = [
-      'top_10_competitors',
-      'content_gaps',
-      'search_intent',
-      'related_questions',
-      'content_superiority_plan',
-      'resource_requirements',
-      'regulatory_compliance',
-      'estimated_impact',
-      'content_outline',
-      'source_urls'
+      "top_10_competitors",
+      "content_gaps",
+      "search_intent",
+      "related_questions",
+      "content_superiority_plan",
+      "resource_requirements",
+      "regulatory_compliance",
+      "estimated_impact",
+      "content_outline",
+      "source_urls",
     ];
 
-    jsonFields.forEach(field => {
-      if (parsed[field] && typeof parsed[field] === 'string') {
+    jsonFields.forEach((field) => {
+      if (parsed[field] && typeof parsed[field] === "string") {
         try {
           // Try to parse if it looks like JSON
-          if (parsed[field].startsWith('{') || parsed[field].startsWith('[')) {
+          if (parsed[field].startsWith("{") || parsed[field].startsWith("[")) {
             parsed[field] = JSON.parse(parsed[field]);
           }
         } catch (e) {
@@ -595,8 +702,65 @@ class CSVDataManager {
   getApprovedTopicResearch() {
     const research = this.readCSV(this.files.topicResearch);
     return research
-      .filter(item => item.approval_status === 'Yes')
-      .map(item => this.parseTopicResearchFields(item));
+      .filter((item) => item.approval_status === "Yes")
+      .map((item) => this.parseTopicResearchFields(item));
+  }
+
+  /**
+   * Normalize seo_metadata into a safe JSON string with a stable schema.
+   * This guarantees downstream consumers always see valid JSON.
+   */
+  _normalizeSeoMetadata(raw) {
+    if (!raw) {
+      return JSON.stringify({
+        title: "",
+        meta_description: "",
+        focus_keyphrase: "",
+        secondary_keywords: [],
+      });
+    }
+
+    let obj = {};
+
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (!trimmed) {
+        return JSON.stringify({
+          title: "",
+          meta_description: "",
+          focus_keyphrase: "",
+          secondary_keywords: [],
+        });
+      }
+
+      try {
+        obj = JSON.parse(trimmed);
+      } catch {
+        // Treat non‑JSON string as a plain title
+        obj = { title: trimmed };
+      }
+    } else if (typeof raw === "object") {
+      obj = raw || {};
+    } else {
+      obj = {};
+    }
+
+    const title =
+      typeof obj.title === "string" && obj.title.trim() ? obj.title.trim() : "";
+    const metaDescription =
+      typeof obj.meta_description === "string" ? obj.meta_description : "";
+    const focusKeyphrase =
+      typeof obj.focus_keyphrase === "string" ? obj.focus_keyphrase : "";
+    const secondaryKeywords = Array.isArray(obj.secondary_keywords)
+      ? obj.secondary_keywords.map((kw) => String(kw))
+      : [];
+
+    return JSON.stringify({
+      title,
+      meta_description: metaDescription,
+      focus_keyphrase: focusKeyphrase,
+      secondary_keywords: secondaryKeywords,
+    });
   }
 
   /**
@@ -608,7 +772,7 @@ class CSVDataManager {
     }
     const research = this.readCSV(this.files.topicResearch);
     const lookup = new Set(topicIds);
-    return research.filter(item => lookup.has(item.topic_id));
+    return research.filter((item) => lookup.has(item.topic_id));
   }
 
   /**
@@ -622,49 +786,74 @@ class CSVDataManager {
     const dataWithIds = dataWithTimestamp.map((item, index) => {
       const existingData = this.readCSV(this.files.createdContent);
       const numericIds = existingData
-        .map(row => row.content_id)
-        .filter(id => id && id.startsWith('CONTENT-'))
-        .map(id => {
+        .map((row) => row.content_id)
+        .filter((id) => id && id.startsWith("CONTENT-"))
+        .map((id) => {
           const match = id.match(/CONTENT-(\d+)$/);
           return match ? parseInt(match[1], 10) : 0;
         })
-        .filter(num => !isNaN(num));
+        .filter((num) => !isNaN(num));
 
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       const nextId = maxId + index + 1;
-      const paddedId = String(nextId).padStart(3, '0');
+      const paddedId = String(nextId).padStart(3, "0");
 
       // Ensure all required fields are present and properly formatted
       // article_content and content_upgrades must be explicitly preserved
-      const articleContent = item.article_content || '';
-      const contentUpgrades = item.content_upgrades || (typeof item.content_upgrades === 'object' ? JSON.stringify(item.content_upgrades) : '[]');
+      const articleContent = item.article_content || "";
+      const contentUpgrades =
+        item.content_upgrades ||
+        (typeof item.content_upgrades === "object"
+          ? JSON.stringify(item.content_upgrades)
+          : "[]");
 
       // Warn if critical fields are empty (but don't fail - might be intentional in some cases)
       if (!articleContent && item.content_id) {
-        console.warn(`⚠️  Warning: article_content is empty for content_id: ${item.content_id || `CONTENT-${paddedId}`}`);
+        console.warn(
+          `⚠️  Warning: article_content is empty for content_id: ${item.content_id || `CONTENT-${paddedId}`}`,
+        );
       }
-      if (!contentUpgrades || contentUpgrades === '[]' || contentUpgrades === '') {
-        console.warn(`⚠️  Warning: content_upgrades is empty for content_id: ${item.content_id || `CONTENT-${paddedId}`}`);
+      if (
+        !contentUpgrades ||
+        contentUpgrades === "[]" ||
+        contentUpgrades === ""
+      ) {
+        console.warn(
+          `⚠️  Warning: content_upgrades is empty for content_id: ${item.content_id || `CONTENT-${paddedId}`}`,
+        );
       }
 
       const record = {
         ...item,
         content_id: item.content_id || `CONTENT-${paddedId}`,
-        topic_id: item.topic_id || '',
-        creation_date: item.creation_date || new Date().toISOString().split('T')[0],
-        seo_metadata: item.seo_metadata || (typeof item.seo_metadata === 'object' ? JSON.stringify(item.seo_metadata) : '{}'),
-        article_content: articleContent,  // Explicitly preserve article_content
-        content_upgrades: contentUpgrades,  // Explicitly preserve content_upgrades
-        compliance: item.compliance || '',
-        quality_metrics: item.quality_metrics || (typeof item.quality_metrics === 'object' ? JSON.stringify(item.quality_metrics) : '{}'),
-        sources: Array.isArray(item.sources) ? JSON.stringify(item.sources) : (typeof item.sources === 'string' ? item.sources : (item.sources || '[]')),
-        hero_image: item.hero_image || (typeof item.hero_image === 'object' ? JSON.stringify(item.hero_image) : ''),
-        approval_status: item.approval_status || 'Pending',
-        created_at: timestamp
+        topic_id: item.topic_id || "",
+        creation_date:
+          item.creation_date || new Date().toISOString().split("T")[0],
+        seo_metadata: this._normalizeSeoMetadata(item.seo_metadata),
+        article_content: articleContent, // Explicitly preserve article_content
+        content_upgrades: contentUpgrades, // Explicitly preserve content_upgrades
+        compliance: item.compliance || "",
+        quality_metrics:
+          item.quality_metrics ||
+          (typeof item.quality_metrics === "object"
+            ? JSON.stringify(item.quality_metrics)
+            : "{}"),
+        sources: Array.isArray(item.sources)
+          ? JSON.stringify(item.sources)
+          : typeof item.sources === "string"
+            ? item.sources
+            : item.sources || "[]",
+        hero_image:
+          item.hero_image ||
+          (typeof item.hero_image === "object"
+            ? JSON.stringify(item.hero_image)
+            : ""),
+        approval_status: item.approval_status || "Pending",
+        created_at: timestamp,
       };
 
       // Normalize for CSV so Stage 4 rows don't contain raw newlines in critical fields
-      const cols = this.getSchemaColumns('createdContent');
+      const cols = this.getSchemaColumns("createdContent");
       if (!cols) {
         return record;
       }
@@ -672,10 +861,10 @@ class CSVDataManager {
       for (const key of cols) {
         const v = record[key];
         if (v === undefined || v === null) {
-          normalized[key] = '';
-        } else if (typeof v === 'string') {
+          normalized[key] = "";
+        } else if (typeof v === "string") {
           normalized[key] = this._sanitizeForCSV(v);
-        } else if (typeof v === 'object') {
+        } else if (typeof v === "object") {
           normalized[key] = this._sanitizeForCSV(JSON.stringify(v));
         } else {
           normalized[key] = this._sanitizeForCSV(String(v));
@@ -695,26 +884,28 @@ class CSVDataManager {
     const timestamp = new Date().toISOString();
 
     // Generate incremental IDs for each published item
-    const dataWithTimestamp = Array.isArray(published) ? published : [published];
+    const dataWithTimestamp = Array.isArray(published)
+      ? published
+      : [published];
     const dataWithIds = dataWithTimestamp.map((item, index) => {
       const existingData = this.readCSV(this.files.publishedContent);
       const numericIds = existingData
-        .map(row => row.publish_id)
-        .filter(id => id && id.startsWith('PUB-'))
-        .map(id => {
+        .map((row) => row.publish_id)
+        .filter((id) => id && id.startsWith("PUB-"))
+        .map((id) => {
           const match = id.match(/PUB-(\d+)$/);
           return match ? parseInt(match[1], 10) : 0;
         })
-        .filter(num => !isNaN(num));
+        .filter((num) => !isNaN(num));
 
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       const nextId = maxId + index + 1;
-      const paddedId = String(nextId).padStart(3, '0');
+      const paddedId = String(nextId).padStart(3, "0");
 
       return {
         ...item,
         publish_id: item.publish_id || `PUB-${paddedId}`,
-        created_at: timestamp
+        created_at: timestamp,
       };
     });
 
@@ -730,8 +921,10 @@ class CSVDataManager {
     if (!statuses || statuses.length === 0) {
       return content;
     }
-    const normalized = new Set(statuses.map(status => status.toLowerCase()));
-    return content.filter(item => normalized.has((item.approval_status || '').toLowerCase()));
+    const normalized = new Set(statuses.map((status) => status.toLowerCase()));
+    return content.filter((item) =>
+      normalized.has((item.approval_status || "").toLowerCase()),
+    );
   }
 
   /**
@@ -743,7 +936,7 @@ class CSVDataManager {
     }
     const content = this.readCSV(this.files.createdContent);
     const lookup = new Set(topicIds);
-    return content.filter(item => lookup.has(item.topic_id));
+    return content.filter((item) => lookup.has(item.topic_id));
   }
 
   /**
@@ -759,17 +952,29 @@ class CSVDataManager {
     let updated = false;
 
     const serializedUpdates = { ...updates };
-    if (serializedUpdates.seo_metadata && typeof serializedUpdates.seo_metadata === 'object') {
-      serializedUpdates.seo_metadata = JSON.stringify(serializedUpdates.seo_metadata);
+    if (serializedUpdates.seo_metadata !== undefined) {
+      serializedUpdates.seo_metadata = this._normalizeSeoMetadata(
+        serializedUpdates.seo_metadata,
+      );
     }
-    if (serializedUpdates.quality_metrics && typeof serializedUpdates.quality_metrics === 'object') {
-      serializedUpdates.quality_metrics = JSON.stringify(serializedUpdates.quality_metrics);
+    if (
+      serializedUpdates.quality_metrics &&
+      typeof serializedUpdates.quality_metrics === "object"
+    ) {
+      serializedUpdates.quality_metrics = JSON.stringify(
+        serializedUpdates.quality_metrics,
+      );
     }
-    if (serializedUpdates.content_upgrades && typeof serializedUpdates.content_upgrades === 'object') {
-      serializedUpdates.content_upgrades = JSON.stringify(serializedUpdates.content_upgrades);
+    if (
+      serializedUpdates.content_upgrades &&
+      typeof serializedUpdates.content_upgrades === "object"
+    ) {
+      serializedUpdates.content_upgrades = JSON.stringify(
+        serializedUpdates.content_upgrades,
+      );
     }
 
-    const updatedRows = rows.map(row => {
+    const updatedRows = rows.map((row) => {
       if (row.content_id === contentId) {
         updated = true;
         return { ...row, ...serializedUpdates };
@@ -788,7 +993,9 @@ class CSVDataManager {
    * Update approval status for created content entries
    */
   updateContentApprovalStatus(contentId, approvalStatus) {
-    return this.updateCreatedContent(contentId, { approval_status: approvalStatus });
+    return this.updateCreatedContent(contentId, {
+      approval_status: approvalStatus,
+    });
   }
 
   /**
@@ -799,7 +1006,7 @@ class CSVDataManager {
       const filePath = this.files[csvType];
       const data = this.readCSV(filePath);
 
-      const updatedData = data.map(row => {
+      const updatedData = data.map((row) => {
         if (row[idField] === id) {
           return { ...row, approval_status: approvalStatus };
         }
@@ -816,11 +1023,13 @@ class CSVDataManager {
   /**
    * Update workflow status
    */
-  updateWorkflowStatus(topicId, stage, status, notes = '', stageUpdates = {}) {
+  updateWorkflowStatus(topicId, stage, status, notes = "", stageUpdates = {}) {
     const statusData = this.readCSV(this.files.workflowStatus);
     const timestamp = new Date().toISOString();
 
-    const existingIndex = statusData.findIndex(row => row.topic_id === topicId);
+    const existingIndex = statusData.findIndex(
+      (row) => row.topic_id === topicId,
+    );
 
     const statusUpdate = {
       topic_id: topicId,
@@ -828,20 +1037,23 @@ class CSVDataManager {
       overall_status: status,
       last_updated: timestamp,
       notes: notes,
-      ...stageUpdates
+      ...stageUpdates,
     };
 
     if (existingIndex >= 0) {
-      statusData[existingIndex] = { ...statusData[existingIndex], ...statusUpdate };
+      statusData[existingIndex] = {
+        ...statusData[existingIndex],
+        ...statusUpdate,
+      };
     } else {
       statusData.push({
         ...statusUpdate,
-        research_approval: 'Not Started',
-        topic_approval: 'Not Started',
-        deep_research_approval: 'Not Started',
-        content_approval: 'Not Started',
-        seo_approval: 'Not Started',
-        publication_approval: 'Not Started'
+        research_approval: "Not Started",
+        topic_approval: "Not Started",
+        deep_research_approval: "Not Started",
+        content_approval: "Not Started",
+        seo_approval: "Not Started",
+        publication_approval: "Not Started",
       });
     }
 
@@ -858,18 +1070,24 @@ class CSVDataManager {
       topicResearch: this.readCSV(this.files.topicResearch),
       createdContent: this.readCSV(this.files.createdContent),
       publishedContent: this.readCSV(this.files.publishedContent),
-      workflowStatus: this.readCSV(this.files.workflowStatus)
+      workflowStatus: this.readCSV(this.files.workflowStatus),
     };
 
     return {
       totalResearchGaps: stats.researchGaps.length,
-      approvedResearchGaps: stats.researchGaps.filter(g => g.approval_status === 'Yes').length,
+      approvedResearchGaps: stats.researchGaps.filter(
+        (g) => g.approval_status === "Yes",
+      ).length,
       totalTopics: stats.generatedTopics.length,
-      approvedTopics: stats.generatedTopics.filter(t => t.approval_status === 'Yes').length,
-      completedResearch: stats.topicResearch.filter(r => r.approval_status === 'Yes').length,
+      approvedTopics: stats.generatedTopics.filter(
+        (t) => t.approval_status === "Yes",
+      ).length,
+      completedResearch: stats.topicResearch.filter(
+        (r) => r.approval_status === "Yes",
+      ).length,
       createdContent: stats.createdContent.length,
       publishedContent: stats.publishedContent.length,
-      workflowItems: stats.workflowStatus.length
+      workflowItems: stats.workflowStatus.length,
     };
   }
 
@@ -884,8 +1102,8 @@ class CSVDataManager {
     }
 
     const text = String(rawUrl)
-      .replace(/[`"'<>]/g, '')
-      .replace(/\((https?:\/\/[^\s)]+)\)/i, '$1')
+      .replace(/[`"'<>]/g, "")
+      .replace(/\((https?:\/\/[^\s)]+)\)/i, "$1")
       .trim();
 
     if (!text) {
@@ -901,16 +1119,16 @@ class CSVDataManager {
     let url = urlInTextMatch ? urlInTextMatch[0] : candidate;
 
     // Remove bullets, numbering, or "Source:" prefixes
-    url = url.replace(/^(?:source|link|url)\s*[:\-]\s*/i, '');
-    url = url.replace(/^[\s•\-–—\d.)]+/, '').trim();
-    url = url.replace(/\s+$/g, '');
+    url = url.replace(/^(?:source|link|url)\s*[:\-]\s*/i, "");
+    url = url.replace(/^[\s•\-–—\d.)]+/, "").trim();
+    url = url.replace(/\s+$/g, "");
 
     if (!url) {
       return null;
     }
 
     if (!/^https?:\/\//i.test(url)) {
-      url = url.replace(/^[^A-Za-z0-9]+/, '');
+      url = url.replace(/^[^A-Za-z0-9]+/, "");
       if (!url) {
         return null;
       }
@@ -922,8 +1140,10 @@ class CSVDataManager {
       if (!/^https?:$/i.test(parsed.protocol)) {
         return null;
       }
-      const pathname = parsed.pathname ? parsed.pathname.replace(/\/+$/, '') : '';
-      const search = parsed.search || '';
+      const pathname = parsed.pathname
+        ? parsed.pathname.replace(/\/+$/, "")
+        : "";
+      const search = parsed.search || "";
       const normalized = `${parsed.protocol}//${parsed.hostname}${pathname}${search}`;
       return normalized;
     } catch (error) {
@@ -942,14 +1162,14 @@ class CSVDataManager {
     }
 
     if (Array.isArray(value)) {
-      return value.filter(item => item !== null && item !== undefined);
+      return value.filter((item) => item !== null && item !== undefined);
     }
 
-    if (typeof value === 'object') {
+    if (typeof value === "object") {
       const entries = [];
-      const possibleUrlKeys = ['url', 'link', 'href', 'source_url', 'value'];
+      const possibleUrlKeys = ["url", "link", "href", "source_url", "value"];
 
-      possibleUrlKeys.forEach(key => {
+      possibleUrlKeys.forEach((key) => {
         if (value[key]) {
           entries.push(value[key]);
         }
@@ -960,7 +1180,7 @@ class CSVDataManager {
       }
 
       return Object.values(value)
-        .map(v => this.parseStructuredField(v))
+        .map((v) => this.parseStructuredField(v))
         .flat();
     }
 
@@ -982,7 +1202,7 @@ class CSVDataManager {
     // Split delimited strings (newline, semicolon, pipe, comma)
     const fragments = text
       .split(/[\n\r;,|]+/)
-      .map(item => item.trim())
+      .map((item) => item.trim())
       .filter(Boolean);
 
     if (fragments.length > 0) {
@@ -998,11 +1218,11 @@ class CSVDataManager {
    * @returns {string[]}
    */
   extractUrlsFromText(text) {
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
       return [];
     }
     const matches = text.match(/https?:\/\/[^\s)]+/gi);
-    return matches ? matches.map(match => match.trim()) : [];
+    return matches ? matches.map((match) => match.trim()) : [];
   }
 
   /**
@@ -1013,13 +1233,13 @@ class CSVDataManager {
   extractSourceUrls(researchItem = {}) {
     const urls = new Set();
 
-    const consider = candidate => {
+    const consider = (candidate) => {
       if (candidate === null || candidate === undefined) {
         return;
       }
 
-      if (typeof candidate === 'string') {
-        this.extractUrlsFromText(candidate).forEach(textUrl => {
+      if (typeof candidate === "string") {
+        this.extractUrlsFromText(candidate).forEach((textUrl) => {
           const normalized = this.normalizeSourceUrl(textUrl);
           if (normalized) {
             urls.add(normalized);
@@ -1034,37 +1254,37 @@ class CSVDataManager {
     };
 
     const candidateFields = [
-      'source_urls',
-      'sources',
-      'reference_links',
-      'research_links',
-      'top_sources',
-      'supporting_links',
-      'top_10_competitors',
-      'top_competitors',
-      'competitor_urls',
-      'additional_sources',
-      'external_links',
-      'context_urls',
-      'links'
+      "source_urls",
+      "sources",
+      "reference_links",
+      "research_links",
+      "top_sources",
+      "supporting_links",
+      "top_10_competitors",
+      "top_competitors",
+      "competitor_urls",
+      "additional_sources",
+      "external_links",
+      "context_urls",
+      "links",
     ];
 
-    candidateFields.forEach(field => {
+    candidateFields.forEach((field) => {
       if (!Object.prototype.hasOwnProperty.call(researchItem, field)) {
         return;
       }
       const entries = this.parseStructuredField(researchItem[field]);
-      entries.forEach(entry => consider(entry));
+      entries.forEach((entry) => consider(entry));
     });
 
     // Consider content gaps or supplementary notes where URLs may be embedded
-    const textFields = ['content_gaps', 'notes', 'content_superiority_plan'];
-    textFields.forEach(field => {
+    const textFields = ["content_gaps", "notes", "content_superiority_plan"];
+    textFields.forEach((field) => {
       if (!researchItem[field]) {
         return;
       }
       const embedded = this.extractUrlsFromText(researchItem[field]);
-      embedded.forEach(url => {
+      embedded.forEach((url) => {
         const normalized = this.normalizeSourceUrl(url);
         if (normalized) {
           urls.add(normalized);
@@ -1081,16 +1301,24 @@ class CSVDataManager {
   generateSummaryReport() {
     const stats = this.getWorkflowStats();
 
-    console.log('\n' + '='.repeat(60));
-    console.log('📊 ENHANCED BULK GENERATOR - DATA SUMMARY');
-    console.log('='.repeat(60));
-    console.log(`📋 Research Gaps: ${stats.totalResearchGaps} total, ${stats.approvedResearchGaps} approved`);
-    console.log(`🎯 Generated Topics: ${stats.totalTopics} total, ${stats.approvedTopics} approved`);
-    console.log(`🔍 Completed Research: ${stats.completedResearch} deep research items`);
+    console.log("\n" + "=".repeat(60));
+    console.log("📊 ENHANCED BULK GENERATOR - DATA SUMMARY");
+    console.log("=".repeat(60));
+    console.log(
+      `📋 Research Gaps: ${stats.totalResearchGaps} total, ${stats.approvedResearchGaps} approved`,
+    );
+    console.log(
+      `🎯 Generated Topics: ${stats.totalTopics} total, ${stats.approvedTopics} approved`,
+    );
+    console.log(
+      `🔍 Completed Research: ${stats.completedResearch} deep research items`,
+    );
     console.log(`📝 Created Content: ${stats.createdContent} pieces`);
     console.log(`🚀 Published Content: ${stats.publishedContent} pieces`);
-    console.log(`⚡ Active Workflows: ${stats.workflowItems} items in progress`);
-    console.log('='.repeat(60) + '\n');
+    console.log(
+      `⚡ Active Workflows: ${stats.workflowItems} items in progress`,
+    );
+    console.log("=".repeat(60) + "\n");
 
     return stats;
   }
@@ -1102,12 +1330,16 @@ class CSVDataManager {
   async syncToGoogleSheets() {
     // Check if sync is enabled
     if (!this.enableGoogleSheetsSync) {
-      return { success: true, skipped: true, reason: 'Sync disabled' };
+      return { success: true, skipped: true, reason: "Sync disabled" };
     }
 
     // Check if sync module is available
     if (!googleSheetsSyncModule || !googleSheetsSyncModule.syncToGoogleSheets) {
-      return { success: true, skipped: true, reason: 'Sync module not available' };
+      return {
+        success: true,
+        skipped: true,
+        reason: "Sync module not available",
+      };
     }
 
     // Note: Credentials check removed - module now has hardcoded fallback path
@@ -1115,14 +1347,14 @@ class CSVDataManager {
     try {
       const result = await googleSheetsSyncModule.syncToGoogleSheets({
         csvDir: this.dataDir,
-        silent: this.silentSync
+        silent: this.silentSync,
       });
 
       return result;
     } catch (error) {
       // Log error but don't fail the workflow
       if (!this.silentSync) {
-        console.warn('⚠️  Google Sheets sync failed:', error.message);
+        console.warn("⚠️  Google Sheets sync failed:", error.message);
       }
       return { success: false, error: error.message };
     }
@@ -1150,22 +1382,28 @@ class CSVDataManager {
       const existingData = this.readCSV(filePath);
 
       if (existingData.length === 0) {
-        console.log(`ℹ️  ${csvType}.csv is empty, rewriting with correct headers`);
-        const csvContent = schemaColumns.join(',') + '\n';
+        console.log(
+          `ℹ️  ${csvType}.csv is empty, rewriting with correct headers`,
+        );
+        const csvContent = schemaColumns.join(",") + "\n";
         fs.writeFileSync(filePath, csvContent);
         return true;
       }
 
       // Check if migration is needed
       const existingColumns = Object.keys(existingData[0] || {});
-      const missingColumns = schemaColumns.filter(col => !existingColumns.includes(col));
+      const missingColumns = schemaColumns.filter(
+        (col) => !existingColumns.includes(col),
+      );
 
       if (missingColumns.length === 0) {
         console.log(`✅ ${csvType}.csv already has all schema columns`);
         return true;
       }
 
-      console.log(`🔄 Migrating ${csvType}.csv - adding columns: ${missingColumns.join(', ')}`);
+      console.log(
+        `🔄 Migrating ${csvType}.csv - adding columns: ${missingColumns.join(", ")}`,
+      );
 
       // Create backup
       const backupPath = `${filePath}.backup.${Date.now()}`;
@@ -1173,17 +1411,19 @@ class CSVDataManager {
       console.log(`📦 Backup created: ${backupPath}`);
 
       // Add missing columns with empty values
-      const migratedData = existingData.map(row => {
+      const migratedData = existingData.map((row) => {
         const newRow = { ...row };
-        missingColumns.forEach(col => {
-          newRow[col] = '';
+        missingColumns.forEach((col) => {
+          newRow[col] = "";
         });
         return newRow;
       });
 
       // Write back with schema columns (this will use writeCSV which enforces schema)
       this.writeCSV(filePath, migratedData);
-      console.log(`✅ Successfully migrated ${csvType}.csv (${existingData.length} rows)`);
+      console.log(
+        `✅ Successfully migrated ${csvType}.csv (${existingData.length} rows)`,
+      );
 
       return true;
     } catch (error) {
@@ -1196,20 +1436,24 @@ class CSVDataManager {
    * Migrate all CSV files to match current schemas
    */
   migrateAllCSVs() {
-    console.log('\n' + '='.repeat(60));
-    console.log('🔄 CSV SCHEMA MIGRATION');
-    console.log('='.repeat(60));
+    console.log("\n" + "=".repeat(60));
+    console.log("🔄 CSV SCHEMA MIGRATION");
+    console.log("=".repeat(60));
 
     const csvTypes = Object.keys(this.files);
     const results = {};
 
-    csvTypes.forEach(csvType => {
+    csvTypes.forEach((csvType) => {
       results[csvType] = this.migrateCSVToSchema(csvType);
     });
 
-    console.log('='.repeat(60));
-    const successCount = Object.values(results).filter(r => r === true).length;
-    console.log(`✅ Migration complete: ${successCount}/${csvTypes.length} files processed\n`);
+    console.log("=".repeat(60));
+    const successCount = Object.values(results).filter(
+      (r) => r === true,
+    ).length;
+    console.log(
+      `✅ Migration complete: ${successCount}/${csvTypes.length} files processed\n`,
+    );
 
     return results;
   }
@@ -1222,17 +1466,19 @@ class CSVDataManager {
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
     Object.entries(this.files).forEach(([key, filePath]) => {
-      if (key === 'workflowStatus') return; // Don't clean workflow status
+      if (key === "workflowStatus") return; // Don't clean workflow status
 
       const data = this.readCSV(filePath);
-      const cleanedData = data.filter(row => {
+      const cleanedData = data.filter((row) => {
         if (!row.created_at) return true;
         return new Date(row.created_at) > cutoffDate;
       });
 
       if (cleanedData.length < data.length) {
         this.writeCSV(filePath, cleanedData);
-        console.log(`🧹 Cleaned ${data.length - cleanedData.length} old records from ${key}.csv`);
+        console.log(
+          `🧹 Cleaned ${data.length - cleanedData.length} old records from ${key}.csv`,
+        );
       }
     });
   }
@@ -1246,21 +1492,21 @@ if (require.main === module) {
   const command = process.argv[2];
 
   switch (command) {
-    case 'init':
+    case "init":
       manager.initializeCSVFiles();
-      console.log('✅ All CSV files initialized');
+      console.log("✅ All CSV files initialized");
       break;
 
-    case 'stats':
+    case "stats":
       manager.generateSummaryReport();
       break;
 
-    case 'cleanup':
+    case "cleanup":
       const days = parseInt(process.argv[3]) || 30;
       manager.cleanupOldData(days);
       break;
 
-    case 'migrate':
+    case "migrate":
       const csvType = process.argv[3];
       if (csvType) {
         // Migrate specific CSV
@@ -1272,12 +1518,18 @@ if (require.main === module) {
       break;
 
     default:
-      console.log('Usage: node csv-data-manager.js [init|stats|cleanup|migrate [csvType]]');
-      console.log('  init              - Initialize CSV files with headers');
-      console.log('  stats             - Show workflow statistics');
-      console.log('  cleanup [days]    - Clean up old data (default: 30 days)');
-      console.log('  migrate [csvType] - Migrate CSV(s) to match current schema');
-      console.log('                      If csvType is provided, migrates that specific CSV');
-      console.log('                      Otherwise, migrates all CSV files');
+      console.log(
+        "Usage: node csv-data-manager.js [init|stats|cleanup|migrate [csvType]]",
+      );
+      console.log("  init              - Initialize CSV files with headers");
+      console.log("  stats             - Show workflow statistics");
+      console.log("  cleanup [days]    - Clean up old data (default: 30 days)");
+      console.log(
+        "  migrate [csvType] - Migrate CSV(s) to match current schema",
+      );
+      console.log(
+        "                      If csvType is provided, migrates that specific CSV",
+      );
+      console.log("                      Otherwise, migrates all CSV files");
   }
 }

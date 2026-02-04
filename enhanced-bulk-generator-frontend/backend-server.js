@@ -2,7 +2,7 @@
 
 /**
  * Backend API Server for Enhanced Bulk Generator
- * Runs on port 3008 and handles workflow execution
+ * Runs on port 3006 by default and handles workflow execution
  * This allows the Vite app (port 3007) to proxy API calls to it
  */
 
@@ -23,7 +23,7 @@ const unlink = promisify(fs.unlink);
 const writeFile = promisify(fs.writeFile);
 
 // Load environment variables from .env file
-// Try multiple locations: current dir, parent dir (martech), and parent's parent
+// Load backend .env first, then parent (martech) .env so martech/.env keys (e.g. GEMINI_API_KEY) are used
 const envPaths = [
   path.resolve(__dirname, '.env'),
   path.resolve(__dirname, '..', '.env'),
@@ -32,14 +32,13 @@ const envPaths = [
 
 for (const envPath of envPaths) {
   if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath, override: false });
+    dotenv.config({ path: envPath, override: true });
     console.log(`✅ Loaded environment variables from: ${envPath}`);
-    break;
   }
 }
 
 const app = express();
-const PORT = 3006;
+const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || 3008);
 
 // Middleware
 app.use(cors());
@@ -4082,10 +4081,12 @@ app.get('/api/health/social-media', (req, res) => {
 });
 
 // ============================================================================
-// GTM STRATEGY (GEMINI) ROUTES
+// GTM STRATEGY (GROQ) ROUTES
 // ============================================================================
 
-async function gtmCallGeminiJsonWithFallback({ apiKey, models, prompt, temperature, maxOutputTokens }) {
+const GTM_GROQ_SYSTEM = 'You are an expert Go-To-Market (GTM) strategist. Return ONLY valid JSON. No markdown, no code fences, no commentary.';
+
+async function gtmCallGroqJsonWithFallback({ apiKey, models, userPrompt, temperature, maxTokens }) {
   const tried = [];
   let lastError = null;
 
@@ -4094,6 +4095,32 @@ async function gtmCallGeminiJsonWithFallback({ apiKey, models, prompt, temperatu
     if (tried.includes(model)) continue;
     tried.push(model);
 
+    try {
+      const raw = await callGroqChatJson({
+        apiKey,
+        model,
+        systemPrompt: GTM_GROQ_SYSTEM,
+        userPrompt,
+        temperature,
+        maxTokens
+      });
+      return { raw, modelUsed: model };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  const msg = lastError?.message ? String(lastError.message) : 'Unknown Groq error';
+  throw new Error(`${msg} (models tried: ${tried.join(', ') || 'none'})`);
+}
+
+async function gtmCallGeminiJsonWithFallback({ apiKey, models, prompt, temperature, maxOutputTokens }) {
+  const tried = [];
+  let lastError = null;
+  for (const model of models) {
+    if (!model) continue;
+    if (tried.includes(model)) continue;
+    tried.push(model);
     try {
       const raw = await callGeminiGenerateContentJson({
         apiKey,
@@ -4107,7 +4134,6 @@ async function gtmCallGeminiJsonWithFallback({ apiKey, models, prompt, temperatu
       lastError = err;
     }
   }
-
   const msg = lastError?.message ? String(lastError.message) : 'Unknown Gemini error';
   throw new Error(`${msg} (models tried: ${tried.join(', ') || 'none'})`);
 }
@@ -4118,14 +4144,14 @@ function gtmFindQuestionArray(parsed) {
   if (Array.isArray(parsed?.questions)) return parsed.questions;
   if (Array.isArray(parsed?.interview_questions)) return parsed.interview_questions;
   if (Array.isArray(parsed?.interviewQuestions)) return parsed.interviewQuestions;
+  if (Array.isArray(parsed?.items)) return parsed.items;
 
   if (parsed && typeof parsed === 'object') {
     for (const value of Object.values(parsed)) {
       if (!Array.isArray(value) || value.length === 0) continue;
       const first = value[0];
-      if (first && typeof first === 'object' && typeof first.question === 'string') {
-        return value;
-      }
+      const hasQuestion = first && typeof first === 'object' && (typeof first.question === 'string' || typeof first.text === 'string');
+      if (hasQuestion) return value;
     }
   }
 
@@ -4178,7 +4204,7 @@ function gtmNormalizeQuestion(raw, index) {
       ? typeRaw
       : 'free_text';
 
-  const question = gtmSafeString(raw?.question);
+  const question = gtmSafeString(raw?.question) || gtmSafeString(raw?.text);
   if (!question) return null;
 
   const helperText = gtmSafeString(raw?.helperText) || undefined;
@@ -4220,23 +4246,18 @@ app.post('/api/gtm/questions', async (req, res) => {
       return res.status(400).json({ error: 'prompt is required' });
     }
 
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!geminiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server' });
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return res.status(500).json({ error: 'GROQ_API_KEY is not configured on the server' });
     }
 
-    const preferredModel = process.env.GEMINI_TEXT_MODEL || 'gemini-3-flash-preview';
-    const modelCandidates = [
-      preferredModel,
-      'gemini-3-pro-preview',
-      'gemini-2.5-flash',
-      'gemini-2.5-pro'
-    ];
+    const preferredModel = process.env.GTM_GROQ_MODEL || 'groq/compound';
+    const modelCandidates = [preferredModel, 'groq/compound', 'groq/compound-mini', 'llama-3.3-70b-versatile'].filter(
+      (m, idx, arr) => m && arr.indexOf(m) === idx
+    );
     const allowedTypes = ['single_select', 'multi_select', 'free_text'];
 
-    const userPrompt = `You are an expert Go-To-Market (GTM) strategist.
-
-Task: Create a short interview plan (5 to 6 questions) to collect the MOST important information needed to produce a high-quality GTM strategy.
+    const userPrompt = `Task: Create a short interview plan (5 to 6 questions) to collect the MOST important information needed to produce a high-quality GTM strategy.
 
 User request: ${JSON.stringify(prompt)}
 
@@ -4261,12 +4282,12 @@ Return ONLY JSON with this schema:
   }>
 }`;
 
-    const { raw, modelUsed } = await gtmCallGeminiJsonWithFallback({
-      apiKey: geminiKey,
+    const { raw, modelUsed } = await gtmCallGroqJsonWithFallback({
+      apiKey: groqKey,
       models: modelCandidates,
-      prompt: userPrompt,
+      userPrompt,
       temperature: 0.4,
-      maxOutputTokens: 1200
+      maxTokens: 1200
     });
 
     const parsed = extractJsonFromText(raw);
@@ -4331,15 +4352,13 @@ app.post('/api/gtm/strategy', async (req, res) => {
 
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!geminiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server' });
+      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server (required for GTM strategy generation)' });
     }
 
     const preferredModel = process.env.GEMINI_TEXT_MODEL || 'gemini-3-flash-preview';
-    const modelCandidates = [
-      preferredModel,
-      'gemini-3-pro-preview',
-      'gemini-2.5-pro'
-    ];
+    const modelCandidates = [preferredModel, 'gemini-3-flash-preview', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro'].filter(
+      (m, idx, arr) => m && arr.indexOf(m) === idx
+    );
 
     const allowedAgentTargets = [
       'company_intel_icp',

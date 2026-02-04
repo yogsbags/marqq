@@ -3,6 +3,9 @@ import fs from 'fs'
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 
+// Force dynamic rendering since this route uses searchParams
+export const dynamic = 'force-dynamic'
+
 /**
  * Remove RESEARCH VERIFICATION section from markdown (for HTML output)
  */

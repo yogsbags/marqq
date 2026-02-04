@@ -311,7 +311,7 @@ async function testGemini3ProFeatures() {
     const resultExplicit = await generator.textToImage(
       "Create a modern infographic comparing MADP returns vs Fixed Deposits vs Mutual Funds with clear percentages",
       {
-        model: "gemini-3-pro-image-preview",
+        model: "gemini-3-flash-preview",
         aspectRatio: "1:1",
         imageSize: "4K",
         useGrounding: true

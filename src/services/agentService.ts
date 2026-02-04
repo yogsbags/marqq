@@ -1,6 +1,6 @@
+import { Agent, AgentTask, AgentTool, AgentWorkflow } from '@/types/agent';
 import { v4 as uuidv4 } from 'uuid';
-import { GroqService, ChatMessage } from './groqService';
-import { Agent, AgentTask, AgentTool, AgentMemory, AgentWorkflow } from '@/types/agent';
+import { GroqService } from './groqService';
 
 export class AgentService {
   private static agents: Map<string, Agent> = new Map();
@@ -126,14 +126,14 @@ export class AgentService {
         // Simulate lead scoring algorithm
         const { customerData } = params;
         const baseScore = Math.random() * 100;
-        
+
         // Adjust score based on data quality
         let score = baseScore;
         if (customerData.email) score += 10;
         if (customerData.company) score += 15;
         if (customerData.revenue) score += 20;
         if (customerData.industry) score += 10;
-        
+
         return {
           score: Math.min(Math.round(score), 100),
           grade: score > 80 ? 'A' : score > 60 ? 'B' : score > 40 ? 'C' : 'D',
@@ -165,7 +165,7 @@ export class AgentService {
           },
           enrichmentScore: 0.85
         };
-        
+
         return enrichedData;
       }
     };
@@ -214,10 +214,10 @@ export class AgentService {
       },
       execute: async (params) => {
         const { icpProfile, targetPlatform = 'facebook', audienceSize = 10000 } = params;
-        
+
         // Simulate lookalike audience generation
         await new Promise(resolve => setTimeout(resolve, 2000));
-        
+
         return {
           audienceId: `lookalike_${Date.now()}`,
           platform: targetPlatform,
@@ -267,16 +267,16 @@ export class AgentService {
       },
       execute: async (params) => {
         const { contentType, topic, audience } = params;
-        
+
         // Use Groq for content generation
-        const prompt = `Create ${contentType} content about "${topic}" for ${audience?.segment || 'business professionals'}. 
+        const prompt = `Create ${contentType} content about "${topic}" for ${audience?.segment || 'business professionals'}.
         Make it engaging, professional, and action-oriented. Include a clear call-to-action.`;
-        
+
         try {
           const content = await GroqService.getChatResponse([
             { role: 'user', content: prompt }
           ]);
-          
+
           return {
             content,
             contentType,
@@ -323,7 +323,7 @@ export class AgentService {
       },
       execute: async (params) => {
         const { content, targetKeywords } = params;
-        
+
         return {
           optimizedContent: content,
           keywordDensity: targetKeywords?.reduce((acc: any, keyword: string) => {
@@ -352,7 +352,7 @@ export class AgentService {
       },
       execute: async (params) => {
         const { prospects, campaignType = 'email', personalizationLevel = 'medium' } = params;
-        
+
         // Simulate AI outreach generation
         const campaigns = prospects?.map((prospect: any, index: number) => ({
           prospectId: prospect.id || `prospect_${index}`,
@@ -380,32 +380,75 @@ export class AgentService {
   private static createBudgetOptimizationTool(): AgentTool {
     return {
       name: 'budget_optimization',
-      description: 'Analyzes campaign performance and recommends budget reallocation',
+      description:
+        'Analyzes campaign performance and recommends budget reallocation. Calls the same backend as the Budget Optimization UI (Groq). Accepts question, timeframe, currency, and optional dataText or campaignData.',
       parameters: {
+        question: 'string',
+        timeframe: 'string',
+        currency: 'string',
+        dataText: 'string',
         campaignData: 'array',
         totalBudget: 'number'
       },
       execute: async (params) => {
-        const { campaignData, totalBudget } = params;
-        
+        const {
+          question: questionParam,
+          timeframe = 'last_30_days',
+          currency = 'INR',
+          dataText: dataTextParam,
+          campaignData,
+          totalBudget
+        } = params;
+
+        const question =
+          typeof questionParam === 'string' && questionParam.trim()
+            ? questionParam.trim()
+            : `Analyze campaign performance and recommend budget reallocation. Total budget: ${totalBudget ?? 'not specified'}. Provide RCA and a channel-level budget plan.`;
+        const dataText =
+          typeof dataTextParam === 'string' && dataTextParam.trim()
+            ? dataTextParam.slice(0, 25_000)
+            : Array.isArray(campaignData) && campaignData.length > 0
+              ? JSON.stringify(campaignData).slice(0, 25_000)
+              : '';
+
+        try {
+          const res = await fetch('/api/budget-optimization/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              question,
+              timeframe,
+              currency,
+              connectorsUsed: ['manual'],
+              dataText
+            })
+          });
+          const json = await res.json().catch(() => null);
+          if (res.ok && json?.result) return json.result;
+        } catch {
+          // Fall through to stub when backend is unavailable
+        }
+
+        // Stub when API is unavailable or returns error (e.g. no GROQ_API_KEY)
+        const total = typeof totalBudget === 'number' && Number.isFinite(totalBudget) ? totalBudget : 100000;
         return {
           recommendations: [
             {
               campaign: 'Search Ads',
-              currentBudget: totalBudget * 0.4,
-              recommendedBudget: totalBudget * 0.5,
+              currentBudget: total * 0.4,
+              recommendedBudget: total * 0.5,
               expectedROI: 3.2,
               reasoning: 'High conversion rate and low CPC'
             },
             {
               campaign: 'Social Media',
-              currentBudget: totalBudget * 0.3,
-              recommendedBudget: totalBudget * 0.25,
+              currentBudget: total * 0.3,
+              recommendedBudget: total * 0.25,
               expectedROI: 2.1,
               reasoning: 'Lower conversion but good brand awareness'
             }
           ],
-          projectedImprovement: 0.18, // 18% ROI improvement
+          projectedImprovement: 0.18,
           confidence: 0.85
         };
       }
@@ -456,7 +499,7 @@ export class AgentService {
       execute: async (params) => {
         const { investment, revenue } = params;
         const roi = ((revenue - investment) / investment) * 100;
-        
+
         return {
           roi: Math.round(roi * 100) / 100,
           paybackPeriod: Math.round((investment / (revenue / 12)) * 10) / 10, // months
@@ -514,7 +557,7 @@ export class AgentService {
       },
       execute: async (params) => {
         const churnRisk = Math.random();
-        
+
         return {
           churnProbability: Math.round(churnRisk * 100),
           riskLevel: churnRisk > 0.7 ? 'High' : churnRisk > 0.4 ? 'Medium' : 'Low',
@@ -624,7 +667,7 @@ export class AgentService {
       // Update agent
       agent.currentTask = undefined;
       agent.completedTasks.push(fullTask);
-      
+
       // Store in memory
       agent.memory.shortTerm[`task_${fullTask.id}`] = result;
 
@@ -828,7 +871,7 @@ Keep the response concise and business-focused.`;
       const insights = await GroqService.getChatResponse([
         { role: 'user', content: prompt }
       ]);
-      
+
       return insights;
     } catch (error) {
       return 'Unable to generate AI insights at this time. Please try again later.';
@@ -838,7 +881,7 @@ Keep the response concise and business-focused.`;
   // Helper methods for generating recommendations
   private static generateLeadRecommendations(scoringResult: any, enrichedData: any): string[] {
     const recommendations = [];
-    
+
     if (scoringResult.score > 80) {
       recommendations.push('High-priority lead: Schedule immediate sales call');
       recommendations.push('Add to VIP nurture sequence');
@@ -885,9 +928,9 @@ Keep the response concise and business-focused.`;
   private static async executeLookalikeAudienceGeneration(agent: Agent, input: any): Promise<any> {
     // Simulate lookalike audience generation
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     const { icpProfile, bestCustomers, targetPlatform = 'all', audienceSize = 12000 } = input;
-    
+
     return {
       audienceId: `lookalike_${Date.now()}`,
       platform: targetPlatform,
@@ -926,9 +969,9 @@ Keep the response concise and business-focused.`;
   private static async executeAIOutreach(agent: Agent, input: any): Promise<any> {
     // Simulate AI outreach campaign execution
     await new Promise(resolve => setTimeout(resolve, 3000));
-    
+
     const { leads, messageTemplate, channels = ['email'], sendRate = 50, followUpSequence = '3-touch' } = input;
-    
+
     const campaignResults = {
       campaignId: `campaign_${Date.now()}`,
       totalLeads: leads?.length || 2847,
@@ -980,7 +1023,7 @@ Keep the response concise and business-focused.`;
         'Optimize messaging based on response analysis'
       ]
     };
-    
+
     return campaignResults;
   }
 
@@ -1016,7 +1059,7 @@ Keep the response concise and business-focused.`;
           description: `Workflow task for ${workflow.name}`,
           input
         });
-        
+
         workflow.tasks.push(task);
       }
 
@@ -1071,8 +1114,8 @@ Keep the response concise and business-focused.`;
     });
 
     // Create context-aware prompt
-    const systemPrompt = `You are ${agent.name}, a ${agent.role}. 
-    
+    const systemPrompt = `You are ${agent.name}, a ${agent.role}.
+
 Your capabilities include: ${agent.capabilities.join(', ')}.
 Your available tools: ${agent.tools.map(t => t.name).join(', ')}.
 

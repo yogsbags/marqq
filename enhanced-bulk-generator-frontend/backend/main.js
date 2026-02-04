@@ -469,8 +469,9 @@ function parseArgs() {
     return null;
   })();
 
+  const autoApproveFlag = args.includes('--auto-approve');
   const options = {
-    autoApprove: args.includes('--auto-approve'),
+    autoApprove: autoApproveFlag,
     batchSize: parseInt(args.find(arg => arg.startsWith('--batch-size='))?.split('=')[1]) || 50,
     qualityThreshold: parseInt(args.find(arg => arg.startsWith('--quality='))?.split('=')[1]) || 90,
     topicLimit,
@@ -480,6 +481,10 @@ function parseArgs() {
     customTopic,
     customTitle
   };
+
+  // Debug: Log autoApprove flag parsing
+  console.log(`🔍 DEBUG: Parsed --auto-approve flag = ${autoApproveFlag}`);
+  console.log(`🔍 DEBUG: options.autoApprove = ${options.autoApprove}`);
 
   return { command, options, args };
 }
@@ -527,9 +532,17 @@ async function main() {
           generator.showHelp();
           process.exit(1);
         }
+
+        // Debug: Log config values before creating stageOptions
+        console.log(`🔍 DEBUG: generator.config.autoApprove = ${generator.config.autoApprove}`);
+
         const stageOptions = {
           autoApprove: generator.config.autoApprove  // 🔧 FIX: Pass autoApprove to stage execution
         };
+
+        // Debug: Log stageOptions
+        console.log(`🔍 DEBUG: stageOptions.autoApprove = ${stageOptions.autoApprove}`);
+
         // Always pass limit regardless of truthiness - let the orchestrator handle null/undefined
         if (stageName === 'research') {
           stageOptions.customTopic = generator.config.customTopic;

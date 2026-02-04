@@ -189,7 +189,7 @@ function printHelp() {
   console.log('  instagram-carousel     - Image carousel post');
   console.log('  youtube-explainer      - Long-form educational video');
   console.log('  youtube-short          - 60s vertical video');
-  console.log('  facebook-community     - Community discussion post');
+  console.log('  facebook-reel         - Short-form vertical video (same flow as Instagram Reel)');
   console.log('  twitter-thread         - Educational thread');
   console.log('');
   console.log('WORKFLOW STAGES:');
@@ -320,7 +320,10 @@ async function run() {
       }
       orchestrator.displayBanner();
       console.log(`\n🎬 EXECUTING STAGE: ${stageName.toUpperCase()}\n`);
-      await orchestrator.runStage(stageName, options);
+      const stageResult = await orchestrator.runStage(stageName, options);
+      if (stageName === 'visuals' && stageResult?.images?.length > 0) {
+        console.log('__STAGE3_IMAGES__' + JSON.stringify(stageResult.images));
+      }
       console.log(`\n✅ Stage "${stageName}" completed!\n`);
       break;
 

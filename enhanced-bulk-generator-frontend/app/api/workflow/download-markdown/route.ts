@@ -3,6 +3,9 @@ import fs from 'fs'
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 
+// Force dynamic rendering since this route uses searchParams
+export const dynamic = 'force-dynamic'
+
 /**
  * Remove JSON metadata blocks from markdown (content_upgrades, compliance, quality_metrics, etc.)
  * These are often appended by AI at the end of articles and should not appear in output

@@ -1,0 +1,154 @@
+# Video Model Research & Comparison Report
+
+## Executive Summary
+For PL Capital's social media video generation, **Wan 2.1** (via Replicate or Fal.ai) is the recommended primary model due to its unique "Visual Text Generation" capability and highly competitive pricing (~$0.04-$0.05/s). **Kling AI** is a strong secondary choice for high-fidelity cinematic motion. **Fal.ai** and **Replicate** are the preferred API platforms, offering flexible pay-as-you-go access to these top models.
+
+## Top Video Models Comparison (Updated Dec 2025)
+
+| Model | Key New Features (v2.6/Gen-4/2.5) | Best Use Case |
+| :--- | :--- | :--- |
+| **Kling AI 2.6** | **Native Audio** (Sound FX + Voice), 1080p, Improved Motion | **All-in-One Viral Reels** (Visuals + Audio in one pass) |
+| **Wan 2.5** | **Native 4K**, Built-in Audio, 10s clips | **High-End Financial Explainers** (Crisp text/charts in 4K) |
+| **Runway Gen-4** | **Consistent Characters**, Dual-Input (Text+Image), 4K | **Brand Storytelling** (Recurring characters/mascots) |
+| **Sora 2** | 12s clips, "Sketch-to-Video", Audio Sync | Rapid Prototyping, Cinematic Ads |
+| **Google Veo 3.1** | "Ingredients to Video" (Consistency), 8s clips | Multi-shot narratives with strict brand control |
+| **Wan Animate** | Character Replacement / Animation Mode | Animating specific "Financial Advisor" avatars |
+| **OmniHuman 1.5** | **"Cognitive Simulation"**, Perfect Lip-Sync, Full Body | **High-End Digital Advisor** (Speaking directly to camera) |
+
+## API Pricing & Accessibility (Latest)
+
+| Platform | Model | Price (Approx.) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Fal.ai / Replicate** | **Wan 2.1 / 2.5** | **~$0.05 / sec** | Wan 2.5 rolling out to aggregators. |
+| **Replicate / Fal.ai** | **OmniHuman 1.5** | **~$0.16 / sec** | Premium pricing for high-end avatar work. |
+| **Kling API** | **Kling 2.6** | Credit-based | Native audio saves TTS costs. |
+| **Runway API** | **Gen-4** | Premium Pricing | High cost, high fidelity. |
+| **Gemini API** | **Veo 3.1** | Enterprise | Integrated into Google ecosystem. |
+
+## Feature Analysis for Financial Services (PL Capital)
+
+### 1. Text & Chart Rendering
+*   **Winner:** **Wan 2.5** (Native 4K)
+*   **Why:** 4K resolution is a game-changer for reading small text on stock charts.
+*   **Runner-up:** **Sora 2** (High fidelity).
+
+### 2. Professional Aesthetic (Cinematic B-roll)
+*   **Winner:** **Runway Gen-4**
+*   **Why:** "Consistent Character" feature allows PL Capital to have a recurring "Advisor" character across multiple videos without training a LoRA.
+*   **Alternative (Speaking Head):** **OmniHuman 1.5**
+    *   **Why:** If the video requires a *speaking* advisor, OmniHuman 1.5 is superior to Wan Animate due to its "cognitive simulation" and perfect lip-sync.
+
+### 3. Audio & Voice
+*   **Winner:** **Kling 2.6**
+*   **Why:** Generates *synchronized* audio (ambient office sounds, typing, etc.) automatically. For Hindi voiceovers, we still recommend external TTS (ElevenLabs) for accuracy, but Kling handles the sound design.
+
+## Long-form Video Strategy (30s - 90s)
+
+To generate 30s-90s social media reels, we cannot rely on a single generation call (which typically caps at 5-10s). Instead, we must use a **Chaining & Stitching** strategy.
+
+### 1. Scene Breakdown (Storyboarding)
+*   Break the 60s script into **6-10 distinct scenes** of 5-10 seconds each.
+*   **Example:**
+    *   00-05s: Hook (Text overlay + dynamic motion)
+    *   05-15s: Problem statement (Character acting)
+    *   15-45s: Solution/Explanation (B-roll + Charts)
+    *   45-60s: Call to Action (Logo animation)
+
+### 2. Consistency Techniques
+*   **Master Character/Style:** Use a consistent "seed" image or specific character LoRA (if available) for all character-focused shots.
+*   **Frame Chaining:** Use the **Last Frame** of Scene A as the **First Frame** (Image Prompt) for Scene B. This ensures seamless transitions.
+    *   *Supported by:* Kling AI (Start/End Frame control), Luma (Extend).
+*   **Style Prompts:** Use identical style keywords (e.g., "Cinematic lighting, 35mm lens, corporate financial aesthetic") for every prompt.
+
+### 3. Technical Implementation (Stitching)
+*   **Generation:** Generate clips in parallel or sequence via API.
+*   **Assembly:** Use **FFmpeg** (server-side) to stitch clips together.
+*   **Audio:** Generate TTS voiceover for the full script first, then time the video clips to match the audio duration.
+
+## Content Strategy & Viral Growth
+
+### 1. Optimal Input Method: Image-to-Video (I2V)
+*   **Recommendation:** Use **Image-to-Video (I2V)** as the primary workflow.
+*   **Why:**
+    *   **Consistency:** Generating a "Master Image" first allows for strict control over character appearance and branding colors before animating.
+    *   **Quality:** I2V models (like Kling/Wan) generally produce higher fidelity motion when anchored by a high-quality image.
+    *   **Workflow:** Generate Text -> Generate Image (Midjourney/Flux) -> Animate (Kling/Wan).
+
+### 2. Viral Hooks & Trends (Financial)
+*   **Hook Strategy (First 3s):**
+    *   **"Stop Scrolling" Visuals:** High-contrast charts, red/green arrows, or "glitch" effects.
+    *   **Text Overlays:** "3 Stocks to Watch," "Stop Losing Money," "The 50/30/20 Rule."
+*   **Trend Sources:**
+    *   **Instagram Reels/TikTok:** Monitor hashtags like `#StockMarketIndia`, `#Nifty50`, `#Finfluencer`.
+    *   **Audio:** Use "Trending Audio" (upward arrow on IG) for background music.
+
+### 3. Multilingual Support (English & Hindi)
+*   **Visual Text:**
+    *   **Wan 2.1:** Supports English text rendering well.
+    *   **Hindi:** Direct Hindi text rendering in video models is experimental. **Strategy:** Overlay Hindi text programmatically using **FFmpeg** or the Frontend layer to ensure 100% accuracy.
+*   **Voiceover (TTS):**
+    *   **ElevenLabs:** Best for "Hinglish" (Code-switching) and natural Indian accents.
+    *   **VoiceGenie:** Specialized for Indian business contexts.
+    *   **Strategy:** Generate Audio -> Sync Video Duration to Audio.
+
+### 4. Lip-Sync Strategy (External Audio)
+*   **Challenge:** Using ElevenLabs audio with AI video results in unsynchronized lips.
+*   **Solution A (Best Quality):** **SyncLabs API**
+    *   *Pros:* Works with *any* video/audio pair. High fidelity.
+    *   *Cons:* Extra cost (~$0.50/min).
+*   **Solution B (Integrated):** **Kling AI "Lip Sync" Mode**
+    *   *Workflow:* Upload ElevenLabs audio *to* Kling during video generation.
+    *   *Pros:* No extra API cost (part of generation).
+    *   *Cons:* Must be done *during* generation, harder to edit later.
+
+## Social Media Reel Strategy for PL Capital
+
+Based on 2025 financial content trends, here are the high-impact reel types to generate:
+
+### 1. Educational & Explanatory ("Edutainment")
+*   **"Finance in 60 Seconds":** Break down complex terms (e.g., "Short Selling", "PE Ratio") using **Wan 2.5** for clear text/charts.
+*   **Myth vs. Fact:** Rapid-fire correction of common misconceptions (e.g., "You need rich to invest").
+*   **"Before You Invest In...":** Quick pros/cons of trending sectors (Tech, Green Energy).
+
+### 2. Market Insights (Timely & Data-Driven)
+*   **Weekly Market Wrap-up:** 30-second summary of Nifty/Sensex movers. Use **Wan 2.5** for 4K chart animations.
+*   **"Hot Stocks to Watch":** Highlight 3 stocks with strong technical indicators.
+*   **Impact Explainers:** How real-world events (e.g., "Budget 2025") affect the common man's wallet.
+
+### 3. Trust & Brand Building
+*   **"Day in the Life":** Use **OmniHuman 1.5** to create a digital "Advisor" showing a routine, humanizing the brand.
+*   **Client Success Stories:** Anonymized case studies of portfolio growth (visualized with rising graphs).
+*   **Q&A Sessions:** Answering user comments from the previous week.
+
+### 4. Viral Hooks & Trends
+*   **"Stop Scrolling" Visuals:** High-contrast, glitch-effect intros using **Kling 2.6**.
+*   **Trending Audio:** Adapt popular meme formats to financial contexts (e.g., "Me waiting for the dip").
+*   **Interactive Polls:** "Bullish or Bearish on [Stock]?" (Video ends with a question to drive comments).
+
+### 5. Recommended Models per Strategy
+
+| Reel Strategy | Primary Model | Why? | Rec. Duration | Est. Cost (Fal.ai) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Educational / Explainer** | **Wan 2.5** | Best text rendering & 4K resolution. | 30s - 60s | ~$1.50 - $3.00 |
+| **Market Updates** | **Wan 2.5** | Crisp visualization of data/tickers. | 15s - 30s | ~$0.75 - $1.50 |
+| **Trust Building (Advisor)**| **OmniHuman 1.5**| "Cognitive Simulation" & perfect lip-sync. | 15s - 45s | ~$2.40 - $7.20 |
+| **Viral Hooks / B-Roll** | **Kling 2.6** | Cinematic motion + **Native Audio**. | 5s - 10s | ~$0.35 - $0.70 |
+| **Cinematic Storytelling** | **Runway Gen-4** | Consistent characters for brand mascots. | 20s - 40s | Premium (N/A on Fal) |
+
+*Note: Costs are estimated based on ~$0.05/s for Wan 2.5 and ~$0.16/s for OmniHuman 1.5.*
+
+## Recommended Stack for PL Capital Frontend
+
+1.  **API Gateway:** **Fal.ai** or **Replicate** (Both allow easy switching between models).
+    *   *Fal.ai* is often praised for lower latency (faster generation), which is better for a user-facing frontend.
+2.  **Primary Model:** **Wan 2.1** (via API) for content requiring text/charts.
+3.  **Secondary Model:** **Kling AI** (via API) for high-quality B-roll.
+4.  **Frontend Implementation:**
+    *   Next.js / React frontend.
+    *   Backend route to proxy requests to Fal.ai/Replicate (to hide API keys).
+    *   Store generated video URLs.
+
+## Next Steps
+1.  **Select Provider:** Choose between Fal.ai and Replicate (Fal.ai recommended for speed).
+2.  **Prototype:** Build a simple UI to test Wan 2.1 and Kling prompts specifically for financial contexts (e.g., "A line chart showing stock growth", "A professional financial advisor smiling").
+3.  **Integration:** Integrate into the PL Capital social media tool.
