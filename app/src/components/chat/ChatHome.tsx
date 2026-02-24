@@ -22,6 +22,9 @@ import { executeGuidedWorkflow, type GuidedGoal, type GuidedWorkflowResponse } f
 import { toast } from 'sonner';
 import { CSVAnalysisPanel } from '@/components/ui/csv-analysis-panel';
 import type { Message, Conversation } from '@/types/chat';
+import { addAiTask, extractActionItems } from '@/lib/taskStore';
+import { markdownToRichText } from '@/lib/markdown';
+import { GTMWizard } from '@/components/gtm/GTMWizard';
 
 // -- localStorage helpers
 
@@ -64,8 +67,25 @@ const SLASH_COMMANDS = [
   { command: '/customer-view', description: 'Deploy Unified Customer View workflow', action: 'customer-view' },
   { command: '/seo-llmo', description: 'Deploy SEO/LLMO Optimization workflow', action: 'seo-llmo' },
   { command: '/company-intel', description: 'Open Company Intelligence (strategy, calendar, ICPs, competitors)', action: 'company-intel' },
+  // Digital employee direct-chat commands
+  { command: '/seo',         description: 'Ask Maya (SEO Monitor) for today\'s ranking update',          action: 'agent-maya'  },
+  { command: '/leads',       description: 'Ask Arjun (Lead Intelligence) for today\'s lead insights',    action: 'agent-arjun' },
+  { command: '/content',     description: 'Ask Riya (Content Producer) for content ideas this week',     action: 'agent-riya'  },
+  { command: '/campaign',    description: 'Ask Zara (Campaign Strategist) for campaign recommendations', action: 'agent-zara'  },
+  { command: '/competitors', description: 'Ask Dev (Performance Analyst) for competitor analysis',       action: 'agent-dev'   },
+  { command: '/brief',       description: 'Ask Priya (Brand Intelligence) for a brand brief',            action: 'agent-priya' },
   { command: '/help', description: 'Show available slash commands', action: 'help' },
 ];
+
+// Map slash commands to autonomous agents
+const SLASH_AGENTS: Record<string, { name: string; label: string; defaultQuery: string }> = {
+  '/seo':         { name: 'maya',  label: 'Maya · SEO & LLMO Monitor',   defaultQuery: 'Give me our top 5 ranking changes and 3 keyword opportunities today.' },
+  '/leads':       { name: 'arjun', label: 'Arjun · Lead Intelligence',    defaultQuery: 'What are today\'s top lead insights and recommended outreach actions?' },
+  '/content':     { name: 'riya',  label: 'Riya · Content Producer',      defaultQuery: 'Suggest 3 content pieces we should publish this week based on current trends.' },
+  '/campaign':    { name: 'zara',  label: 'Zara · Campaign Strategist',   defaultQuery: 'Review our active campaigns and give me your top 3 strategic recommendations.' },
+  '/competitors': { name: 'dev',   label: 'Dev · Performance Analyst',    defaultQuery: 'Give me a competitor landscape summary and our key performance gaps.' },
+  '/brief':       { name: 'priya', label: 'Priya · Brand Intelligence',   defaultQuery: 'Provide a brand intelligence brief covering sentiment and messaging alignment.' },
+};
 
 // -- Guided goal detection
 
@@ -94,48 +114,6 @@ function toActionPlanMessage(response: GuidedWorkflowResponse): string {
     ``,
     `I am opening the recommended workflow now.`,
   ].join('\n');
-}
-
-// -- Markdown renderer (verbatim from ChatPanel)
-
-function markdownToRichText(markdown: string): string {
-  let html = markdown;
-  const escapeHtml = (text: string) =>
-    text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-
-  html = html.replace(/```([\s\S]*?)```/g, (_match, code) =>
-    `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto my-2"><code class="text-xs font-mono">${escapeHtml(code.trim())}</code></pre>`
-  );
-  html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
-  html = html.replace(/^### (.*$)/gm, '<h3 class="text-base font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h3>');
-  html = html.replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h2>');
-  html = html.replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h1>');
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>');
-  html = html.replace(/__(.*?)__/g, '<strong class="font-semibold">$1</strong>');
-  html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
-  html = html.replace(/_(.*?)_/g, '<em class="italic">$1</em>');
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-orange-600 dark:text-orange-400 hover:underline">$1</a>');
-  html = html.replace(/^[*+-]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
-  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li class="ml-4 list-decimal">$1</li>');
-  html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, (match) => {
-    if (match.includes('list-decimal')) return `<ol class="space-y-1 my-2">${match}</ol>`;
-    return `<ul class="space-y-1 my-2">${match}</ul>`;
-  });
-  html = html.replace(/^---$/gm, '<hr class="my-4 border-gray-300 dark:border-gray-700" />');
-  html = html.split('\n\n').map(paragraph => {
-    if (paragraph.trim()) {
-      if (/^<(h[1-6]|ul|ol|pre|hr)/.test(paragraph.trim())) return paragraph.trim();
-      const withBreaks = paragraph.replace(/\n/g, '<br />');
-      return `<p class="leading-relaxed mb-2">${withBreaks}</p>`;
-    }
-    return '';
-  }).join('');
-  return html;
 }
 
 function FormattedMessage({ content, isAI }: { content: string; isAI: boolean }) {
@@ -183,6 +161,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCSVAnalysis, setShowCSVAnalysis] = useState(false);
   const [csvFile, setCSVFile] = useState<File | null>(null);
+  const [gtmActive, setGtmActive] = useState(false);
 
   // -- Helpers
 
@@ -284,6 +263,23 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     }
   };
 
+  // -- Slash command → follow-up task mapping
+
+  const SLASH_FOLLOWUP_TASKS: Record<string, string> = {
+    'lead-intelligence': 'Review and approve scored leads',
+    'voice-bot': 'Monitor voice bot call results',
+    'video-bot': 'Review generated avatar videos',
+    'user-engagement': 'Review engagement campaign segments',
+    'budget-optimization': 'Review budget optimization recommendations',
+    'performance-scorecard': 'Review performance scorecard report',
+    'ai-content': 'Review and publish AI-generated content',
+    'customer-view': 'Review unified customer profiles',
+    'seo-llmo': 'Review SEO optimization recommendations',
+    'company-intel': 'Review company intelligence insights',
+    'agents': 'Check in with AI agents dashboard',
+    'workflows': 'Review and run pending workflows',
+  };
+
   // -- Slash command execution
 
   const executeSlashCommand = async (command: string) => {
@@ -364,7 +360,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
           responseContent = `\u{1F50D} **SEO & LLMO Optimization - Navigating to Module**\n\n**Module Loading:** SEO & LLMO Optimization \u2705\n**Auto-Deployment:** Starting SEO/LLMO workflow...\n\n\u2022 **Step 1:** Upload Website Data \u2705\n\u2022 **Step 2:** SEO Analysis \u23F3\n\u2022 **Step 3:** Keyword Research \u23F3\n\u2022 **Step 4:** Content Optimization \u23F3\n\u2022 **Step 5:** Deploy Changes \u23F3\n\u2022 **Step 6:** Performance Monitoring \u23F3\n\n**Status:** Module loaded! SEO/LLMO optimization will start automatically...\n\n**Expected Results:**\n\u2022 3,200+ keywords optimized\n\u2022 Top 3 average search ranking\n\u2022 +67% organic traffic growth\n\u2022 89% LLMO readiness score\n\n**Next:** Check the SEO/LLMO module - the workflow is starting! \u{1F4C8}`;
           break;
         case 'help':
-          responseContent = `\u{1F916} **Available Slash Commands**\n\n**Agentic AI Commands:**\n\u2022 \`/agents\` - Open AI Agents Dashboard - interact with your marketing AI team\n\u2022 \`/workflows\` - Open Workflow Builder - create multi-agent workflows\n\n**Workflow Deployments:**\n\u2022 \`/lead-intelligence\` - Deploy Lead Intelligence & AI Agents\n\u2022 \`/voice-bot\` - Deploy AI Voice Bot Automation\n\u2022 \`/video-bot\` - Deploy AI Video Bot & Digital Avatar\n\u2022 \`/user-engagement\` - Deploy User Engagement & Lifecycle\n\u2022 \`/budget-optimization\` - Deploy Campaign Budget Optimization\n\u2022 \`/performance-scorecard\` - Deploy Performance Scorecard\n\u2022 \`/ai-content\` - Deploy AI Content Generation\n\u2022 \`/customer-view\` - Deploy Unified Customer View\n\u2022 \`/seo-llmo\` - Deploy SEO/LLMO Optimization\n\n**Utility Commands:**\n\u2022 \`/help\` - Show this help message\n\n**How to use:**\nSimply type any slash command and press Enter to instantly trigger the corresponding workflow deployment.\n\n**Pro Tip:** Start typing "/" to see command suggestions with auto-complete! \u26A1`;
+          responseContent = `\u{1F916} **Available Slash Commands**\n\n**AI Team (live chat with autonomous agents):**\n\u2022 \`/seo\` - Ask Maya (SEO & LLMO Monitor) for today's ranking update\n\u2022 \`/leads\` - Ask Arjun (Lead Intelligence) for today's lead insights\n\u2022 \`/content\` - Ask Riya (Content Producer) for content ideas this week\n\u2022 \`/campaign\` - Ask Zara (Campaign Strategist) for campaign recommendations\n\u2022 \`/competitors\` - Ask Dev (Performance Analyst) for competitor analysis\n\u2022 \`/brief\` - Ask Priya (Brand Intelligence) for a brand brief\n\n**Agentic AI Commands:**\n\u2022 \`/agents\` - Open AI Agents Dashboard - interact with your marketing AI team\n\u2022 \`/workflows\` - Open Workflow Builder - create multi-agent workflows\n\n**Workflow Deployments:**\n\u2022 \`/lead-intelligence\` - Deploy Lead Intelligence & AI Agents\n\u2022 \`/voice-bot\` - Deploy AI Voice Bot Automation\n\u2022 \`/video-bot\` - Deploy AI Video Bot & Digital Avatar\n\u2022 \`/user-engagement\` - Deploy User Engagement & Lifecycle\n\u2022 \`/budget-optimization\` - Deploy Campaign Budget Optimization\n\u2022 \`/performance-scorecard\` - Deploy Performance Scorecard\n\u2022 \`/ai-content\` - Deploy AI Content Generation\n\u2022 \`/customer-view\` - Deploy Unified Customer View\n\u2022 \`/seo-llmo\` - Deploy SEO/LLMO Optimization\n\n**Utility Commands:**\n\u2022 \`/help\` - Show this help message\n\n**How to use:**\nSimply type any slash command and press Enter. For agent commands, you can add a question after the command: \`/seo what is our ranking for mutual funds?\`\n\n**Pro Tip:** Start typing "/" to see command suggestions with auto-complete! \u26A1`;
           break;
         default:
           return false;
@@ -386,6 +382,8 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
 
       if (cmd.action !== 'help') {
         toast.success(`${cmd.description} started successfully!`);
+        const followUp = SLASH_FOLLOWUP_TASKS[cmd.action];
+        if (followUp) addAiTask(followUp, 'day');
       }
       return true;
     } catch (error) {
@@ -397,12 +395,92 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     }
   };
 
+  // -- Digital employee slash command: streams SSE response into chat
+
+  const runAgentSlashCommand = async (agentEntry: { name: string; label: string; defaultQuery: string }, extraQuery: string) => {
+    const query = extraQuery.trim() || agentEntry.defaultQuery;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: inputValue.trim(),
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    onMessagesChange(prev => [...prev, userMessage]);
+    setInputValue('');
+    setShowSuggestions(false);
+    setIsTyping(true);
+
+    try {
+      const res = await fetch(`/api/agents/${agentEntry.name}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`${agentEntry.label} is not available right now (backend offline?)`);
+      }
+
+      const reader = res.body?.getReader();
+      const dec = new TextDecoder();
+      let accumulated = '';
+
+      if (reader) {
+        outer: while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const line of dec.decode(value).split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6).trim();
+            if (payload === '[DONE]') break outer;
+            try {
+              const parsed = JSON.parse(payload);
+              if (parsed.text) accumulated += parsed.text;
+              if (parsed.error) throw new Error(parsed.error);
+            } catch { /* ignore parse errors on partial chunks */ }
+          }
+        }
+      }
+
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `**${agentEntry.label}**\n\n${accumulated || '_No output received._'}`,
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      onMessagesChange(prev => [...prev, aiMessage]);
+      toast.success(`${agentEntry.label} responded`);
+    } catch (err) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `**${agentEntry.label}** is offline or not configured.\n\nMake sure the AI backend is running (\`npm run dev:backend\`) and \`GROQ_API_KEY\` is set.`,
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      onMessagesChange(prev => [...prev, errorMessage]);
+      toast.error(String(err));
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
   // -- Send message
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() && !selectedFile) return;
 
     if (inputValue.startsWith('/')) {
+      // Check for digital employee slash commands first
+      const parts = inputValue.trim().split(/\s+/);
+      const cmd = parts[0];
+      const agentEntry = SLASH_AGENTS[cmd];
+      if (agentEntry) {
+        await runAgentSlashCommand(agentEntry, parts.slice(1).join(' '));
+        return;
+      }
+
       const success = await executeSlashCommand(inputValue.trim());
       if (success) return;
     }
@@ -464,6 +542,8 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
             const alreadyHasUser = prev.some(m => m.id === userMessage.id);
             return alreadyHasUser ? [...prev, aiMessage] : [...prev, userMessage, aiMessage];
           });
+          // Auto-populate taskboard from the guided action plan
+          guidedResponse.actionPlan.what_to_do_this_week.forEach(item => addAiTask(item, 'week'));
           toast.success('Guided workflow started');
           return;
         } catch (guidedError) {
@@ -495,6 +575,8 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
         const alreadyHasUser = prev.some(m => m.id === userMessage.id);
         return alreadyHasUser ? [...prev, aiMessage] : [...prev, userMessage, aiMessage];
       });
+      // Auto-populate taskboard from any action items in the response
+      extractActionItems(aiResponse).forEach(item => addAiTask(item, 'week'));
     } catch (error) {
       console.error('Chat error:', error);
       toast.error('Failed to get AI response. Please try again.');
@@ -579,7 +661,10 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
 
   return (
     <>
-      <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+      {gtmActive && (
+        <GTMWizard onClose={() => setGtmActive(false)} />
+      )}
+      <div className={cn('flex flex-col h-full bg-white dark:bg-gray-900', gtmActive && 'hidden')}>
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-2 border-b">
           <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">AI Assistant</h2>
@@ -680,6 +765,40 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
                 </Card>
               </div>
             ))}
+
+            {/* Quick-action buttons — shown only on a fresh chat */}
+            {messages.length === 1 && (
+              <div className="mt-2 grid grid-cols-2 gap-2 px-1">
+                <button
+                  onClick={() => setGtmActive(true)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
+                >
+                  <span className="text-base leading-none">🗺️</span>
+                  <span>Create GTM Strategy</span>
+                </button>
+                <button
+                  onClick={() => setInputValue('/budget-optimization')}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
+                >
+                  <span className="text-base leading-none">💰</span>
+                  <span>Budget Analysis</span>
+                </button>
+                <button
+                  onClick={() => setInputValue('/ai-content')}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
+                >
+                  <span className="text-base leading-none">✍️</span>
+                  <span>Content Calendar</span>
+                </button>
+                <button
+                  onClick={() => setInputValue('/lead-intelligence')}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
+                >
+                  <span className="text-base leading-none">🎯</span>
+                  <span>Lead Intelligence</span>
+                </button>
+              </div>
+            )}
 
             {/* Typing indicator */}
             {isTyping && (
