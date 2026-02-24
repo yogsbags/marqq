@@ -9,13 +9,13 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev\"",
-    "dev:backend": "node enhanced-bulk-generator-frontend/backend-server.js",
+    "dev:backend": "node platform/content-engine/backend-server.js",
     "build": "vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node server.js",
-    "postinstall": "npm --prefix enhanced-bulk-generator-frontend ci --omit=dev"
+    "postinstall": "npm --prefix platform/content-engine ci --omit=dev"
   },
   "dependencies": {
     "@deepgram/sdk": "^4.0.0",
@@ -23,8 +23,6 @@
     "@fal-ai/serverless-client": "^0.15.0",
     "@google/genai": "^1.30.0",
     "@hookform/resolvers": "^3.9.0",
-    "csv-parse": "^5.5.2",
-    "google-auth-library": "^10.3.0",
     "@livekit/agents": "^1.0.36",
     "@livekit/agents-plugin-cartesia": "^1.0.36",
     "@livekit/agents-plugin-deepgram": "^1.0.36",
@@ -67,9 +65,15 @@
     "cloudinary": "^2.8.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "csv-parse": "^5.5.2",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
+    "express": "^5.2.1",
+    "google-auth-library": "^10.3.0",
+    "groq-sdk": "^0.37.0",
     "input-otp": "^1.2.4",
+    "livekit-client": "^2.9.7",
+    "livekit-server-sdk": "^2.9.7",
     "lucide-react": "^0.446.0",
     "next-themes": "^0.3.0",
     "openai": "^4.80.0",
@@ -87,8 +91,7 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^10.0.0",
     "vaul": "^1.0.0",
-    "livekit-client": "^2.9.7",
-    "livekit-server-sdk": "^2.9.7",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
