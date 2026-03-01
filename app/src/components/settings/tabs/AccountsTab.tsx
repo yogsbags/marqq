@@ -30,23 +30,27 @@ export function AccountsTab() {
   const connect = async (id: string) => {
     setActionId(id);
     try {
-      await fetch('/api/integrations/connect', {
+      const res = await fetch('/api/integrations/connect', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ userId: user?.id, connectorId: id, authType: 'oauth' }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || json?.details || 'connect failed');
       await load(); toast.success('Connected');
-    } catch { toast.error('Connect failed'); } finally { setActionId(null); }
+    } catch (err: any) { toast.error(err?.message || 'Connect failed'); } finally { setActionId(null); }
   };
 
   const disconnect = async (id: string) => {
     setActionId(id);
     try {
-      await fetch('/api/integrations/disconnect', {
+      const res = await fetch('/api/integrations/disconnect', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ userId: user?.id, connectorId: id }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || json?.details || 'disconnect failed');
       await load(); toast.success('Disconnected');
-    } catch { toast.error('Disconnect failed'); } finally { setActionId(null); }
+    } catch (err: any) { toast.error(err?.message || 'Disconnect failed'); } finally { setActionId(null); }
   };
 
   return (

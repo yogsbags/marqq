@@ -50,10 +50,12 @@ export function MembersTab() {
   const remove = async (memberId: string) => {
     if (!activeWorkspace?.id) return;
     try {
-      await fetch(`/api/workspaces/${activeWorkspace.id}/members/${memberId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/members/${memberId}`, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || 'remove failed');
       toast.success('Member removed');
-      load();
-    } catch { toast.error('Failed to remove'); }
+      await load();
+    } catch (err: any) { toast.error(err?.message || 'Failed to remove'); }
   };
 
   return (
@@ -97,25 +99,24 @@ export function MembersTab() {
               <p className="text-xs text-muted-foreground truncate">{m.email}</p>
             </div>
             <Badge variant={m.role === 'owner' ? 'default' : 'secondary'} className="shrink-0">
-              {m.role === 'owner' ? 'Admin' : 'Member'}
+              {m.role === 'owner' ? 'Owner' : 'Member'}
             </Badge>
-            {m.role !== 'owner' && m.id !== user?.id && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                    <MoreVertical className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    className="text-red-600 cursor-pointer"
-                    onClick={() => remove(m.id)}
-                  >
-                    Remove
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="Member options">
+                  <MoreVertical className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-red-600 cursor-pointer"
+                  disabled={m.role === 'owner' || m.id === user?.id}
+                  onClick={() => remove(m.id)}
+                >
+                  Remove
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ))}
       </div>

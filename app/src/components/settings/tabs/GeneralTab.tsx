@@ -158,10 +158,10 @@ export function GeneralTab() {
               <Input id="email" type="email" defaultValue={user?.email} />
             </div>
             <div className="flex items-center justify-between">
-              <Label htmlFor="role">Role</Label>
+              <span className="text-sm font-medium leading-none">Role</span>
               <Badge variant="secondary">{user?.role}</Badge>
             </div>
-            <Button className="w-full">Update Profile</Button>
+            <Button type="button" className="w-full">Update Profile</Button>
           </CardContent>
         </Card>
 
