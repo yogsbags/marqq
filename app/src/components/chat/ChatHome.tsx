@@ -29,7 +29,7 @@ import { executeGuidedWorkflow, type GuidedGoal, type GuidedWorkflowResponse } f
 import { toast } from 'sonner';
 import { CSVAnalysisPanel } from '@/components/ui/csv-analysis-panel';
 import type { Message, Conversation } from '@/types/chat';
-import { addAiTask, addAiTasks, extractActionItems } from '@/lib/taskStore';
+import { addAiTask, addAiTasks, clearTasks, extractActionItems } from '@/lib/taskStore';
 import { markdownToRichText } from '@/lib/markdown';
 import { GTMWizard } from '@/components/gtm/GTMWizard';
 import { GettingStartedChecklist } from '@/components/dashboard/GettingStartedChecklist';
@@ -203,6 +203,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentConvIdRef = useRef<string | null>(null);
   const [showCSVAnalysis, setShowCSVAnalysis] = useState(false);
   const [csvFile, setCSVFile] = useState<File | null>(null);
   const [gtmActive, setGtmActive] = useState(false);
@@ -248,6 +249,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       conversations.push({ id, name, createdAt: now, lastMessageAt: now, messages: updatedMessages });
     }
     saveConversations(conversations);
+    currentConvIdRef.current = id;
     if (!convId) setCurrentConvId(id);
     onConversationsChange?.();
     return id;
@@ -256,7 +258,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const onMessagesChange: Dispatch<SetStateAction<Message[]>> = (updater) => {
     setMessages(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      persistMessages(next, currentConvId);
+      persistMessages(next, currentConvIdRef.current);
       return next;
     });
   };
@@ -270,6 +272,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     if (conv) {
       setMessages(conv.messages);
       setCurrentConvId(conv.id);
+      currentConvIdRef.current = conv.id;
     }
   }, [activeConversationId]);
 
@@ -292,6 +295,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const handleNewConversation = () => {
     setMessages(initialMessages);
     setCurrentConvId(null);
+    currentConvIdRef.current = null;
   };
 
   const handleDeleteConversation = async () => {
@@ -308,8 +312,10 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       }
 
       await clearWebsiteUrl();
+      clearTasks();
       setMessages(initialMessages);
       setCurrentConvId(null);
+      currentConvIdRef.current = null;
       onConversationsChange?.();
       toast.success('Home screen reset');
     } catch (error) {

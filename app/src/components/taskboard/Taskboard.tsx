@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { TaskItem } from './TaskItem';
 import type { Task } from '@/types/chat';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { removeTask as removeStoredTask } from '@/lib/taskStore';
 
 type Horizon = 'day' | 'week' | 'month';
 
@@ -56,6 +57,11 @@ export function Taskboard() {
       saveTasks(updated);
       return updated;
     });
+  }, []);
+
+  const deleteTask = useCallback((id: string) => {
+    setTasks(prev => prev.filter((task) => task.id !== id));
+    removeStoredTask(id);
   }, []);
 
   const addTask = () => {
@@ -135,13 +141,13 @@ export function Taskboard() {
         ) : (
           <>
             {pending.map(task => (
-              <TaskItem key={task.id} task={task} onToggle={toggleTask} />
+              <TaskItem key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} />
             ))}
             {completed.length > 0 && pending.length > 0 && (
               <div className="border-t my-2" />
             )}
             {completed.map(task => (
-              <TaskItem key={task.id} task={task} onToggle={toggleTask} />
+              <TaskItem key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} />
             ))}
           </>
         )}

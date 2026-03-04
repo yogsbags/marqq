@@ -72,6 +72,25 @@ export function addAiTasks(tasksToAdd: Array<{ label: string; horizon?: Task['ho
   }
 }
 
+export function removeTask(taskId: string): void {
+  try {
+    const tasks = loadTasks().filter((task) => task.id !== taskId);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    window.dispatchEvent(new CustomEvent('torqq:task-added'));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function clearTasks(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('torqq:task-added'));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 /**
  * Parse action items from a markdown AI response.
  * Looks for sections headed with "action", "plan", "task", "step", "next", or "todo"

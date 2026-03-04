@@ -5,7 +5,7 @@ import type { Session, AuthError } from '@supabase/supabase-js';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<{ needsEmailConfirmation: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -147,13 +147,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
 
-      if (data.user) {
-        const user = mapSupabaseUser(data.user);
+      if (data.session?.user) {
+        const user = mapSupabaseUser(data.session.user);
         setState({
           user,
           isAuthenticated: true,
           isLoading: false,
         });
+        return { needsEmailConfirmation: false };
+      }
+
+      if (data.user) {
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+        return { needsEmailConfirmation: true };
       } else {
         throw new Error('No user data returned');
       }

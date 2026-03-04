@@ -30,10 +30,15 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
     }
 
     try {
-      await signup(formData.email, formData.password, formData.name);
-      toast.success('Account created successfully!');
+      const result = await signup(formData.email, formData.password, formData.name);
+      if (result.needsEmailConfirmation) {
+        toast.success('Account created. Check your email to confirm your account before signing in.');
+        onToggleMode();
+      } else {
+        toast.success('Account created successfully!');
+      }
     } catch (error) {
-      toast.error('Signup failed. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Signup failed. Please try again.');
     }
   };
 
