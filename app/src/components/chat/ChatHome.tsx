@@ -6,6 +6,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import {
   HiPaperAirplane as Send,
   HiChat as Bot,
   HiUser as User,
@@ -21,7 +29,7 @@ import { executeGuidedWorkflow, type GuidedGoal, type GuidedWorkflowResponse } f
 import { toast } from 'sonner';
 import { CSVAnalysisPanel } from '@/components/ui/csv-analysis-panel';
 import type { Message, Conversation } from '@/types/chat';
-import { addAiTask, extractActionItems } from '@/lib/taskStore';
+import { addAiTask, addAiTasks, extractActionItems } from '@/lib/taskStore';
 import { markdownToRichText } from '@/lib/markdown';
 import { GTMWizard } from '@/components/gtm/GTMWizard';
 import { GettingStartedChecklist } from '@/components/dashboard/GettingStartedChecklist';
@@ -93,6 +101,33 @@ const SLASH_AGENTS: Record<string, { name: string; label: string; defaultQuery: 
   '/email':       { name: 'sam',   label: 'Sam · Email Marketing Monitor', defaultQuery: 'What is our email channel health this week — sessions, engagement rate, and any anomalies?' },
 };
 
+const DIRECT_AGENTS = [
+  { name: 'zara', label: 'Zara', role: 'Campaign Strategist' },
+  { name: 'maya', label: 'Maya', role: 'SEO & LLMO Monitor' },
+  { name: 'riya', label: 'Riya', role: 'Content Producer' },
+  { name: 'arjun', label: 'Arjun', role: 'Lead Intelligence' },
+  { name: 'dev', label: 'Dev', role: 'Performance Analyst' },
+  { name: 'priya', label: 'Priya', role: 'Brand Intelligence' },
+] as const;
+
+type EmployeeName = typeof DIRECT_AGENTS[number]['name'];
+
+type AgentExecutionPlan = {
+  request: string;
+  summary: string;
+  tasks: Array<{ label: string; horizon: 'day' | 'week' | 'month' }>;
+  executionPrompt: string;
+};
+
+const EMPLOYEE_PROFILES: Record<EmployeeName, { title: string }> = {
+  zara: { title: 'Campaign Strategist' },
+  maya: { title: 'SEO & LLMO Monitor' },
+  riya: { title: 'Content Producer' },
+  arjun: { title: 'Lead Intelligence' },
+  dev: { title: 'Performance Analyst' },
+  priya: { title: 'Brand Intelligence' },
+};
+
 // -- Guided goal detection
 
 function detectGuidedGoal(input: string): GuidedGoal | null {
@@ -162,6 +197,8 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const [isTyping, setIsTyping] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredCommands, setFilteredCommands] = useState(SLASH_COMMANDS);
+  const [showAgentSuggestions, setShowAgentSuggestions] = useState(false);
+  const [filteredAgentMentions, setFilteredAgentMentions] = useState(DIRECT_AGENTS);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -169,6 +206,10 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const [showCSVAnalysis, setShowCSVAnalysis] = useState(false);
   const [csvFile, setCSVFile] = useState<File | null>(null);
   const [gtmActive, setGtmActive] = useState(false);
+  const [taskAgent, setTaskAgent] = useState<EmployeeName | null>(null);
+  const [taskDraft, setTaskDraft] = useState('');
+  const [isPlanningTask, setIsPlanningTask] = useState(false);
+  const [planPreview, setPlanPreview] = useState<AgentExecutionPlan | null>(null);
 
   // -- Helpers
 
@@ -288,9 +329,42 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       );
       setFilteredCommands(filtered);
       setShowSuggestions(true);
+      setShowAgentSuggestions(false);
     } else {
       setShowSuggestions(false);
+      const mentionMatch = value.match(/(?:^|\s)@([a-z]*)$/i);
+      if (mentionMatch) {
+        const query = mentionMatch[1].toLowerCase();
+        const filteredAgents = DIRECT_AGENTS.filter((agent) =>
+          agent.name.includes(query) || agent.label.toLowerCase().includes(query)
+        );
+        setFilteredAgentMentions(filteredAgents);
+        setShowAgentSuggestions(filteredAgents.length > 0);
+      } else {
+        setShowAgentSuggestions(false);
+      }
     }
+  };
+
+  const parseAgentMention = (value: string): { agent: EmployeeName; task: string } | null => {
+    const match = value.trim().match(/^@([a-z]+)\s*(?:[-:]\s*|\s+)(.+)$/i);
+    if (!match) return null;
+    const agent = match[1].toLowerCase() as EmployeeName;
+    const task = match[2].trim();
+    if (!DIRECT_AGENTS.some((entry) => entry.name === agent) || !task) return null;
+    return { agent, task };
+  };
+
+  const handleAgentSuggestionClick = (agentName: EmployeeName) => {
+    setInputValue((prev) => prev.replace(/(?:^|\s)@[a-z]*$/i, ` @${agentName} `).trimStart());
+    setShowAgentSuggestions(false);
+  };
+
+  const openAgentTaskFlow = (agent: EmployeeName, task: string) => {
+    setTaskAgent(agent);
+    setTaskDraft(task);
+    setPlanPreview(null);
+    setShowAgentSuggestions(false);
   };
 
   // -- Slash command → follow-up task mapping
@@ -496,10 +570,129 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     }
   };
 
+  const createAgentTaskPlan = async () => {
+    if (!taskAgent) return;
+    const nextRequest = taskDraft.trim();
+    if (!nextRequest) {
+      toast.error('Describe what you want this agent to do.');
+      return;
+    }
+
+    setIsPlanningTask(true);
+    try {
+      const response = await fetch(`/api/agents/${taskAgent}/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task: nextRequest }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const plan = await response.json();
+      setPlanPreview({
+        request: nextRequest,
+        summary: String(plan.summary || '').trim(),
+        tasks: Array.isArray(plan.tasks) ? plan.tasks : [],
+        executionPrompt: String(plan.executionPrompt || '').trim(),
+      });
+      toast.success(`Plan created for ${taskAgent}.`);
+    } catch {
+      toast.error('Failed to create the execution plan.');
+    } finally {
+      setIsPlanningTask(false);
+    }
+  };
+
+  const approveAgentTaskPlan = async () => {
+    if (!taskAgent || !planPreview) return;
+
+    const agentConfig = DIRECT_AGENTS.find((agent) => agent.name === taskAgent);
+    if (!agentConfig) return;
+
+    addAiTasks(
+      planPreview.tasks.map((task) => ({
+        label: `[${agentConfig.label} • ${agentConfig.role}] ${task.label}`,
+        horizon: task.horizon,
+      }))
+    );
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: `@${taskAgent} ${planPreview.request}`,
+      sender: 'user',
+      timestamp: new Date(),
+    };
+    onMessagesChange((prev) => [...prev, userMessage]);
+    setInputValue('');
+    setTaskDraft('');
+    setPlanPreview(null);
+    setTaskAgent(null);
+    setIsTyping(true);
+
+    try {
+      const res = await fetch(`/api/agents/${taskAgent}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: planPreview.executionPrompt }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`${agentConfig.label} is not available right now.`);
+      }
+
+      const reader = res.body?.getReader();
+      const dec = new TextDecoder();
+      let accumulated = '';
+
+      if (reader) {
+        outer: while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const line of dec.decode(value).split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6).trim();
+            if (payload === '[DONE]') break outer;
+            try {
+              const parsed = JSON.parse(payload);
+              if (parsed.text) accumulated += parsed.text;
+              if (parsed.error) throw new Error(parsed.error);
+            } catch {
+              // ignore partial chunks
+            }
+          }
+        }
+      }
+
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `**${agentConfig.label} · ${agentConfig.role}**\n\n${accumulated || '_No output received._'}`,
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      onMessagesChange((prev) => [...prev, aiMessage]);
+      toast.success(`${agentConfig.label} is working on it.`);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `**${agentConfig.label}** is offline or unavailable right now.\n\nPlease try again once the backend is available.`,
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      onMessagesChange((prev) => [...prev, errorMessage]);
+      toast.error(String(error));
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
   // -- Send message
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() && !selectedFile) return;
+
+    const mentionTask = selectedFile ? null : parseAgentMention(inputValue);
+    if (mentionTask) {
+      openAgentTaskFlow(mentionTask.agent, mentionTask.task);
+      return;
+    }
 
     if (inputValue.startsWith('/')) {
       // Check for digital employee slash commands first
@@ -633,11 +826,14 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       if (showSuggestions && filteredCommands.length > 0) {
         setInputValue(filteredCommands[0].command);
         setShowSuggestions(false);
+      } else if (showAgentSuggestions && filteredAgentMentions.length > 0) {
+        handleAgentSuggestionClick(filteredAgentMentions[0].name);
       } else {
         handleSendMessage();
       }
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
+      setShowAgentSuggestions(false);
     }
   };
 
@@ -885,6 +1081,28 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
           </div>
         )}
 
+        {showAgentSuggestions && filteredAgentMentions.length > 0 && (
+          <div className="mx-4 mb-2 border rounded-lg bg-background shadow-lg max-h-48 overflow-y-auto">
+            {filteredAgentMentions.map((agent) => (
+              <div
+                key={agent.name}
+                className="flex items-center space-x-3 p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                onClick={() => handleAgentSuggestionClick(agent.name)}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-sm font-semibold text-orange-600 dark:bg-orange-900/20 dark:text-orange-300">
+                  @{agent.label.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm">@{agent.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {agent.label} · {agent.role}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Input bar */}
         <div className="border-t px-4 py-3">
           {/* Selected file preview */}
@@ -969,6 +1187,84 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
           }}
         />
       )}
+
+      <Dialog open={Boolean(taskAgent)} onOpenChange={(open) => {
+        if (!open) {
+          setTaskAgent(null);
+          setTaskDraft('');
+          setPlanPreview(null);
+        }
+      }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {taskAgent ? `Give Task to ${DIRECT_AGENTS.find((agent) => agent.name === taskAgent)?.label}` : 'Give Task'}
+            </DialogTitle>
+            <DialogDescription>
+              Describe what you want this agent to do.
+            </DialogDescription>
+          </DialogHeader>
+
+          {taskAgent && (
+            <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+              <div className="text-sm font-semibold text-foreground">
+                {DIRECT_AGENTS.find((agent) => agent.name === taskAgent)?.label} · {EMPLOYEE_PROFILES[taskAgent].title}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Use @mentions in chat to route focused work to the right agent.
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <Textarea
+              value={taskDraft}
+              onChange={(e) => setTaskDraft(e.target.value)}
+              placeholder="Describe what you want this agent to do."
+              className="min-h-[120px]"
+            />
+            <div className="flex justify-end">
+              <Button
+                onClick={createAgentTaskPlan}
+                disabled={isPlanningTask || !taskDraft.trim()}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                {isPlanningTask ? 'Creating Plan...' : 'Create Plan'}
+              </Button>
+            </div>
+          </div>
+
+          {planPreview && (
+            <div className="space-y-4 rounded-2xl border border-orange-200/70 bg-orange-50/60 p-4 dark:border-orange-500/20 dark:bg-orange-950/15">
+              <div>
+                <div className="text-sm font-semibold text-foreground">Execution Plan</div>
+                <p className="mt-1 text-sm text-muted-foreground">{planPreview.summary}</p>
+              </div>
+              <div>
+                <div className="mb-2 text-sm font-semibold text-foreground">Tasks</div>
+                <div className="max-h-[36vh] space-y-2 overflow-y-auto pr-1">
+                  {planPreview.tasks.map((task, index) => (
+                    <div
+                      key={`${task.label}-${index}`}
+                      className="rounded-xl border border-border/60 bg-background/80 px-3 py-2"
+                    >
+                      <div className="text-sm text-foreground">{task.label}</div>
+                      <div className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
+                        {task.horizon}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={approveAgentTaskPlan} className="bg-orange-500 hover:bg-orange-600">
+                  Run Now
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
