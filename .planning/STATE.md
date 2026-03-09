@@ -5,20 +5,58 @@
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Every agent run must move a business metric, verified through an outcome ledger that learns per company over time.
-**Current focus:** v1.0 Marketing Brain OS — MKG + Agent Contract + 12-agent rewrite
+**Current focus:** Phase 1 — MKG Foundation (ready to plan)
 
-## Current Phase
+## Current Position
 
-None started yet. Roadmap pending.
+Phase: 1 of 8 (MKG Foundation)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-03-10 — Roadmap created. 8 phases derived from 43 v1 requirements. Dependency ordering locked.
 
-## Last Session
+Progress: [░░░░░░░░░░] 0%
 
-2026-03-10 — Completed design doc at `docs/plans/2026-03-10-marketing-brain-os-design.md`. Bootstrapped GSD planning infrastructure. Chose complete rewrite (option B). Ready for requirements definition and roadmap creation.
+## Performance Metrics
 
-## Pending Todos
+**Velocity:**
+- Total plans completed: 0
+- Average duration: —
+- Total execution time: 0 hours
 
-- None captured yet
+**By Phase:**
 
-## Active Work
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
 
-Initializing milestone v1.0 — Marketing Brain OS. About to run gsd:new-milestone flow.
+**Recent Trend:**
+- Last 5 plans: —
+- Trend: —
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [Design]: MKG as shared JSON on disk + Supabase sync — avoids context rot, field-level expiry
+- [Design]: AgentRunOutput contract enforced on every run — enables outcome ledger and handoff notes
+- [Design]: Clean slate rewrite (option B) — retrofit would leave incompatible architectural debt
+- [Design]: Differential analysis for swarms — only process delta since last_checked (87% cost reduction)
+
+### Pending Todos
+
+None captured yet.
+
+### Blockers/Concerns
+
+None yet.
+
+## Session Continuity
+
+Last session: 2026-03-10
+Stopped at: Roadmap written to .planning/ROADMAP.md. Phase 1 ready to plan.
+Resume file: None

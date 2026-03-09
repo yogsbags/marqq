@@ -106,20 +106,55 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MKG-01 through MKG-05 | Phase 1 | Pending |
-| CONTRACT-01 through CONTRACT-05 | Phase 2 | Pending |
-| VEENA-01 through VEENA-05 | Phase 3 | Pending |
-| AGENT-01 through AGENT-08 | Phase 4 | Pending |
-| HOOKS-01 through HOOKS-05 | Phase 5 | Pending |
-| PIPE-01 through PIPE-05 | Phase 6 | Pending |
-| SWARM-01 through SWARM-05 | Phase 7 | Pending |
-| LEDGER-01 through LEDGER-05 | Phase 8 | Pending |
+| MKG-01 | Phase 1 — MKG Foundation | Pending |
+| MKG-02 | Phase 1 — MKG Foundation | Pending |
+| MKG-03 | Phase 1 — MKG Foundation | Pending |
+| MKG-04 | Phase 1 — MKG Foundation | Pending |
+| MKG-05 | Phase 1 — MKG Foundation | Pending |
+| CONTRACT-01 | Phase 2 — Agent Contract Standard | Pending |
+| CONTRACT-02 | Phase 2 — Agent Contract Standard | Pending |
+| CONTRACT-03 | Phase 2 — Agent Contract Standard | Pending |
+| CONTRACT-04 | Phase 2 — Agent Contract Standard | Pending |
+| CONTRACT-05 | Phase 2 — Agent Contract Standard | Pending |
+| VEENA-01 | Phase 3 — Veena (Company Intelligence) | Pending |
+| VEENA-02 | Phase 3 — Veena (Company Intelligence) | Pending |
+| VEENA-03 | Phase 3 — Veena (Company Intelligence) | Pending |
+| VEENA-04 | Phase 3 — Veena (Company Intelligence) | Pending |
+| VEENA-05 | Phase 3 — Veena (Company Intelligence) | Pending |
+| AGENT-01 | Phase 4 — 12-Agent Rewrite | Pending |
+| AGENT-02 | Phase 4 — 12-Agent Rewrite | Pending |
+| AGENT-03 | Phase 4 — 12-Agent Rewrite | Pending |
+| AGENT-04 | Phase 4 — 12-Agent Rewrite | Pending |
+| AGENT-05 | Phase 4 — 12-Agent Rewrite | Pending |
+| AGENT-06 | Phase 4 — 12-Agent Rewrite | Pending |
+| AGENT-07 | Phase 4 — 12-Agent Rewrite | Pending |
+| AGENT-08 | Phase 4 — 12-Agent Rewrite | Pending |
+| HOOKS-01 | Phase 5 — Hooks System | Pending |
+| HOOKS-02 | Phase 5 — Hooks System | Pending |
+| HOOKS-03 | Phase 5 — Hooks System | Pending |
+| HOOKS-04 | Phase 5 — Hooks System | Pending |
+| HOOKS-05 | Phase 5 — Hooks System | Pending |
+| PIPE-01 | Phase 6 — Data Pipeline | Pending |
+| PIPE-02 | Phase 6 — Data Pipeline | Pending |
+| PIPE-03 | Phase 6 — Data Pipeline | Pending |
+| PIPE-04 | Phase 6 — Data Pipeline | Pending |
+| PIPE-05 | Phase 6 — Data Pipeline | Pending |
+| SWARM-01 | Phase 7 — Swarm Layer | Pending |
+| SWARM-02 | Phase 7 — Swarm Layer | Pending |
+| SWARM-03 | Phase 7 — Swarm Layer | Pending |
+| SWARM-04 | Phase 7 — Swarm Layer | Pending |
+| SWARM-05 | Phase 7 — Swarm Layer | Pending |
+| LEDGER-01 | Phase 8 — Outcome Ledger | Pending |
+| LEDGER-02 | Phase 8 — Outcome Ledger | Pending |
+| LEDGER-03 | Phase 8 — Outcome Ledger | Pending |
+| LEDGER-04 | Phase 8 — Outcome Ledger | Pending |
+| LEDGER-05 | Phase 8 — Outcome Ledger | Pending |
 
 **Coverage:**
-- v1 requirements: 45 total
-- Mapped to phases: 45
-- Unmapped: 0 ✓
+- v1 requirements: 43 total
+- Mapped to phases: 43
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after initial definition*
+*Last updated: 2026-03-10 — Roadmap created, traceability finalized*
