@@ -1,0 +1,6 @@
+{
+  "connectors": ["semrush", "ahrefs", "ga4", "google_sheets"],
+  "permissions": "read",
+  "description": "Isha researches market structure, segment demand, and competitor context before strategy decisions.",
+  "recipes": {}
+}

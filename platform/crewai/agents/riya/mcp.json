@@ -1,8 +1,6 @@
 {
-  "connectors": ["wordpress", "google_sheets", "ga4"],
+  "connectors": ["wordpress", "ga4", "google_sheets"],
   "permissions": "read-write",
-  "description": "Riya creates and publishes content — she can write to WordPress and read analytics.",
-  "recipes": {
-    "content_performance": "rcp_qUu9lxU0ZYUv"
-  }
+  "description": "Riya creates publishable content assets and tracks how content contributes to campaign execution.",
+  "recipes": {}
 }

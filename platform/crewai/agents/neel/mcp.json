@@ -1,0 +1,6 @@
+{
+  "connectors": ["ga4", "mixpanel", "google_sheets"],
+  "permissions": "read",
+  "description": "Neel turns market and company context into strategy, prioritization, and channel choices.",
+  "recipes": {}
+}

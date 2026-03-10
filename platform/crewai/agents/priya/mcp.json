@@ -1,8 +1,6 @@
 {
-  "connectors": ["ga4", "mixpanel", "moengage"],
+  "connectors": ["semrush", "ahrefs", "linkedin", "google_sheets"],
   "permissions": "read",
-  "description": "Priya manages brand and engagement — she reads product analytics and user journeys.",
-  "recipes": {
-    "engagement_pulse": "rcp_7JAx5Ew8yyLm"
-  }
+  "description": "Priya tracks competitor moves, narrative shifts, and market pressure signals.",
+  "recipes": {}
 }
