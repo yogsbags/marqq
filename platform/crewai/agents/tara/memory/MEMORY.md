@@ -1,4 +1,4 @@
-# Kiran Memory
+# Tara Memory
 
 ## Phase 4 Reset
 
