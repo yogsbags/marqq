@@ -11,7 +11,7 @@ Transform 11 isolated, cold-start agents into a 12-agent Marketing Brain OS: sha
 - Decimal phases (e.g., 2.1): Urgent insertions (marked INSERTED)
 
 - [x] **Phase 1: MKG Foundation** - Per-company knowledge graph on disk + Supabase, with service layer and REST endpoints ✓ 2026-03-10
-- [ ] **Phase 2: Agent Contract Standard** - Every agent run produces validated AgentRunOutput JSON; backend enforces schema
+- [x] **Phase 2: Agent Contract Standard** - Every agent run produces validated AgentRunOutput JSON; backend enforces schema (completed 2026-03-10)
 - [ ] **Phase 3: Veena — Company Intelligence** - New orchestrator agent owns MKG; fires full onboarding chain on new company signal
 - [ ] **Phase 4: 12-Agent Rewrite** - All 11 existing agents rewritten per 12-node marketing framework; APScheduler updated
 - [ ] **Phase 5: Hooks System** - Signal-driven and scheduled triggers evaluated every heartbeat; hooks.json as config
@@ -52,7 +52,7 @@ Plans:
   3. A run with `artifact.confidence < 0.5` automatically creates a record in Supabase `agent_tasks` with a `missing_data` follow-up task.
   4. The `context_patch` from a completed run is applied to MKG immediately; a subsequent `GET /api/mkg/:companyId` reflects the update.
   5. `tasks_created` items appear in Supabase `agent_tasks` with `triggered_by_run_id` populated.
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 02-01-PLAN.md — AgentRunOutput schema + manual JS validator (extractContract, validateContract) + Supabase migration for agent_tasks new columns
@@ -182,7 +182,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MKG Foundation | 3/3 | ✓ Complete | 2026-03-10 |
-| 2. Agent Contract Standard | 2/3 | In Progress|  |
+| 2. Agent Contract Standard | 3/3 | Complete   | 2026-03-10 |
 | 3. Veena — Company Intelligence | 0/3 | Not started | - |
 | 4. 12-Agent Rewrite | 0/3 | Not started | - |
 | 5. Hooks System | 0/3 | Not started | - |

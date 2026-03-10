@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 02-02-PLAN.md. Stream-then-extract contract pattern in /api/agents/:name/run complete."
-last_updated: "2026-03-10T09:36:40.911Z"
+stopped_at: "Completed 02-03-PLAN.md (task 1). Checkpoint:human-verify reached — awaiting Supabase migration and run verification."
+last_updated: "2026-03-10T09:40:28.270Z"
 last_activity: 2026-03-10 — Completed 02-01-PLAN.md (Agent Contract Schema + Validator)
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 83
 ---
 
@@ -52,6 +52,7 @@ Progress: [████████░░] 83%
 
 *Updated after each plan completion*
 | Phase 02 P02 | 8 | 1 tasks | 1 files |
+| Phase 02-agent-contract-standard P03 | 1 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,8 @@ Recent decisions affecting current work:
 - [Phase 02-agent-contract-standard]: max_tokens increased from 4096 to 8192 — long prose + contract JSON block requires the extra headroom
 - [Phase 02-agent-contract-standard]: company_id is optional in run endpoint — existing slash-command callers omitting it continue to work; MKG patch skipped with console.warn
 - [Phase 02-agent-contract-standard]: contractInstruction always injected LAST in system prompt to maximise LLM compliance
+- [Phase 02-agent-contract-standard]: Promise.allSettled used (not Promise.all) so one Supabase write failure does not abort others in the run endpoint persistence block
+- [Phase 02-agent-contract-standard]: 23505 unique_violation swallowed silently in saveAgentRunOutput — client retries are idempotent by design (run_id UNIQUE constraint)
 
 ### Pending Todos
 
@@ -93,6 +96,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-10T09:36:40.908Z
-Stopped at: Completed 02-02-PLAN.md. Stream-then-extract contract pattern in /api/agents/:name/run complete.
+Last session: 2026-03-10T09:40:28.267Z
+Stopped at: Completed 02-03-PLAN.md (task 1). Checkpoint:human-verify reached — awaiting Supabase migration and run verification.
 Resume file: None
