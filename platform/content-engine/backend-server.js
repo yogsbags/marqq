@@ -65,105 +65,127 @@ const VOICEBOT_CALLS_ROOT = join(__dirname, "data", "voicebot-calls");
 
 const VALID_AGENTS = new Set([
   "veena",   // Company Intelligence — Phase 3
+  "isha",
+  "neel",
+  "tara",
   "zara",
   "maya",
   "riya",
   "arjun",
   "dev",
   "priya",
-  "tara",
-  "neel",
-  "isha",
+  "kiran",
+  "sam",
 ]);
 const AGENT_PROFILES = {
-  zara: {
-    title: "Strategy & Monetization",
+  isha: {
+    title: "Market Research",
     personality:
-      "Decisive, commercially sharp, and biased toward clear GTM tradeoffs rather than vague planning.",
+      "Structured, curious, and skeptical of weak market claims.",
     executes: [
-      "Turn business goals into channel-specific campaign plans",
-      "Recommend launch structure, offers, and funnel sequencing",
-      "Translate GTM strategy into deployable execution tasks",
-    ],
-  },
-  maya: {
-    title: "SEO & LLMO Monitor",
-    personality:
-      "Methodical, evidence-driven, and focused on search visibility, citations, and technical discoverability.",
-    executes: [
-      "Monitor SEO and AI-search visibility signals",
-      "Identify ranking, indexing, and answer-engine gaps",
-      "Suggest content and site updates that improve discoverability",
-    ],
-  },
-  riya: {
-    title: "Content Producer",
-    personality:
-      "Fast-moving, editorially minded, and tuned to shipping usable content rather than abstract ideas.",
-    executes: [
-      "Generate content plans, briefs, and campaign-ready assets",
-      "Turn strategy into channel-specific content output",
-      "Support social, messaging, and creative production flows",
-    ],
-  },
-  arjun: {
-    title: "Sales & RevOps",
-    personality:
-      "Analytical and conversion-oriented, with a strong bias toward qualification, prioritization, and pipeline efficiency.",
-    executes: [
-      "Analyze lead quality and prospect segments",
-      "Surface ICP fit, enrichment, and prioritization insights",
-      "Support outreach and opportunity qualification decisions",
-    ],
-  },
-  dev: {
-    title: "Paid & Distribution",
-    personality:
-      "Numerate, pragmatic, and focused on budget efficiency, signal quality, and measurable performance improvement.",
-    executes: [
-      "Review campaign performance and scorecards",
-      "Recommend budget reallocations and efficiency moves",
-      "Track KPI movement across channels and time horizons",
-    ],
-  },
-  priya: {
-    title: "Conversion Optimization",
-    personality:
-      "Research-led, positioning-aware, and strong at turning messy market inputs into sharper differentiation.",
-    executes: [
-      "Generate company intelligence and competitor analysis",
-      "Refine messaging, positioning, and audience hypotheses",
-      "Support brand, market, and narrative decisions",
-    ],
-  },
-  tara: {
-    title: "Measurement & Testing",
-    personality:
-      "Experiment-oriented and rigorous, focused on attribution quality, incrementality, and decision-ready KPI movement.",
-    executes: [
-      "Build measurement plans with cross-channel attribution guardrails",
-      "Design experiment loops and testing cadences for key campaigns",
-      "Turn scorecard outputs into prioritized optimization tasks",
+      "Map market segments and demand patterns",
+      "Surface validated competitor and buyer insights",
+      "Hand strategy a cleaner market picture before execution decisions",
     ],
   },
   neel: {
-    title: "Retention",
+    title: "Strategy",
     personality:
-      "Lifecycle-focused operator who improves activation, engagement, and repeat conversion through focused follow-up systems.",
+      "Tradeoff-driven, clear-headed, and focused on decisions rather than abstractions.",
     executes: [
-      "Build retention and re-engagement task plans from audience insights",
-      "Translate segment behavior into lifecycle content and outreach actions",
-      "Operationalize post-conversion and nurture workflows",
+      "Turn research into positioning and channel priorities",
+      "Choose strategic focus areas and deprioritize distractions",
+      "Translate market context into actionable GTM direction",
     ],
   },
-  isha: {
-    title: "Growth Engineering",
+  tara: {
+    title: "Offer Engineering",
     personality:
-      "Systems thinker with an automation mindset, focused on scalable workflows, integrations, and compounding growth loops.",
+      "Commercial, precise, and focused on improving conversion clarity.",
     executes: [
-      "Design cross-workflow automation and orchestration tasks",
-      "Turn strategic opportunities into scalable growth loops",
-      "Bridge content, channel, and partner workflows into one operating system",
+      "Refine offers, CTA structure, and value packaging",
+      "Identify friction in the path from interest to action",
+      "Convert strategy into stronger buying mechanics",
+    ],
+  },
+  zara: {
+    title: "Distribution",
+    personality:
+      "Urgent, pragmatic, and biased toward channels that can move now.",
+    executes: [
+      "Choose distribution mix across paid, organic, outbound, and partner channels",
+      "Sequence launches and campaign activation steps",
+      "Turn strategy and content into executable channel plans",
+    ],
+  },
+  maya: {
+    title: "SEO/Content",
+    personality:
+      "Methodical, evidence-driven, and focused on discoverability through search and content.",
+    executes: [
+      "Identify SEO and answer-engine gaps",
+      "Map content opportunities tied to discoverability",
+      "Improve the connection between search demand and content output",
+    ],
+  },
+  riya: {
+    title: "Content Creation",
+    personality:
+      "Fast-moving, editorially sharp, and tuned to shipping campaign-ready assets.",
+    executes: [
+      "Create briefs, drafts, and campaign asset packs",
+      "Turn strategy and SEO direction into publishable work",
+      "Support distribution, messaging, and lifecycle execution with content",
+    ],
+  },
+  arjun: {
+    title: "Funnel/Leads",
+    personality:
+      "Analytical, conversion-oriented, and impatient with weak lead signals.",
+    executes: [
+      "Diagnose funnel leakage and lead quality issues",
+      "Prioritize leads and next actions by ICP fit and timing",
+      "Translate demand signals into pipeline-focused decisions",
+    ],
+  },
+  dev: {
+    title: "Analytics",
+    personality:
+      "Rigorous, numerate, and focused on decision-ready metric interpretation.",
+    executes: [
+      "Interpret KPI movement against baselines",
+      "Surface measurement gaps and performance shifts",
+      "Translate data into strategy and distribution decisions",
+    ],
+  },
+  priya: {
+    title: "Competitive Intelligence",
+    personality:
+      "Alert, pattern-oriented, and disciplined about evidence from the market.",
+    executes: [
+      "Track competitor moves and narrative shifts",
+      "Explain why external change matters to the company",
+      "Feed strategy, distribution, and SEO with competitive signals",
+    ],
+  },
+  kiran: {
+    title: "Lifecycle/Social",
+    personality:
+      "Audience-aware, operational, and focused on repeat engagement.",
+    executes: [
+      "Manage social and lifecycle engagement signals",
+      "Spot nurture and retention opportunities after acquisition",
+      "Translate audience response into next-step channel actions",
+    ],
+  },
+  sam: {
+    title: "Messaging",
+    personality:
+      "Precise, persuasive, and focused on making every message clearer.",
+    executes: [
+      "Sharpen core messages, nurture copy, and CTA language",
+      "Connect offer clarity to funnel-stage communication",
+      "Turn strategy into deployable message systems",
     ],
   },
   veena: {
@@ -180,6 +202,21 @@ const AGENT_PROFILES = {
     writes_to_mkg: ["positioning", "icp", "competitors", "offers", "messaging", "channels", "funnel", "metrics", "baselines", "content_pillars", "campaigns", "insights"],
   },
 };
+const TEST_MODE = process.env.AGENT_RUN_TEST_MODE === "1";
+const MKG_TOP_LEVEL_FIELDS = [
+  "positioning",
+  "icp",
+  "competitors",
+  "offers",
+  "messaging",
+  "channels",
+  "funnel",
+  "metrics",
+  "baselines",
+  "content_pillars",
+  "campaigns",
+  "insights",
+];
 const PORT = Number(process.env.BACKEND_PORT || 3008);
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
 const COMPANY_INTEL_GROQ_MODELS = [
@@ -261,6 +298,121 @@ const COMPANY_INTEL_KB_CATEGORIES = new Set([
   "product_service_docs",
   "company_ppts",
 ]);
+
+function extractDeclaredMkgFields(soulText, marker) {
+  const pattern = new RegExp(`\\*\\*${marker}\\*\\*:\\s*([\\s\\S]*?)\\n\\*\\*`);
+  const match = soulText.match(pattern);
+  if (!match) return [];
+  return match[1]
+    .split(",")
+    .map((value) => value.replace(/\s+/g, " ").trim())
+    .map((value) => value.split(" ")[0])
+    .filter((value) => MKG_TOP_LEVEL_FIELDS.includes(value));
+}
+
+function buildTestModeContract({ name, companyId, runId, soulText, query }) {
+  const writesTo =
+    extractDeclaredMkgFields(soulText, "writes_to_mkg").slice(0, 2);
+  const field = writesTo[0] || "insights";
+  const today = new Date().toISOString().slice(0, 10);
+  const patch = {
+    [field]: {
+      value: {
+        summary: `Test mode patch for ${name}`,
+        source: "AGENT_RUN_TEST_MODE",
+        query,
+      },
+      confidence: 0.8,
+      last_verified: today,
+      source_agent: name,
+      expires_at: today,
+    },
+  };
+  return {
+    agent: name,
+    task: `test-mode run for ${name}`,
+    company_id: companyId,
+    run_id: runId,
+    timestamp: new Date().toISOString(),
+    input: {
+      mkg_version: null,
+      dependencies_read: ["SOUL.md", "MEMORY.md", "skills/*.md"],
+      assumptions_made: ["AGENT_RUN_TEST_MODE generated deterministic output"],
+    },
+    artifact: {
+      data: { mode: "test", agent: name },
+      summary: `Test mode generated a deterministic AgentRunOutput for ${name}.`,
+      confidence: 0.8,
+    },
+    context_patch: {
+      writes_to: writesTo.length ? writesTo : [field],
+      patch,
+    },
+    handoff_notes: `Test mode verified ${name} can produce a non-empty context patch.`,
+    missing_data: [],
+    tasks_created: [],
+    outcome_prediction: null,
+  };
+}
+
+async function finalizeAgentRunResponse({
+  name,
+  runId,
+  companyId,
+  fullText,
+  res,
+  startedAt,
+}) {
+  await markAgentHeartbeat(name, "completed", Date.now() - startedAt);
+
+  const rawContract = extractContract(fullText);
+
+  if (!rawContract) {
+    console.warn(`[contract] ${name}/${runId}: ---CONTRACT--- sentinel missing from response`);
+    res.write(`data: ${JSON.stringify({ contractError: "missing" })}\n\n`);
+    res.write("data: [DONE]\n\n");
+    res.end();
+    return;
+  }
+
+  const { valid, errors } = validateContract(rawContract);
+
+  if (!valid) {
+    console.warn(`[contract] ${name}/${runId}: validation failed:`, errors);
+    res.write(`data: ${JSON.stringify({ contractError: "invalid", details: errors })}\n\n`);
+    res.write("data: [DONE]\n\n");
+    res.end();
+    return;
+  }
+
+  rawContract.run_id = runId;
+  rawContract.agent = name;
+  if (companyId) rawContract.company_id = companyId;
+
+  if (
+    companyId &&
+    rawContract.context_patch?.patch &&
+    Object.keys(rawContract.context_patch.patch).length > 0
+  ) {
+    try {
+      await MKGService.patch(companyId, rawContract.context_patch.patch);
+    } catch (mkgErr) {
+      console.error(`[contract] MKG patch failed for ${companyId}/${runId}:`, mkgErr);
+    }
+  } else if (!companyId) {
+    console.warn(`[contract] ${name}/${runId}: no company_id — skipping MKG patch`);
+  }
+
+  await Promise.allSettled([
+    saveAgentRunOutput(rawContract, fullText),
+    createMissingDataTask(rawContract),
+    writeTasksCreated(rawContract),
+  ]);
+
+  res.write(`data: ${JSON.stringify({ contract: rawContract })}\n\n`);
+  res.write("data: [DONE]\n\n");
+  res.end();
+}
 
 function loadEnvFileIntoProcess(envPath) {
   try {
@@ -3348,6 +3500,29 @@ Replace ALL placeholder values with your actual outputs.
   const startedAt = Date.now();
   try {
     await markAgentHeartbeat(name, "running");
+
+    if (TEST_MODE) {
+      const contract = buildTestModeContract({
+        name,
+        companyId,
+        runId,
+        soulText: systemPrompt,
+        query,
+      });
+      const prose = `[TEST MODE] ${name} executed without a live model.\n`;
+      const fullText = `${prose}\n---CONTRACT---\n${JSON.stringify(contract, null, 2)}`;
+      res.write(`data: ${JSON.stringify({ text: prose })}\n\n`);
+      await finalizeAgentRunResponse({
+        name,
+        runId,
+        companyId,
+        fullText,
+        res,
+        startedAt,
+      });
+      return;
+    }
+
     const stream = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
@@ -3369,62 +3544,14 @@ Replace ALL placeholder values with your actual outputs.
       }
     }
 
-    // ── Post-stream: extract, validate, apply MKG patch ──────────────────────
-    await markAgentHeartbeat(name, "completed", Date.now() - startedAt);
-
-    const rawContract = extractContract(fullText);
-
-    if (!rawContract) {
-      // LLM did not produce the sentinel — soft fail, preserve UX
-      console.warn(`[contract] ${name}/${runId}: ---CONTRACT--- sentinel missing from response`);
-      res.write(`data: ${JSON.stringify({ contractError: "missing" })}\n\n`);
-      res.write("data: [DONE]\n\n");
-      res.end();
-      return;
-    }
-
-    const { valid, errors } = validateContract(rawContract);
-
-    if (!valid) {
-      // Contract produced but malformed
-      console.warn(`[contract] ${name}/${runId}: validation failed:`, errors);
-      res.write(`data: ${JSON.stringify({ contractError: "invalid", details: errors })}\n\n`);
-      res.write("data: [DONE]\n\n");
-      res.end();
-      return;
-    }
-
-    // Enforce server-controlled fields (defense against agent confusion)
-    rawContract.run_id = runId;
-    rawContract.agent = name;
-    if (companyId) rawContract.company_id = companyId;
-
-    // Apply context_patch to MKG (fire-and-log — does not block SSE)
-    if (
-      companyId &&
-      rawContract.context_patch?.patch &&
-      Object.keys(rawContract.context_patch.patch).length > 0
-    ) {
-      try {
-        await MKGService.patch(companyId, rawContract.context_patch.patch);
-      } catch (mkgErr) {
-        console.error(`[contract] MKG patch failed for ${companyId}/${runId}:`, mkgErr);
-      }
-    } else if (!companyId) {
-      console.warn(`[contract] ${name}/${runId}: no company_id — skipping MKG patch`);
-    }
-
-    // ── Persist contract to Supabase (fire-and-log — do not await sequentially) ──
-    await Promise.allSettled([
-      saveAgentRunOutput(rawContract, fullText),
-      createMissingDataTask(rawContract),
-      writeTasksCreated(rawContract),
-    ]);
-
-    // Send validated contract event (frontend ignores unknown event shapes — safe)
-    res.write(`data: ${JSON.stringify({ contract: rawContract })}\n\n`);
-    res.write("data: [DONE]\n\n");
-    res.end();
+    await finalizeAgentRunResponse({
+      name,
+      runId,
+      companyId,
+      fullText,
+      res,
+      startedAt,
+    });
 
   } catch (err) {
     await markAgentHeartbeat(name, "error", Date.now() - startedAt, String(err));
