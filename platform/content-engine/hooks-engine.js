@@ -60,12 +60,21 @@ export function evaluateSignalAgainstBaseline({
       };
     }
     case "pct_rise_gte":
+    case "pct_increase_gte":
       return {
         matched: deltaPct >= threshold,
         deltaPct,
         baselineValue: baseline,
         currentValue: current,
         reason: deltaPct >= threshold ? "matched" : "below_threshold",
+      };
+    case "changed_from_baseline":
+      return {
+        matched: current !== baseline,
+        deltaPct,
+        baselineValue: baseline,
+        currentValue: current,
+        reason: current !== baseline ? "matched" : "below_threshold",
       };
     default:
       return buildIgnoredResult("unsupported_operator", {

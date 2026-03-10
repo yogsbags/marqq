@@ -3512,9 +3512,10 @@ app.post("/api/agents/:name/plan", async (req, res) => {
  * Fire-and-log: errors are logged but never thrown.
  */
 async function saveAgentRunOutput(contract, rawOutput) {
-  if (!supabase || !contract.company_id) return;
+  const client = supabaseAdminClient || supabase;
+  if (!client || !contract.company_id) return;
   try {
-    const { error } = await supabase
+    const { error } = await client
       .from("agent_run_outputs")
       .insert({
         run_id:        contract.run_id,
@@ -3543,11 +3544,12 @@ async function saveAgentRunOutput(contract, rawOutput) {
  * CONTRACT-03 requirement. Uses task_type='missing_data', priority='high'.
  */
 async function createMissingDataTask(contract) {
-  if (!supabase) return;
+  const client = supabaseAdminClient || supabase;
+  if (!client) return;
   if (!contract.company_id) return;
   if (contract.artifact.confidence >= 0.5) return;  // only fire for < 0.5
   try {
-    const { error } = await supabase
+    const { error } = await client
       .from("agent_tasks")
       .insert({
         agent_name:          contract.agent,
@@ -3573,7 +3575,8 @@ async function createMissingDataTask(contract) {
  * CONTRACT-05 requirement. Each row gets triggered_by_run_id set to this run's run_id.
  */
 async function writeTasksCreated(contract) {
-  if (!supabase) return;
+  const client = supabaseAdminClient || supabase;
+  if (!client) return;
   if (!contract.tasks_created?.length) return;
   const rows = contract.tasks_created.map((t) => ({
     agent_name:          t.agent_name,
@@ -3585,7 +3588,7 @@ async function writeTasksCreated(contract) {
     triggered_by_run_id: contract.run_id,
   }));
   try {
-    const { error } = await supabase.from("agent_tasks").insert(rows);
+    const { error } = await client.from("agent_tasks").insert(rows);
     if (error) {
       console.error("[contract] writeTasksCreated error:", error);
     } else {
@@ -3652,8 +3655,9 @@ app.post("/api/agents/veena/onboard", async (req, res) => {
       await initializeMKGTemplate(companyId);
       console.log(`[veena/onboard] MKG template initialized for ${companyId}`);
 
-      if (supabase) {
-        const { error } = await supabase.from("agent_tasks").insert({
+      const adminOrAnon = supabaseAdminClient || supabase;
+      if (adminOrAnon) {
+        const { error } = await adminOrAnon.from("agent_tasks").insert({
           agent_name: "veena",
           task_type: "onboard_crawl",
           status: "running",
@@ -3725,8 +3729,8 @@ app.post("/api/agents/veena/onboard", async (req, res) => {
         console.error(`[veena/onboard] Crawl failed for ${companyId}:`, err.message);
       }
 
-      if (supabase) {
-        const { error } = await supabase
+      if (adminOrAnon) {
+        const { error } = await adminOrAnon
           .from("agent_tasks")
           .update({
             status: crawlError ? "failed" : "done",
@@ -3743,7 +3747,7 @@ app.post("/api/agents/veena/onboard", async (req, res) => {
         }
       }
 
-      if (supabase) {
+      if (adminOrAnon) {
         const chainRows = ["isha", "neel", "zara"].map((agentName, index) => ({
           agent_name: agentName,
           task_type: "onboard_briefing",
@@ -3754,7 +3758,7 @@ app.post("/api/agents/veena/onboard", async (req, res) => {
           priority: "high",
           scheduled_for: new Date(chainBaseTime + (index + 1) * 60000).toISOString(),
         }));
-        const { error } = await supabase.from("agent_tasks").insert(chainRows);
+        const { error } = await adminOrAnon.from("agent_tasks").insert(chainRows);
         if (error) {
           console.error("[veena/onboard] Failed to write chain tasks:", error);
         } else {

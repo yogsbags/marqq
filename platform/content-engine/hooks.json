@@ -72,6 +72,56 @@
         "task_type": "weekly_outcome_verification",
         "query": "Verify predicted outcomes against actual KPI movement and write calibration notes where variance exceeds tolerance."
       }
+    },
+    {
+      "id": "maya-weekly-seo-audit",
+      "enabled": true,
+      "cron": "0 8 * * mon",
+      "dispatch": {
+        "agent": "maya",
+        "task_type": "weekly_seo_audit",
+        "query": "Audit search visibility, content coverage gaps, and answer-engine positioning. Surface what to fix this week."
+      }
+    },
+    {
+      "id": "riya-weekly-content-brief",
+      "enabled": true,
+      "cron": "0 9 * * thu",
+      "dispatch": {
+        "agent": "riya",
+        "task_type": "weekly_content_brief",
+        "query": "Turn this week's SEO direction and strategy context into publishable content briefs and campaign-ready drafts."
+      }
+    },
+    {
+      "id": "priya-daily-competitor-scan",
+      "enabled": true,
+      "cron": "0 7 * * mon-fri",
+      "dispatch": {
+        "agent": "priya",
+        "task_type": "daily_competitor_scan",
+        "query": "Scan for fresh competitor moves, narrative shifts, and market threats. Flag anything that warrants a response."
+      }
+    },
+    {
+      "id": "kiran-daily-lifecycle-check",
+      "enabled": true,
+      "cron": "30 10 * * mon-fri",
+      "dispatch": {
+        "agent": "kiran",
+        "task_type": "daily_lifecycle_check",
+        "query": "Review retention signals, social engagement trends, and nurture loop performance. Recommend immediate touchpoint adjustments."
+      }
+    },
+    {
+      "id": "sam-weekly-messaging-review",
+      "enabled": true,
+      "cron": "0 11 * * tue",
+      "dispatch": {
+        "agent": "sam",
+        "task_type": "weekly_messaging_review",
+        "query": "Audit outbound copy, nurture language, and campaign messaging for clarity and conversion alignment. Sharpen what's muddy."
+      }
     }
   ],
   "signal_triggers": [
