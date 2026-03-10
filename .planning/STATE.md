@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Every agent run must move a business metric, verified through an outcome ledger that learns per company over time.
-**Current focus:** Phase 1 — MKG Foundation (COMPLETE — move to Phase 2)
+**Current focus:** Phase 2 — Agent Contract Standard
 
 ## Current Position
 
-Phase: 1 of 8 (MKG Foundation)
-Plan: 3 of 3 in current phase (01-01, 01-02, and 01-03 all complete)
-Status: Phase 1 complete
-Last activity: 2026-03-10 — Completed 01-03-PLAN.md (MKG REST endpoints)
+Phase: 2 of 8 (Agent Contract Standard)
+Plan: 1 of 3 in current phase (02-01 complete)
+Status: Phase 2 in progress
+Last activity: 2026-03-10 — Completed 02-01-PLAN.md (Agent Contract Schema + Validator)
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -28,9 +28,10 @@ Progress: [███░░░░░░░] 30%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-mkg-foundation | 3 | 13 min | 4.3 min |
+| 02-agent-contract-standard | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (4 min), 01-02 (8 min), 01-01 (1 min)
+- Last 5 plans: 02-01 (2 min), 01-03 (4 min), 01-02 (8 min), 01-01 (1 min)
 - Trend: —
 
 *Updated after each plan completion*
@@ -55,10 +56,16 @@ Recent decisions affecting current work:
 - [DB Schema]: RLS service-role-only on both MKG tables — frontend direct reads deferred
 - [API]: companyId validated by regex /^[a-zA-Z0-9_-]{1,64}$/ at route level (not just MKGService) — defense in depth
 - [API]: Vite catch-all /api proxy covers /api/mkg/* — no vite.config.ts change needed when adding new /api routes
+- [Contract]: extractContract uses lastIndexOf — guards against LLM mid-response sentinel duplication
+- [Contract]: company_id allowed as null in validateContract — caller may not have sent it at run time
+- [Contract]: outcome_prediction left unvalidated (any/null) — stored inside artifact JSONB per research recommendation
+- [DB Schema]: user_id on agent_tasks made nullable — system-generated tasks have no auth.users initiator
+- [DB Schema]: priority column constrained to low/medium/high CHECK with default medium
 
 ### Pending Todos
 
 - Run database/migrations/mkg-foundation.sql in Supabase SQL Editor (human step — migration NOT yet applied)
+- Run database/migrations/agent-contract.sql in Supabase SQL Editor after agent-employees.sql (human step — migration NOT yet applied)
 
 ### Blockers/Concerns
 
@@ -67,5 +74,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 01-03-PLAN.md. Phase 1 MKG Foundation complete.
+Stopped at: Completed 02-01-PLAN.md. Agent Contract Schema + Validator complete.
 Resume file: None
