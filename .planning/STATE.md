@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: 12-Agent Rewrite
-current_plan: 2
+current_phase: 06
+current_phase_name: Data Pipeline
+current_plan: 3
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-10T11:39:29Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-10T11:45:59Z"
 last_activity: 2026-03-10
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 83
 ---
 
 # Project State
@@ -24,29 +24,29 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Every agent run must move a business metric, verified through an outcome ledger that learns per company over time.
-**Current focus:** Phase 4 — 12-Agent Rewrite
+**Current focus:** Phase 6 — Data Pipeline
 
 ## Current Position
 
-Current Phase: 04
-Current Phase Name: 12-Agent Rewrite
+Current Phase: 06
+Current Phase Name: Data Pipeline
 Total Phases: 8
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 3
-Phase: 4 of 8 (12-Agent Rewrite)
-Plan: 1 of 3 complete in current phase (04-01 complete)
-Status: Phase 4 in progress
+Phase: 6 of 8 (Data Pipeline)
+Plan: 2 of 3 complete in current phase (06-01 and 06-02 complete)
+Status: Phase 6 in progress
 Last Activity: 2026-03-10
-Last activity: 2026-03-10 — Completed 04-01-PLAN.md (agent identity rewrite + memory baseline reset)
+Last activity: 2026-03-10 — Completed 06-02-PLAN.md (KPI aggregation service + deterministic KPI math coverage)
 
-Progress: [███████░░░] 75%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 4.9 min
-- Total execution time: 0.73 hours
+- Total plans completed: 10
+- Average duration: 4.8 min
+- Total execution time: 0.79 hours
 
 **By Phase:**
 
@@ -56,9 +56,10 @@ Progress: [███████░░░] 75%
 | 02-agent-contract-standard | 3 | 11 min | 3.7 min |
 | 03-veena-company-intelligence | 2 | 12 min | 6 min |
 | 04-12-agent-rewrite | 1 | 15 min | 15 min |
+| 06-data-pipeline | 2 | 16 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (15 min), 03-02 (6 min), 03-01 (6 min), 02-03 (1 min), 02-02 (8 min)
+- Last 5 plans: 06-02 (4 min), 06-01 (12 min), 04-01 (15 min), 03-02 (6 min), 03-01 (6 min)
 - Trend: —
 
 *Updated after each plan completion*
@@ -67,6 +68,8 @@ Progress: [███████░░░] 75%
 | Phase 03-veena-company-intelligence P01 | 6 min | 2 tasks | 6 files |
 | Phase 03-veena-company-intelligence P02 | 6 min | 2 tasks | 3 files |
 | Phase 04-12-agent-rewrite P01 | 15 min | 2 tasks | 22 files |
+| Phase 06-data-pipeline P01 | 12 min | 2 tasks | 5 files |
+| Phase 06-data-pipeline P02 | 4 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -104,6 +107,8 @@ Recent decisions affecting current work:
 - [Phase 03-veena-company-intelligence]: Loaded Groq and MKGService lazily because local package resolution was unavailable during verification, while preserving runtime integration behavior
 - [Phase 04-12-agent-rewrite]: All 11 non-Veena SOUL files now follow the Veena-style MKG contract format with explicit role mapping, read/write fields, and downstream triggers
 - [Phase 04-12-agent-rewrite]: Reset all non-Veena MEMORY.md files to a clean baseline before runtime registration so scheduler updates do not inherit legacy state
+- [Phase 06-data-pipeline]: KPI aggregation writes raw snapshots through the pipeline service-role client, then upserts source-specific and blended rows into company_kpi_daily
+- [Phase 06-data-pipeline]: KPI formulas return NULL for impossible denominators, and downstream readers must stay on company_kpi_daily instead of connector_raw_snapshots
 
 ### Pending Todos
 
@@ -116,6 +121,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-10T11:39:29Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-03-10T11:45:59Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
