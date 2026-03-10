@@ -62,6 +62,16 @@
         "task_type": "nightly_kpi_watch",
         "query": "Review KPI movement against baselines and prepare anomaly-ready notes."
       }
+    },
+    {
+      "id": "arjun-weekly-outcome",
+      "enabled": true,
+      "cron": "0 10 * * wed",
+      "dispatch": {
+        "agent": "arjun",
+        "task_type": "weekly_outcome_verification",
+        "query": "Verify predicted outcomes against actual KPI movement and write calibration notes where variance exceeds tolerance."
+      }
     }
   ],
   "signal_triggers": [
