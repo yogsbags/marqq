@@ -52,12 +52,12 @@ Plans:
   3. A run with `artifact.confidence < 0.5` automatically creates a record in Supabase `agent_tasks` with a `missing_data` follow-up task.
   4. The `context_patch` from a completed run is applied to MKG immediately; a subsequent `GET /api/mkg/:companyId` reflects the update.
   5. `tasks_created` items appear in Supabase `agent_tasks` with `triggered_by_run_id` populated.
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: AgentRunOutput TypeScript interface + Zod validation schema
-- [ ] 02-02: Agent runner wrapper — enforces contract on every run, applies context_patch to MKG
-- [ ] 02-03: Backend integration — validate contract, create follow-up tasks, store run output
+- [ ] 02-01-PLAN.md — AgentRunOutput schema + manual JS validator (extractContract, validateContract) + Supabase migration for agent_tasks new columns
+- [ ] 02-02-PLAN.md — Modify run endpoint: Run Context injection, CONTRACT_INSTRUCTION in system prompt, fullText buffer, MKG patch on contract
+- [ ] 02-03-PLAN.md — Post-stream Supabase persistence: saveAgentRunOutput, createMissingDataTask (confidence < 0.5), writeTasksCreated + human verify checkpoint
 
 ---
 
