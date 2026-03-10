@@ -12,7 +12,7 @@ Transform 11 isolated, cold-start agents into a 12-agent Marketing Brain OS: sha
 
 - [x] **Phase 1: MKG Foundation** - Per-company knowledge graph on disk + Supabase, with service layer and REST endpoints ✓ 2026-03-10
 - [x] **Phase 2: Agent Contract Standard** - Every agent run produces validated AgentRunOutput JSON; backend enforces schema (completed 2026-03-10)
-- [ ] **Phase 3: Veena — Company Intelligence** - New orchestrator agent owns MKG; fires full onboarding chain on new company signal
+- [x] **Phase 3: Veena — Company Intelligence** - New orchestrator agent owns MKG; fires full onboarding chain on new company signal ✓ 2026-03-10
 - [x] **Phase 4: 12-Agent Rewrite** - All 11 existing agents rewritten per 12-node marketing framework; APScheduler updated ✓ 2026-03-10
 - [x] **Phase 5: Hooks System** - Signal-driven and scheduled triggers evaluated every heartbeat; hooks.json as config ✓ 2026-03-10
 - [x] **Phase 6: Data Pipeline** - Connector raw data → SQL aggregation → KPI views → anomaly detection → MKG narration ✓ 2026-03-10
@@ -71,12 +71,12 @@ Plans:
   3. Veena's `AgentRunOutput.context_patch` covers all 12 MKG top-level fields; the MKG is updated immediately after the run.
   4. Emitting a `new_company_onboarded` signal triggers the sequential onboarding chain (veena → isha → neel → zara) — confirmed by Supabase `agent_tasks` records for each step.
   5. A new company's `mkg.json` is pre-populated from the `product-marketing-context` skill template before Veena's first crawl runs.
-**Plans:** 2/3 plans complete
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 03-01-PLAN.md — Veena agent files (SOUL.md, mcp.json, skills/, memory/MEMORY.md) + VALID_AGENTS + AGENT_PROFILES registration
 - [x] 03-02-PLAN.md — veena-crawler.js module (crawlCompanyForMKG, buildContextPatchFromCrawl, initializeMKGTemplate, extractPageSignals) + test-veena-crawl.js
-- [ ] 03-03-PLAN.md — POST /api/agents/veena/onboard endpoint (202 + background crawl + chain tasks) + test-veena-onboard.js + human verify checkpoint
+- [x] 03-03-PLAN.md — POST /api/agents/veena/onboard endpoint (202 + background crawl + chain tasks) + test-veena-onboard.js + human verify checkpoint
 
 ---
 
@@ -183,7 +183,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. MKG Foundation | 3/3 | ✓ Complete | 2026-03-10 |
 | 2. Agent Contract Standard | 3/3 | ✓ Complete | 2026-03-10 |
-| 3. Veena — Company Intelligence | 2/3 | In Progress | - |
+| 3. Veena — Company Intelligence | 3/3 | ✓ Complete | 2026-03-10 |
 | 4. 12-Agent Rewrite | 3/3 | ✓ Complete | 2026-03-10 |
 | 5. Hooks System | 3/3 | ✓ Complete | 2026-03-10 |
 | 6. Data Pipeline | 3/3 | ✓ Complete | 2026-03-10 |

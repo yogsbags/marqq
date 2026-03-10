@@ -25,7 +25,7 @@
 
 - [x] **VEENA-01**: New agent "veena" (Company Intelligence) created with SOUL.md, mcp.json, skills/, memory/MEMORY.md
 - [x] **VEENA-02**: Veena runs weekly (Mon 06:00 IST) to refresh MKG — crawls company website, reads GA4, reads Composio connectors
-- [ ] **VEENA-03**: Veena triggers `new_company_onboarded` signal → fires full-chain onboarding (sequential: veena → isha → neel → zara)
+- [x] **VEENA-03**: Veena triggers `new_company_onboarded` signal → fires full-chain onboarding (sequential: veena → isha → neel → zara)
 - [x] **VEENA-04**: Veena outputs `AgentRunOutput` with `context_patch` covering 12 MKG top-level fields
 - [x] **VEENA-05**: Veena `mkg.json` template pre-populated for new companies from product-marketing-context skill
 
@@ -118,7 +118,7 @@
 | CONTRACT-05 | Phase 2 — Agent Contract Standard | Pending |
 | VEENA-01 | Phase 3 — Veena (Company Intelligence) | Complete |
 | VEENA-02 | Phase 3 — Veena (Company Intelligence) | Complete |
-| VEENA-03 | Phase 3 — Veena (Company Intelligence) | Pending |
+| VEENA-03 | Phase 3 — Veena (Company Intelligence) | Complete |
 | VEENA-04 | Phase 3 — Veena (Company Intelligence) | Complete |
 | VEENA-05 | Phase 3 — Veena (Company Intelligence) | Complete |
 | AGENT-01 | Phase 4 — 12-Agent Rewrite | Pending |
