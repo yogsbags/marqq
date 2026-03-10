@@ -481,15 +481,18 @@ function defaultHeartbeatState() {
   return {
     updated_at: null,
     agents: {
+      veena: { status: "idle", last_run: null, duration_ms: null },
+      isha: { status: "idle", last_run: null, duration_ms: null },
+      neel: { status: "idle", last_run: null, duration_ms: null },
+      tara: { status: "idle", last_run: null, duration_ms: null },
       zara: { status: "idle", last_run: null, duration_ms: null },
       maya: { status: "idle", last_run: null, duration_ms: null },
       riya: { status: "idle", last_run: null, duration_ms: null },
       arjun: { status: "idle", last_run: null, duration_ms: null },
       dev: { status: "idle", last_run: null, duration_ms: null },
       priya: { status: "idle", last_run: null, duration_ms: null },
-      tara: { status: "idle", last_run: null, duration_ms: null },
-      neel: { status: "idle", last_run: null, duration_ms: null },
-      isha: { status: "idle", last_run: null, duration_ms: null },
+      kiran: { status: "idle", last_run: null, duration_ms: null },
+      sam: { status: "idle", last_run: null, duration_ms: null },
     },
   };
 }
