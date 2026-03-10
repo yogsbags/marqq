@@ -48,7 +48,7 @@ AGENTS_DIR = BASE_DIR / "agents"
 HEARTBEAT_FILE = BASE_DIR / "heartbeat" / "status.json"
 CLIENT_CONTEXT_DIR = BASE_DIR / "client_context"
 DEPLOYMENT_QUEUE_FILE = BASE_DIR / "deployments" / "queue.json"
-SCHEDULE_MATRIX_FILE = AGENTS_DIR / "schedule-matrix.json"
+HOOKS_CONFIG_FILE = BASE_DIR.parent / "content-engine" / "hooks.json"
 STALE_DEPLOYMENT_TIMEOUT_SECONDS = int(os.getenv("TORQQ_DEPLOYMENT_STALE_SECONDS", "1800"))
 
 # ── Globals (initialised in main) ──────────────────────────────────────────────
@@ -165,15 +165,34 @@ def update_heartbeat(agent_name: str, status: str, duration_ms: int = None, erro
     HEARTBEAT_FILE.write_text(json.dumps(data, indent=2))
 
 
-def load_schedule_matrix() -> list[dict]:
-    if not SCHEDULE_MATRIX_FILE.exists():
-        raise FileNotFoundError(f"Schedule matrix not found: {SCHEDULE_MATRIX_FILE}")
+def load_hooks_config() -> dict:
+    if not HOOKS_CONFIG_FILE.exists():
+        raise FileNotFoundError(f"Hooks config not found: {HOOKS_CONFIG_FILE}")
 
-    raw = json.loads(SCHEDULE_MATRIX_FILE.read_text(encoding="utf-8"))
-    entries = raw.get("agents", []) if isinstance(raw, dict) else []
-    if not isinstance(entries, list):
-        raise ValueError("schedule-matrix.json must contain an agents array")
-    return entries
+    raw = json.loads(HOOKS_CONFIG_FILE.read_text(encoding="utf-8"))
+    scheduled = raw.get("scheduled", [])
+    if not isinstance(scheduled, list):
+        raise ValueError("hooks.json must contain a scheduled array")
+    return raw
+
+
+def iter_enabled_scheduled_hooks(hooks_config: dict) -> list[dict]:
+    return [
+        hook for hook in hooks_config.get("scheduled", [])
+        if isinstance(hook, dict) and hook.get("enabled") and hook.get("dispatch")
+    ]
+
+
+def cron_trigger_from_hook(hook: dict, timezone_name: str) -> CronTrigger:
+    minute, hour, day, month, dow = hook["cron"].split()
+    return CronTrigger(
+        minute=minute,
+        hour=hour,
+        day=day,
+        month=month,
+        day_of_week=dow,
+        timezone=timezone_name,
+    )
 
 
 def load_deployment_queue() -> list[dict]:
@@ -405,22 +424,24 @@ def run_agent(agent_name: str, task_type: str) -> None:
 
 # ── Scheduler setup ────────────────────────────────────────────────────────────
 
-def build_scheduler() -> BackgroundScheduler:
-    scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
-    for entry in load_schedule_matrix():
-        agent_name = entry["agent"]
-        cadence_type = entry.get("cadence_type", "event_driven")
-        cron_ist = entry.get("cron_ist")
-        task_type = entry.get("task_type") or cadence_type
+def build_scheduler(hooks_config: dict | None = None) -> BackgroundScheduler:
+    resolved_hooks_config = hooks_config or load_hooks_config()
+    timezone_name = resolved_hooks_config.get("timezone", "Asia/Kolkata")
+    scheduler = BackgroundScheduler(timezone=timezone_name)
 
-        if cadence_type == "event_driven" or not cron_ist:
-            logger.info("Skipping cron job for %s (%s)", agent_name, cadence_type)
-            continue
+    for hook in iter_enabled_scheduled_hooks(resolved_hooks_config):
+        dispatch = hook["dispatch"]
+        agent_name = dispatch["agent"]
+        task_type = dispatch.get("task_type") or hook["id"]
+        query = dispatch.get("query")
+        run_task = f"{task_type} [{hook['id']}]"
+        if query:
+            run_task = f"{run_task}\n{query}"
 
         scheduler.add_job(
-            lambda agent=agent_name, task=task_type: run_agent(agent, task),
-            CronTrigger.from_crontab(cron_ist, timezone="Asia/Kolkata"),
-            id=f"{agent_name}_{cadence_type}",
+            lambda agent=agent_name, task=run_task: run_agent(agent, task),
+            cron_trigger_from_hook(hook, timezone_name),
+            id=hook["id"],
             replace_existing=True,
         )
 
@@ -428,13 +449,16 @@ def build_scheduler() -> BackgroundScheduler:
 
 
 def log_schedule_matrix() -> None:
-    """Print the active schedule matrix so operator logs match runtime reality."""
-    for entry in load_schedule_matrix():
-        agent_name = entry["agent"].title()
-        cadence_type = entry.get("cadence_type", "event_driven")
-        cron_ist = entry.get("cron_ist") or "event-driven"
-        task_type = entry.get("task_type", cadence_type)
-        logger.info("   %s: %s | %s | %s", agent_name, cadence_type, cron_ist, task_type)
+    """Print active scheduled hooks so operator logs match runtime reality."""
+    hooks_config = load_hooks_config()
+    for hook in iter_enabled_scheduled_hooks(hooks_config):
+        dispatch = hook["dispatch"]
+        logger.info(
+            "   %s: scheduled | %s | %s",
+            dispatch["agent"].title(),
+            hook["cron"],
+            hook["id"],
+        )
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

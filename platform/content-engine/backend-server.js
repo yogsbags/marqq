@@ -51,6 +51,7 @@ import {
   crawlCompanyForMKG,
   initializeMKGTemplate,
 } from "./veena-crawler.js";
+import { HooksEngine } from "./hooks-engine.js";
 import { listCompanyKpis } from "./kpi-aggregator.js";
 import { detectCompanyAnomalies } from "./anomaly-detector.js";
 
@@ -343,7 +344,14 @@ function extractDeclaredMkgFields(soulText, marker) {
     .filter((value) => MKG_TOP_LEVEL_FIELDS.includes(value));
 }
 
-function buildTestModeContract({ name, companyId, runId, soulText, query }) {
+function buildTestModeContract({
+  name,
+  companyId,
+  runId,
+  soulText,
+  query,
+  triggerContext = null,
+}) {
   const writesTo =
     extractDeclaredMkgFields(soulText, "writes_to_mkg").slice(0, 2);
   const field = writesTo[0] || "insights";
@@ -373,7 +381,11 @@ function buildTestModeContract({ name, companyId, runId, soulText, query }) {
       assumptions_made: ["AGENT_RUN_TEST_MODE generated deterministic output"],
     },
     artifact: {
-      data: { mode: "test", agent: name },
+      data: {
+        mode: "test",
+        agent: name,
+        ...(triggerContext ? { trigger_context: triggerContext } : {}),
+      },
       summary: `Test mode generated a deterministic AgentRunOutput for ${name}.`,
       confidence: 0.8,
     },
@@ -395,6 +407,7 @@ async function finalizeAgentRunResponse({
   fullText,
   res,
   startedAt,
+  triggerContext = null,
 }) {
   await markAgentHeartbeat(name, "completed", Date.now() - startedAt);
 
@@ -421,6 +434,19 @@ async function finalizeAgentRunResponse({
   rawContract.run_id = runId;
   rawContract.agent = name;
   if (companyId) rawContract.company_id = companyId;
+  if (triggerContext) {
+    rawContract.artifact = rawContract.artifact || {};
+    rawContract.artifact.data = {
+      ...(rawContract.artifact.data || {}),
+      trigger_context: triggerContext,
+    };
+    rawContract.handoff_notes = [
+      rawContract.handoff_notes,
+      `Triggered by ${triggerContext.triggered_by} via ${triggerContext.hook_id}`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+  }
 
   if (
     companyId &&
@@ -3593,7 +3619,16 @@ app.post("/api/agents/veena/onboard", async (req, res) => {
 
 app.post("/api/agents/:name/run", async (req, res) => {
   const { name } = req.params;
-  const { query, company_id, run_id: clientRunId } = req.body;
+  const {
+    query,
+    company_id,
+    run_id: clientRunId,
+    task_type,
+    triggered_by,
+    trigger_id,
+    hook_id,
+    trigger_metadata,
+  } = req.body;
 
   if (!VALID_AGENTS.has(name)) {
     return res.status(404).json({ error: "Unknown agent" });
@@ -3651,7 +3686,10 @@ app.post("/api/agents/:name/run", async (req, res) => {
   }
 
   // Run context block — injected so LLM echoes correct values into contract JSON
-  const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\n`;
+  const triggerContextBlock = triggered_by
+    ? `\n## Trigger Context\ntriggered_by: ${triggered_by}\ntrigger_id: ${trigger_id ?? "unknown"}\nhook_id: ${hook_id ?? "unknown"}\ntask_type: ${task_type ?? "unknown"}\ntrigger_metadata: ${JSON.stringify(trigger_metadata || {})}\n`
+    : "";
+  const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\n${triggerContextBlock}`;
 
   // Contract instruction — always appended LAST so it takes precedence
   const contractInstruction = `
@@ -3722,6 +3760,9 @@ Replace ALL placeholder values with your actual outputs.
         runId,
         soulText: systemPrompt,
         query,
+        triggerContext: triggered_by
+          ? { triggered_by, trigger_id, hook_id, task_type, trigger_metadata }
+          : null,
       });
       const prose = `[TEST MODE] ${name} executed without a live model.\n`;
       const fullText = `${prose}\n---CONTRACT---\n${JSON.stringify(contract, null, 2)}`;
@@ -3733,6 +3774,9 @@ Replace ALL placeholder values with your actual outputs.
         fullText,
         res,
         startedAt,
+        triggerContext: triggered_by
+          ? { triggered_by, trigger_id, hook_id, task_type, trigger_metadata }
+          : null,
       });
       return;
     }
@@ -3765,6 +3809,9 @@ Replace ALL placeholder values with your actual outputs.
       fullText,
       res,
       startedAt,
+      triggerContext: triggered_by
+        ? { triggered_by, trigger_id, hook_id, task_type, trigger_metadata }
+        : null,
     });
 
   } catch (err) {
@@ -4010,9 +4057,109 @@ function attachTwilioMediaStreamServer(server) {
 
 let server = null;
 let nightlyScheduler = null;
+let hooksEngine = null;
+
+function buildHookDispatchQuery(batch, entry) {
+  const lines = [
+    `Execute hook task "${entry.task_type}" for company ${batch.company_id}.`,
+    `Hook id: ${batch.hook_id}`,
+    `Triggered by: ${batch.triggered_by || "signal"}`,
+  ];
+
+  if (batch.trigger_metadata?.signal_type) {
+    lines.push(`Signal type: ${batch.trigger_metadata.signal_type}`);
+  }
+  if (typeof batch.trigger_metadata?.current_value === "number") {
+    lines.push(`Current value: ${batch.trigger_metadata.current_value}`);
+  }
+  if (typeof batch.trigger_metadata?.baseline_value === "number") {
+    lines.push(`Baseline value: ${batch.trigger_metadata.baseline_value}`);
+  }
+  if (typeof batch.trigger_metadata?.delta_pct === "number") {
+    lines.push(`Delta pct: ${batch.trigger_metadata.delta_pct}`);
+  }
+
+  return lines.join("\n");
+}
+
+export function createHookDispatchRequestBody(batch, entry) {
+  return {
+    query: buildHookDispatchQuery(batch, entry),
+    company_id: batch.company_id,
+    task_type: entry.task_type,
+    triggered_by: batch.triggered_by || "signal",
+    trigger_id: batch.trigger_id || batch.signal_id,
+    hook_id: batch.hook_id,
+    trigger_metadata: batch.trigger_metadata || {},
+  };
+}
+
+async function parseSseResponse(response) {
+  const text = await response.text();
+  const contractLine = text
+    .split("\n")
+    .find((line) => line.startsWith("data: {") && line.includes("\"contract\""));
+
+  if (!contractLine) {
+    return { raw: text, contract: null };
+  }
+
+  try {
+    const parsed = JSON.parse(contractLine.slice(6));
+    return { raw: text, contract: parsed.contract || null };
+  } catch {
+    return { raw: text, contract: null };
+  }
+}
+
+export async function dispatchHookRun(
+  batch,
+  {
+    fetchImpl = fetch,
+    supabaseClient = supabase,
+    baseUrl = `http://127.0.0.1:${PORT}`,
+  } = {},
+) {
+  const results = [];
+
+  for (const entry of batch.dispatch || []) {
+    if (supabaseClient) {
+      await supabaseClient.from("agent_tasks").insert({
+        agent_name: entry.agent,
+        task_type: entry.task_type,
+        status: "scheduled",
+        company_id: batch.company_id,
+        description: `Hook dispatch via ${batch.hook_id}`,
+        priority: "high",
+      });
+    }
+
+    const requestBody = createHookDispatchRequestBody(batch, entry);
+    const response = await fetchImpl(`${baseUrl}/api/agents/${entry.agent}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Hook dispatch failed for ${entry.agent}: ${response.status}`);
+    }
+
+    const parsed = await parseSseResponse(response);
+    results.push({
+      agent: entry.agent,
+      task_type: entry.task_type,
+      requestBody,
+      contract: parsed.contract,
+      raw: parsed.raw,
+    });
+  }
+
+  return results;
+}
 
 function startBackendRuntime() {
-  if (server) return { server, nightlyScheduler };
+  if (server) return { server, nightlyScheduler, hooksEngine };
 
   server = app.listen(PORT, () => {
     console.log(`[content-engine] Listening on port ${PORT}`);
@@ -4024,10 +4171,37 @@ function startBackendRuntime() {
       });
     }
     nightlyScheduler.start();
+    if (!hooksEngine) {
+      hooksEngine = new HooksEngine({
+        dispatchHookRun: (batch) => dispatchHookRun(batch),
+        logger: console,
+      });
+      hooksEngine.start().catch((error) => {
+        console.error("[hooks-engine] failed to start:", error);
+      });
+    }
   });
   attachTwilioMediaStreamServer(server);
 
-  return { server, nightlyScheduler };
+  return { server, nightlyScheduler, hooksEngine };
+}
+
+async function stopBackendRuntime() {
+  if (hooksEngine) {
+    hooksEngine.stop();
+    hooksEngine = null;
+  }
+  if (nightlyScheduler) {
+    nightlyScheduler.stop();
+    nightlyScheduler = null;
+  }
+  if (server) {
+    const activeServer = server;
+    server = null;
+    await new Promise((resolve, reject) => {
+      activeServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 }
 
 // ── GET /api/integrations ──────────────────────────────────────────────────
@@ -5579,7 +5753,7 @@ app.patch("/api/mkg/:companyId", async (req, res) => {
   }
 });
 
-export { app, startBackendRuntime };
+export { app, startBackendRuntime, stopBackendRuntime };
 
 if (IS_MAIN_MODULE) {
   startBackendRuntime();
