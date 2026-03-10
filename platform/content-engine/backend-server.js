@@ -44,6 +44,7 @@ import {
     supabase,
 } from "./supabase.js";
 import { MKGService } from "./mkg-service.js";
+import { extractContract, validateContract } from "./contract-validator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -2941,7 +2942,7 @@ app.post("/api/agents/:name/plan", async (req, res) => {
 
 app.post("/api/agents/:name/run", async (req, res) => {
   const { name } = req.params;
-  const { query } = req.body;
+  const { query, company_id, run_id: clientRunId } = req.body;
 
   if (!VALID_AGENTS.has(name)) {
     return res.status(404).json({ error: "Unknown agent" });
@@ -2949,6 +2950,15 @@ app.post("/api/agents/:name/run", async (req, res) => {
   if (!query?.trim()) {
     return res.status(400).json({ error: "query is required" });
   }
+
+  // Generate or adopt run_id for idempotency
+  const runId = (typeof clientRunId === "string" && clientRunId.trim())
+    ? clientRunId.trim()
+    : randomUUID();
+
+  const companyId = (typeof company_id === "string" && company_id.trim())
+    ? company_id.trim()
+    : null;
 
   // Load SOUL.md
   const soulPath = join(AGENTS_DIR, name, "SOUL.md");
@@ -2968,7 +2978,7 @@ app.post("/api/agents/:name/run", async (req, res) => {
     /* no memory yet */
   }
 
-  // Load skills from agents/{name}/skills/*.md
+  // Load skills from agents/{name}/skills/*.md (sorted, 00- prefix loads first)
   let skillsBlock = "";
   try {
     const skillsDir = join(AGENTS_DIR, name, "skills");
@@ -2989,10 +2999,59 @@ app.post("/api/agents/:name/run", async (req, res) => {
     /* no skills dir */
   }
 
+  // Run context block — injected so LLM echoes correct values into contract JSON
+  const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\n`;
+
+  // Contract instruction — always appended LAST so it takes precedence
+  const contractInstruction = `
+
+## Output Contract (REQUIRED — do not skip)
+
+After your COMPLETE response (all prose, analysis, and recommendations have been written),
+append the following block EXACTLY at the very END. Do not include ---CONTRACT--- anywhere
+else in your response.
+
+---CONTRACT---
+{
+  "agent": "${name}",
+  "task": "<one-line description of what you just did>",
+  "company_id": "${companyId ?? "unknown"}",
+  "run_id": "${runId}",
+  "timestamp": "${new Date().toISOString()}",
+  "input": {
+    "mkg_version": null,
+    "dependencies_read": [],
+    "assumptions_made": []
+  },
+  "artifact": {
+    "data": {},
+    "summary": "<one paragraph summary of your output — be specific>",
+    "confidence": 0.75
+  },
+  "context_patch": {
+    "writes_to": [],
+    "patch": {}
+  },
+  "handoff_notes": "",
+  "missing_data": [],
+  "tasks_created": [],
+  "outcome_prediction": null
+}
+
+Replace ALL placeholder values with your actual outputs.
+- confidence: your honest assessment of output quality (0.0–1.0)
+- context_patch.patch: use only valid MKG field names: positioning, icp, competitors, offers, messaging, channels, funnel, metrics, baselines, content_pillars, campaigns, insights
+- tasks_created: array of { "task_type": "...", "agent_name": "...", "description": "...", "priority": "low|medium|high" }
+- outcome_prediction: optional — include if you can predict a measurable metric change, otherwise keep null
+- The JSON must be valid JSON (no trailing commas, no comments)
+`;
+
   const fullSystem = [
     systemPrompt,
     memory ? `\n\n## Your Recent Memory\n${memory}` : "",
     skillsBlock,
+    runContextBlock,
+    contractInstruction,  // always last
   ].join("");
 
   // Set SSE headers
@@ -3011,19 +3070,70 @@ app.post("/api/agents/:name/run", async (req, res) => {
         { role: "user", content: query },
       ],
       stream: true,
-      max_tokens: 4096,
+      max_tokens: 8192,  // increased from 4096 — long prose + contract block needs room
       temperature: 0.4,
     });
 
+    // Buffer fullText while forwarding prose chunks to the client unchanged
+    let fullText = "";
     for await (const chunk of stream) {
       const text = chunk.choices[0]?.delta?.content ?? "";
       if (text) {
+        fullText += text;
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
     }
+
+    // ── Post-stream: extract, validate, apply MKG patch ──────────────────────
     await markAgentHeartbeat(name, "completed", Date.now() - startedAt);
+
+    const rawContract = extractContract(fullText);
+
+    if (!rawContract) {
+      // LLM did not produce the sentinel — soft fail, preserve UX
+      console.warn(`[contract] ${name}/${runId}: ---CONTRACT--- sentinel missing from response`);
+      res.write(`data: ${JSON.stringify({ contractError: "missing" })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    const { valid, errors } = validateContract(rawContract);
+
+    if (!valid) {
+      // Contract produced but malformed
+      console.warn(`[contract] ${name}/${runId}: validation failed:`, errors);
+      res.write(`data: ${JSON.stringify({ contractError: "invalid", details: errors })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // Enforce server-controlled fields (defense against agent confusion)
+    rawContract.run_id = runId;
+    rawContract.agent = name;
+    if (companyId) rawContract.company_id = companyId;
+
+    // Apply context_patch to MKG (fire-and-log — does not block SSE)
+    if (
+      companyId &&
+      rawContract.context_patch?.patch &&
+      Object.keys(rawContract.context_patch.patch).length > 0
+    ) {
+      try {
+        await MKGService.patch(companyId, rawContract.context_patch.patch);
+      } catch (mkgErr) {
+        console.error(`[contract] MKG patch failed for ${companyId}/${runId}:`, mkgErr);
+      }
+    } else if (!companyId) {
+      console.warn(`[contract] ${name}/${runId}: no company_id — skipping MKG patch`);
+    }
+
+    // Send validated contract event (frontend ignores unknown event shapes — safe)
+    res.write(`data: ${JSON.stringify({ contract: rawContract })}\n\n`);
     res.write("data: [DONE]\n\n");
     res.end();
+
   } catch (err) {
     await markAgentHeartbeat(name, "error", Date.now() - startedAt, String(err));
     res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
