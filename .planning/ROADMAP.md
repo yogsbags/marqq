@@ -131,7 +131,7 @@ Plans:
 **Plans:** TBD
 
 Plans:
-- [ ] 06-01: Supabase migration — raw snapshot, KPI, anomalies tables + RLS
+- [x] 06-01: Supabase migration — raw snapshot, KPI, anomalies tables + RLS
 - [ ] 06-02: KPIAggregator service — raw → SQL aggregation → KPI view
 - [ ] 06-03: Anomaly detector + LLM narration gate + KPI REST endpoint
 
@@ -186,6 +186,6 @@ Plans:
 | 3. Veena — Company Intelligence | 2/3 | In Progress | - |
 | 4. 12-Agent Rewrite | 0/3 | Not started | - |
 | 5. Hooks System | 0/3 | Not started | - |
-| 6. Data Pipeline | 0/3 | Not started | - |
+| 6. Data Pipeline | 1/3 | In Progress | - |
 | 7. Swarm Layer | 0/3 | Not started | - |
 | 8. Outcome Ledger | 0/3 | Not started | - |

@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 03
-current_phase_name: Veena — Company Intelligence
+current_phase: 06
+current_phase_name: Data Pipeline
 current_plan: 2
 status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-10T10:40:37.980Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-10T11:39:32Z"
 last_activity: 2026-03-10
 progress:
   total_phases: 8
@@ -24,20 +24,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Every agent run must move a business metric, verified through an outcome ledger that learns per company over time.
-**Current focus:** Phase 3 — Veena — Company Intelligence
+**Current focus:** Phase 6 — Data Pipeline
 
 ## Current Position
 
-Current Phase: 03
-Current Phase Name: Veena — Company Intelligence
+Current Phase: 06
+Current Phase Name: Data Pipeline
 Total Phases: 8
-Current Plan: 3
+Current Plan: 2
 Total Plans in Phase: 3
-Phase: 3 of 8 (Veena — Company Intelligence)
-Plan: 2 of 3 in current phase (03-02 complete)
-Status: Phase 3 in progress
+Phase: 6 of 8 (Data Pipeline)
+Plan: 1 of 3 complete in current phase (06-01 complete)
+Status: Phase 6 in progress
 Last Activity: 2026-03-10
-Last activity: 2026-03-10 — Completed 03-02-PLAN.md (Veena crawler module + smoke test)
+Last activity: 2026-03-10 — Completed 06-01-PLAN.md (Phase 6 schema foundation + service-role client boundary)
 
 Progress: [█████████░] 89%
 
