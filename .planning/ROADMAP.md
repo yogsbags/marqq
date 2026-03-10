@@ -10,7 +10,7 @@ Transform 11 isolated, cold-start agents into a 12-agent Marketing Brain OS: sha
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (e.g., 2.1): Urgent insertions (marked INSERTED)
 
-- [ ] **Phase 1: MKG Foundation** - Per-company knowledge graph on disk + Supabase, with service layer and REST endpoints
+- [x] **Phase 1: MKG Foundation** - Per-company knowledge graph on disk + Supabase, with service layer and REST endpoints ✓ 2026-03-10
 - [ ] **Phase 2: Agent Contract Standard** - Every agent run produces validated AgentRunOutput JSON; backend enforces schema
 - [ ] **Phase 3: Veena — Company Intelligence** - New orchestrator agent owns MKG; fires full onboarding chain on new company signal
 - [ ] **Phase 4: 12-Agent Rewrite** - All 11 existing agents rewritten per 12-node marketing framework; APScheduler updated
@@ -181,7 +181,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. MKG Foundation | 0/3 | Planned | - |
+| 1. MKG Foundation | 3/3 | ✓ Complete | 2026-03-10 |
 | 2. Agent Contract Standard | 0/3 | Not started | - |
 | 3. Veena — Company Intelligence | 0/3 | Not started | - |
 | 4. 12-Agent Rewrite | 0/3 | Not started | - |

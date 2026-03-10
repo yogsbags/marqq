@@ -106,11 +106,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MKG-01 | Phase 1 — MKG Foundation | Pending |
-| MKG-02 | Phase 1 — MKG Foundation | Pending |
-| MKG-03 | Phase 1 — MKG Foundation | Pending |
-| MKG-04 | Phase 1 — MKG Foundation | Pending |
-| MKG-05 | Phase 1 — MKG Foundation | Pending |
+| MKG-01 | Phase 1 — MKG Foundation | Complete |
+| MKG-02 | Phase 1 — MKG Foundation | Complete |
+| MKG-03 | Phase 1 — MKG Foundation | Complete |
+| MKG-04 | Phase 1 — MKG Foundation | Complete |
+| MKG-05 | Phase 1 — MKG Foundation | Complete |
 | CONTRACT-01 | Phase 2 — Agent Contract Standard | Pending |
 | CONTRACT-02 | Phase 2 — Agent Contract Standard | Pending |
 | CONTRACT-03 | Phase 2 — Agent Contract Standard | Pending |
