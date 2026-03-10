@@ -1,0 +1,248 @@
+{
+  "version": 1,
+  "timezone": "Asia/Kolkata",
+  "heartbeat_seconds": 60,
+  "scheduled": [
+    {
+      "id": "veena-weekly-refresh",
+      "enabled": true,
+      "cron": "0 6 * * mon",
+      "dispatch": {
+        "agent": "veena",
+        "task_type": "weekly_mkg_refresh",
+        "query": "Refresh the Marketing Knowledge Graph using the latest public company context."
+      }
+    },
+    {
+      "id": "isha-daily-market-scan",
+      "enabled": true,
+      "cron": "30 7 * * mon-fri",
+      "dispatch": {
+        "agent": "isha",
+        "task_type": "daily_market_scan",
+        "query": "Review fresh category shifts, buyer pain signals, and demand changes that matter today."
+      }
+    },
+    {
+      "id": "neel-weekly-strategy-brief",
+      "enabled": true,
+      "cron": "15 8 * * tue",
+      "dispatch": {
+        "agent": "neel",
+        "task_type": "weekly_strategy_brief",
+        "query": "Convert the latest market, KPI, and competitor context into a weekly strategy brief."
+      }
+    },
+    {
+      "id": "tara-daily-offer-review",
+      "enabled": true,
+      "cron": "0 9 * * mon-fri",
+      "dispatch": {
+        "agent": "tara",
+        "task_type": "offer_friction_review",
+        "query": "Inspect offer clarity, CTA friction, and conversion blockers that need action."
+      }
+    },
+    {
+      "id": "zara-daily-distribution-check",
+      "enabled": true,
+      "cron": "30 9 * * mon-fri",
+      "dispatch": {
+        "agent": "zara",
+        "task_type": "distribution_health_check",
+        "query": "Assess channel health and recommend immediate distribution adjustments."
+      }
+    },
+    {
+      "id": "dev-nightly-kpi-watch",
+      "enabled": true,
+      "cron": "0 23 * * *",
+      "dispatch": {
+        "agent": "dev",
+        "task_type": "nightly_kpi_watch",
+        "query": "Review KPI movement against baselines and prepare anomaly-ready notes."
+      }
+    }
+  ],
+  "signal_triggers": [
+    {
+      "id": "traffic-drop-20pct-7d",
+      "signal_type": "traffic_drop_20pct_7d",
+      "enabled": true,
+      "dispatch": [
+        {
+          "agent": "tara",
+          "task_type": "traffic_drop_recovery_plan",
+          "order": 1
+        },
+        {
+          "agent": "kiran",
+          "task_type": "traffic_drop_social_response",
+          "order": 2
+        }
+      ],
+      "condition": {
+        "metric_path": "metrics.value.website_sessions_7d",
+        "baseline_path": "baselines.value.website_sessions_7d",
+        "operator": "pct_drop_gte",
+        "threshold": 20
+      },
+      "cooldown_minutes": 1440
+    },
+    {
+      "id": "new-company-onboarded-chain",
+      "signal_type": "new_company_onboarded",
+      "enabled": true,
+      "dispatch": [
+        {
+          "agent": "veena",
+          "task_type": "company_intel_bootstrap",
+          "order": 1
+        },
+        {
+          "agent": "isha",
+          "task_type": "market_landscape_bootstrap",
+          "order": 2
+        },
+        {
+          "agent": "neel",
+          "task_type": "strategy_bootstrap",
+          "order": 3
+        },
+        {
+          "agent": "zara",
+          "task_type": "distribution_bootstrap",
+          "order": 4
+        }
+      ],
+      "condition": {
+        "metric_path": "signals.value.onboarding_stage",
+        "baseline_path": "baselines.value.onboarding_stage",
+        "operator": "changed_from_baseline",
+        "threshold": 1
+      },
+      "cooldown_minutes": 10080
+    },
+    {
+      "id": "campaign-anomaly-response",
+      "signal_type": "campaign_anomaly",
+      "enabled": true,
+      "dispatch": [
+        {
+          "agent": "zara",
+          "task_type": "campaign_channel_response",
+          "order": 1
+        },
+        {
+          "agent": "dev",
+          "task_type": "campaign_metric_diagnosis",
+          "order": 2
+        }
+      ],
+      "condition": {
+        "metric_path": "metrics.value.campaign_health_score",
+        "baseline_path": "baselines.value.campaign_health_score",
+        "operator": "pct_drop_gte",
+        "threshold": 15
+      },
+      "cooldown_minutes": 360
+    },
+    {
+      "id": "competitor-move-response",
+      "signal_type": "competitor_move",
+      "enabled": true,
+      "dispatch": [
+        {
+          "agent": "priya",
+          "task_type": "competitor_move_analysis",
+          "order": 1
+        },
+        {
+          "agent": "neel",
+          "task_type": "strategy_countermove",
+          "order": 2
+        }
+      ],
+      "condition": {
+        "metric_path": "signals.value.competitor_move_score",
+        "baseline_path": "baselines.value.competitor_move_score",
+        "operator": "pct_increase_gte",
+        "threshold": 25
+      },
+      "cooldown_minutes": 720
+    },
+    {
+      "id": "lead-quality-drop",
+      "signal_type": "lead_quality_drop_15pct",
+      "enabled": true,
+      "dispatch": [
+        {
+          "agent": "arjun",
+          "task_type": "lead_quality_triage",
+          "order": 1
+        },
+        {
+          "agent": "tara",
+          "task_type": "offer_conversion_alignment",
+          "order": 2
+        }
+      ],
+      "condition": {
+        "metric_path": "metrics.value.lead_quality_score_7d",
+        "baseline_path": "baselines.value.lead_quality_score_30d",
+        "operator": "pct_drop_gte",
+        "threshold": 15
+      },
+      "cooldown_minutes": 720
+    },
+    {
+      "id": "seo-visibility-drop",
+      "signal_type": "seo_visibility_drop_10pct",
+      "enabled": true,
+      "dispatch": [
+        {
+          "agent": "maya",
+          "task_type": "seo_visibility_recovery",
+          "order": 1
+        },
+        {
+          "agent": "riya",
+          "task_type": "content_gap_response",
+          "order": 2
+        }
+      ],
+      "condition": {
+        "metric_path": "metrics.value.organic_visibility_7d",
+        "baseline_path": "baselines.value.organic_visibility_30d",
+        "operator": "pct_drop_gte",
+        "threshold": 10
+      },
+      "cooldown_minutes": 1440
+    },
+    {
+      "id": "message-conversion-lift",
+      "signal_type": "message_ctr_lift_12pct",
+      "enabled": true,
+      "dispatch": [
+        {
+          "agent": "sam",
+          "task_type": "message_lift_capture",
+          "order": 1
+        },
+        {
+          "agent": "kiran",
+          "task_type": "lifecycle_message_rollout",
+          "order": 2
+        }
+      ],
+      "condition": {
+        "metric_path": "metrics.value.message_ctr_7d",
+        "baseline_path": "baselines.value.message_ctr_30d",
+        "operator": "pct_increase_gte",
+        "threshold": 12
+      },
+      "cooldown_minutes": 480
+    }
+  ],
+  "chat_triggers": []
+}
