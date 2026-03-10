@@ -52,6 +52,9 @@ import {
 } from "./veena-crawler.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const IS_MAIN_MODULE = process.argv[1]
+  ? fileURLToPath(import.meta.url) === process.argv[1]
+  : false;
 
 // Paths relative to this file (platform/content-engine/)
 const CREWAI_DIR = join(__dirname, "..", "crewai");
@@ -3794,11 +3797,7 @@ function attachTwilioMediaStreamServer(server) {
   });
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`[content-engine] Listening on port ${PORT}`);
-  startWorker();
-});
-attachTwilioMediaStreamServer(server);
+let server = null;
 
 // ── GET /api/integrations ──────────────────────────────────────────────────
 // Stub endpoint — returns static connector catalog until live integrations are wired.
