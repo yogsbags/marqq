@@ -2935,6 +2935,99 @@ app.post("/api/agents/:name/plan", async (req, res) => {
   }
 });
 
+// ── Agent Contract Persistence Helpers ────────────────────────────────────────
+
+/**
+ * saveAgentRunOutput — writes validated contract to agent_run_outputs table.
+ * Idempotent: run_id has UNIQUE constraint; 23505 (unique violation) is swallowed
+ * so client retries do not create duplicate rows.
+ * Fire-and-log: errors are logged but never thrown.
+ */
+async function saveAgentRunOutput(contract, rawOutput) {
+  if (!supabase || !contract.company_id) return;
+  try {
+    const { error } = await supabase
+      .from("agent_run_outputs")
+      .insert({
+        run_id:        contract.run_id,
+        company_id:    contract.company_id,
+        agent:         contract.agent,
+        task:          contract.task,
+        timestamp:     contract.timestamp,
+        artifact:      contract.artifact,
+        context_patch: contract.context_patch,
+        handoff_notes: contract.handoff_notes || null,
+        missing_data:  contract.missing_data  || [],
+        tasks_created: contract.tasks_created || [],
+        raw_output:    rawOutput,
+      });
+    if (error && error.code !== "23505") {
+      // 23505 = unique_violation — idempotent on retry, not an error
+      console.error("[contract] saveAgentRunOutput error:", error);
+    }
+  } catch (err) {
+    console.error("[contract] saveAgentRunOutput failed:", err);
+  }
+}
+
+/**
+ * createMissingDataTask — auto-creates a follow-up task when artifact.confidence < 0.5.
+ * CONTRACT-03 requirement. Uses task_type='missing_data', priority='high'.
+ */
+async function createMissingDataTask(contract) {
+  if (!supabase) return;
+  if (!contract.company_id) return;
+  if (contract.artifact.confidence >= 0.5) return;  // only fire for < 0.5
+  try {
+    const { error } = await supabase
+      .from("agent_tasks")
+      .insert({
+        agent_name:          contract.agent,
+        task_type:           "missing_data",
+        status:              "scheduled",
+        company_id:          contract.company_id,
+        description:         `Low-confidence run (${contract.artifact.confidence.toFixed(2)}): ${contract.artifact.summary}`,
+        priority:            "high",
+        triggered_by_run_id: contract.run_id,
+      });
+    if (error) {
+      console.error("[contract] createMissingDataTask error:", error);
+    } else {
+      console.log(`[contract] Auto-created missing_data task for ${contract.agent}/${contract.run_id} (confidence: ${contract.artifact.confidence})`);
+    }
+  } catch (err) {
+    console.error("[contract] createMissingDataTask failed:", err);
+  }
+}
+
+/**
+ * writeTasksCreated — inserts one agent_tasks row per item in contract.tasks_created.
+ * CONTRACT-05 requirement. Each row gets triggered_by_run_id set to this run's run_id.
+ */
+async function writeTasksCreated(contract) {
+  if (!supabase) return;
+  if (!contract.tasks_created?.length) return;
+  const rows = contract.tasks_created.map((t) => ({
+    agent_name:          t.agent_name,
+    task_type:           t.task_type,
+    status:              "scheduled",
+    company_id:          contract.company_id || null,
+    description:         t.description || null,
+    priority:            t.priority    || "medium",
+    triggered_by_run_id: contract.run_id,
+  }));
+  try {
+    const { error } = await supabase.from("agent_tasks").insert(rows);
+    if (error) {
+      console.error("[contract] writeTasksCreated error:", error);
+    } else {
+      console.log(`[contract] Wrote ${rows.length} tasks_created for run ${contract.run_id}`);
+    }
+  } catch (err) {
+    console.error("[contract] writeTasksCreated failed:", err);
+  }
+}
+
 // ── POST /api/agents/:name/run ─────────────────────────────────────────────────
 // Runs an agent interactively (triggered by slash commands in ChatHome).
 // Loads SOUL.md + MEMORY.md + skills/*.md as system prompt, calls Groq, streams SSE.
@@ -3128,6 +3221,13 @@ Replace ALL placeholder values with your actual outputs.
     } else if (!companyId) {
       console.warn(`[contract] ${name}/${runId}: no company_id — skipping MKG patch`);
     }
+
+    // ── Persist contract to Supabase (fire-and-log — do not await sequentially) ──
+    await Promise.allSettled([
+      saveAgentRunOutput(rawContract, fullText),
+      createMissingDataTask(rawContract),
+      writeTasksCreated(rawContract),
+    ]);
 
     // Send validated contract event (frontend ignores unknown event shapes — safe)
     res.write(`data: ${JSON.stringify({ contract: rawContract })}\n\n`);
