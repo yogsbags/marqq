@@ -1,0 +1,104 @@
+{
+  "company_id": "acme",
+  "updated_at": "2026-03-10T15:22:44.596Z",
+  "positioning": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "icp": {
+    "value": {
+      "summary": "Test mode patch for isha",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Summarize the current market context."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "isha",
+    "expires_at": "2026-03-10"
+  },
+  "competitors": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "offers": {
+    "value": {
+      "summary": "Test mode patch for tara",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Execute hook task \"traffic_drop_recovery_plan\" for company acme.\nHook id: traffic-drop-20pct-7d\nTriggered by: signal\nSignal type: traffic_drop_20pct_7d\nCurrent value: 80\nBaseline value: 100\nDelta pct: -20"
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "tara",
+    "expires_at": "2026-03-10"
+  },
+  "messaging": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "channels": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "funnel": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "metrics": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "content_pillars": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "campaigns": {
+    "value": {
+      "summary": "Test mode patch for kiran",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Execute hook task \"traffic_drop_social_response\" for company acme.\nHook id: traffic-drop-20pct-7d\nTriggered by: signal\nSignal type: traffic_drop_20pct_7d\nCurrent value: 80\nBaseline value: 100\nDelta pct: -20"
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "kiran",
+    "expires_at": "2026-03-10"
+  },
+  "insights": {
+    "value": {
+      "summary": "Test mode patch for dev",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Diagnose the latest KPI movement."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "dev",
+    "expires_at": "2026-03-10"
+  }
+}

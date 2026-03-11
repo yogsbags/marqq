@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useAgentRun } from '@/hooks/useAgentRun'
+import { AgentRunPanel } from '@/components/agent/AgentRunPanel'
+import { CompanySelector } from '@/components/agent/CompanySelector'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -99,6 +102,9 @@ function downloadTextFile(filename: string, content: string, mime = 'text/plain;
 }
 
 export function PerformanceScorecard() {
+  const devRun = useAgentRun()
+  const arjunRun = useAgentRun()
+  const [kpiCompanyId, setKpiCompanyId] = useState('')
   const [activeTab, setActiveTab] = useState('upload')
   const [steps, setSteps] = useState<WorkflowStep[]>([
     { id: 'upload', title: 'Upload', description: 'Provide exports or notes', status: 'pending' },
@@ -238,6 +244,31 @@ export function PerformanceScorecard() {
 
   return (
     <div className="space-y-6">
+      {/* Agent panels — dev watches KPIs, arjun verifies outcomes vs predictions */}
+      <CompanySelector value={kpiCompanyId} onChange={setKpiCompanyId} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Button size="sm" disabled={devRun.streaming}
+            onClick={() => devRun.run('dev',
+              'Review KPI movement against baselines and prepare anomaly-ready notes. Flag which metrics are trending outside expected range and surface the top 3 priorities to act on this week.',
+              'nightly_kpi_watch', kpiCompanyId || undefined)}>
+            Run Dev — KPI Watch
+          </Button>
+          <AgentRunPanel agentName="dev" label="Dev — KPI Analysis" {...devRun} onReset={devRun.reset} />
+        </div>
+        <div className="space-y-2">
+          <Button size="sm" disabled={arjunRun.streaming}
+            onClick={() => arjunRun.run('arjun',
+              'Verify predicted outcomes against actual KPI movement. Write calibration notes where variance exceeds tolerance. Score prediction accuracy for this period.',
+              'weekly_outcome_verification', kpiCompanyId || undefined)}>
+            Run Arjun — Outcome Tracker
+          </Button>
+          <AgentRunPanel agentName="arjun" label="Arjun — Outcome Verification" {...arjunRun} onReset={arjunRun.reset} />
+        </div>
+      </div>
+
+      <div className="border-t pt-2" />
+
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
           Performance Scorecard

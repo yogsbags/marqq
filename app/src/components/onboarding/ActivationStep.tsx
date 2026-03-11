@@ -41,7 +41,7 @@ export function ActivationStep({ phase }: ActivationStepProps) {
               Team is operational.
             </h2>
             <p className="text-sm text-white/60 leading-[1.75] max-w-[360px] text-center font-sans">
-              All 6 agents are briefed and ready. Zara will send your first morning synthesis at 9:00 AM IST tomorrow.
+              All 12 agents are briefed and ready. Zara will send your first morning synthesis at 9:00 AM IST tomorrow.
             </p>
           </div>
         )}

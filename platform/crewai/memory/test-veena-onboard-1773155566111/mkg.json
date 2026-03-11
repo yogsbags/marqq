@@ -1,0 +1,156 @@
+{
+  "company_id": "test-veena-onboard-1773155566111",
+  "updated_at": "2026-03-10T15:13:11.489Z",
+  "positioning": {
+    "value": {
+      "statement": "Financial infrastructure to grow your revenue",
+      "unique_value": "All-in-one financial services platform"
+    },
+    "confidence": 0.9,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "icp": {
+    "value": {
+      "company_size": "All sizes",
+      "industry": "E-commerce, SaaS, Retail",
+      "geography": [
+        "Global"
+      ],
+      "role": "Business owners, Developers"
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "competitors": {
+    "value": [
+      {
+        "name": "PayPal",
+        "positioning": "Online payment system"
+      },
+      {
+        "name": "Square",
+        "positioning": "Payment processing and financial services"
+      }
+    ],
+    "confidence": 0.6,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "offers": {
+    "value": [
+      {
+        "name": "Payments",
+        "price_signal": "2.9% + 30¢ per transaction",
+        "tier": "Standard"
+      },
+      {
+        "name": "Billing",
+        "price_signal": "Custom pricing",
+        "tier": "Enterprise"
+      }
+    ],
+    "confidence": 0.7,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "messaging": {
+    "value": {
+      "headline": "Financial infrastructure to grow your revenue",
+      "tagline": "Accept payments, offer financial services and implement custom revenue models",
+      "key_messages": [
+        "Flexible solutions for every business model",
+        "Powering businesses of all sizes"
+      ]
+    },
+    "confidence": 0.9,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "channels": {
+    "value": [
+      {
+        "channel": "Website",
+        "evidence": "https://stripe.com"
+      },
+      {
+        "channel": "Developers",
+        "evidence": "https://stripe.com/developers"
+      }
+    ],
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "funnel": {
+    "value": {
+      "entry_points": [
+        "Products",
+        "Solutions",
+        "Pricing"
+      ],
+      "cta_primary": "Get started"
+    },
+    "confidence": 0.7,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "metrics": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "content_pillars": {
+    "value": [
+      {
+        "topic": "Payments",
+        "evidence": "https://stripe.com/payments"
+      },
+      {
+        "topic": "Billing",
+        "evidence": "https://stripe.com/billing"
+      }
+    ],
+    "confidence": 0.6,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "campaigns": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "insights": {
+    "value": {
+      "summary": "Stripe provides financial infrastructure for businesses to grow revenue",
+      "gaps": [
+        "Limited information on specific industry solutions",
+        "No clear call-to-action for enterprise customers"
+      ]
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  }
+}

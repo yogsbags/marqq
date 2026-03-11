@@ -1,0 +1,168 @@
+{
+  "company_id": "test-veena-onboard-1773155830342",
+  "updated_at": "2026-03-10T15:17:31.234Z",
+  "positioning": {
+    "value": {
+      "statement": "Financial infrastructure to grow your revenue",
+      "unique_value": "Accept payments, offer financial services and implement custom revenue models"
+    },
+    "confidence": 1,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "icp": {
+    "value": {
+      "company_size": "all sizes",
+      "industry": "all industries",
+      "geography": [
+        "global"
+      ],
+      "role": "business owners, finance leaders, developers"
+    },
+    "confidence": 0.85,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "competitors": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "offers": {
+    "value": [
+      {
+        "name": "Payments processing",
+        "price_signal": "custom pricing per transaction",
+        "tier": "starter to enterprise"
+      },
+      {
+        "name": "Billing & invoicing",
+        "price_signal": "custom pricing per invoice",
+        "tier": "starter to enterprise"
+      },
+      {
+        "name": "Connect (marketplace payouts)",
+        "price_signal": "custom pricing per payout",
+        "tier": "starter to enterprise"
+      }
+    ],
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "messaging": {
+    "value": {
+      "headline": "Financial infrastructure to grow your revenue",
+      "tagline": "A financial services platform that helps all types of businesses accept payments, build flexible billing models and manage money movement.",
+      "key_messages": [
+        "Flexible solutions for every business model.",
+        "The backbone of global commerce.",
+        "Powering businesses of all sizes."
+      ]
+    },
+    "confidence": 0.95,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "channels": {
+    "value": [
+      {
+        "channel": "Website (main site)",
+        "evidence": "https://stripe.com – primary navigation and content"
+      },
+      {
+        "channel": "Developers portal",
+        "evidence": "CTAs include \"Developers\" linking to https://stripe.com/developers"
+      },
+      {
+        "channel": "Resources / Docs",
+        "evidence": "CTAs include \"Resources\" linking to https://stripe.com/resources"
+      },
+      {
+        "channel": "Pricing page",
+        "evidence": "CTA \"Pricing\" linking to https://stripe.com/pricing"
+      }
+    ],
+    "confidence": 0.9,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "funnel": {
+    "value": {
+      "entry_points": [
+        "Products",
+        "Solutions",
+        "Developers",
+        "Resources",
+        "Pricing"
+      ],
+      "cta_primary": "Get started"
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "metrics": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "content_pillars": {
+    "value": [
+      {
+        "topic": "Flexible solutions for every business model",
+        "evidence": "H2 on homepage"
+      },
+      {
+        "topic": "The backbone of global commerce",
+        "evidence": "H2 on homepage"
+      },
+      {
+        "topic": "Powering businesses of all sizes",
+        "evidence": "H2 on homepage"
+      }
+    ],
+    "confidence": 0.95,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "campaigns": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "insights": {
+    "value": {
+      "summary": "Stripe positions itself as the universal financial infrastructure for businesses of any size, emphasizing flexibility, global reach, and end‑to‑end revenue solutions.",
+      "gaps": [
+        "No explicit competitor list on the site.",
+        "Pricing details are not disclosed on the homepage; deeper pricing pages would be needed for precise price signals.",
+        "Limited granularity on ideal customer segments beyond the broad \"all businesses\" claim."
+      ]
+    },
+    "confidence": 0.85,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  }
+}

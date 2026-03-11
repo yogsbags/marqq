@@ -38,7 +38,7 @@ import { Map, DollarSign, PenLine, Target, Paperclip } from 'lucide-react';
 
 // -- localStorage helpers
 
-const CONV_KEY = 'torqq_conversations';
+const CONV_KEY = 'marqq_conversations';
 
 function loadConversations(): Conversation[] {
   try {
@@ -306,7 +306,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       }
 
       try {
-        sessionStorage.removeItem('torqq_company_intel_autorun');
+        sessionStorage.removeItem('marqq_company_intel_autorun');
       } catch {
         // non-blocking
       }

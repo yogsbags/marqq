@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { PlayCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,11 +19,17 @@ import { addAiTasks } from '@/lib/taskStore';
 import { cn } from '@/lib/utils';
 
 const DIGITAL_EMPLOYEES = [
-  { name: 'zara', role: 'Campaign Strategist' },
-  { name: 'maya', role: 'SEO & LLMO Monitor' },
-  { name: 'riya', role: 'Content Producer' },
+  { name: 'veena', role: 'Company Intelligence' },
+  { name: 'isha',  role: 'Market & Audience Research' },
+  { name: 'neel',  role: 'Strategy & Positioning' },
+  { name: 'tara',  role: 'Offer & CRO Designer' },
+  { name: 'sam',   role: 'Messaging & Copy' },
+  { name: 'kiran', role: 'Social Calendar' },
+  { name: 'zara',  role: 'Channel & Campaign' },
+  { name: 'maya',  role: 'SEO & LLMO Monitor' },
+  { name: 'riya',  role: 'Content Producer' },
   { name: 'arjun', role: 'Lead Intelligence' },
-  { name: 'dev', role: 'Performance Analyst' },
+  { name: 'dev',   role: 'Performance Analyst' },
   { name: 'priya', role: 'Brand Intelligence' },
 ] as const;
 
@@ -59,6 +67,90 @@ type AgentExecutionPlan = {
 };
 
 const EMPLOYEE_PROFILES: Record<EmployeeName, EmployeeProfile> = {
+  veena: {
+    title: 'Company Intelligence Analyst',
+    personality: 'Detail-oriented and systematic. Builds rich company profiles from public signals and turns them into actionable sales and marketing context.',
+    executes: [
+      'Bootstrap full company intelligence from domain or name',
+      'Map decision-makers, tech stack, and org structure',
+      'Surface buying signals and account-level opportunities',
+    ],
+    objectives: [
+      'Reduce account research time to minutes',
+      'Give sales and marketing a shared company context',
+      'Surface the right accounts at the right moment',
+    ],
+  },
+  isha: {
+    title: 'Market & Audience Researcher',
+    personality: 'Curious, pattern-seeking, and skilled at synthesising fragmented market signals into crisp audience and ICP definitions.',
+    executes: [
+      'Map the competitive landscape and category dynamics',
+      'Build detailed ICP cards with firmographic and psychographic depth',
+      'Identify whitespace, audience segments, and market shifts',
+    ],
+    objectives: [
+      'Give the team a clear picture of who to target',
+      'Reduce time spent on manual market research',
+      'Keep ICP definitions current as the market evolves',
+    ],
+  },
+  neel: {
+    title: 'Strategy & Positioning Lead',
+    personality: 'Sharp and commercially minded. Translates market context into differentiated positioning and actionable weekly strategy briefs.',
+    executes: [
+      'Develop and refine positioning and messaging architecture',
+      'Create weekly strategy briefs aligned to business goals',
+      'Map pricing intelligence and competitive differentiation',
+    ],
+    objectives: [
+      'Maintain a clear, differentiated market position',
+      'Align marketing and sales on a single strategic narrative',
+      'Adapt strategy quickly as market conditions change',
+    ],
+  },
+  tara: {
+    title: 'Offer & CRO Designer',
+    personality: 'Conversion-obsessed and empathy-driven. Identifies friction, designs compelling offers, and writes CTAs that move people to act.',
+    executes: [
+      'Audit offers for friction, clarity, and conversion gaps',
+      'Design lead magnets and high-intent CTAs',
+      'Review landing page copy for conversion effectiveness',
+    ],
+    objectives: [
+      'Increase offer-to-conversion rates',
+      'Remove friction from the buyer journey',
+      'Ensure every touchpoint has a clear, compelling CTA',
+    ],
+  },
+  sam: {
+    title: 'Messaging & Copy Strategist',
+    personality: 'Empathetic, precise, and fluent in the language of buyers. Turns positioning into copy that resonates across every channel.',
+    executes: [
+      'Review and refresh messaging across website, ads, and email',
+      'Write channel-specific copy variants for testing',
+      'Align copy to positioning and ICP language',
+    ],
+    objectives: [
+      'Improve message-market fit',
+      'Reduce copy inconsistency across channels',
+      'Accelerate copy production without sacrificing quality',
+    ],
+  },
+  kiran: {
+    title: 'Social Calendar Manager',
+    personality: 'Creative, organised, and aware of platform dynamics. Keeps the content engine running with a consistent, on-brand social presence.',
+    executes: [
+      'Build and maintain a 30-day social content calendar',
+      'Generate daily post ideas tailored to each platform',
+      'Coordinate content themes with campaign and product launches',
+    ],
+    objectives: [
+      'Maintain consistent social publishing cadence',
+      'Increase organic engagement and follower growth',
+      'Reduce manual effort in weekly social planning',
+    ],
+  },
   zara: {
     title: 'Campaign Strategist',
     personality: 'Decisive, commercially sharp, and biased toward clear GTM tradeoffs rather than vague planning.',
@@ -161,12 +253,18 @@ function AgentAvatar({
     shirt: string;
     accent: string;
   }> = {
-    zara: { shell: 'from-indigo-100 to-violet-200 dark:from-indigo-950 dark:to-violet-900', skin: '#F6C7A5', hair: '#3B2C67', shirt: '#5B5CE2', accent: '#B6A5FF' },
-    maya: { shell: 'from-sky-100 to-cyan-200 dark:from-sky-950 dark:to-cyan-900', skin: '#EFC09A', hair: '#243B7A', shirt: '#0EA5E9', accent: '#8BE3FF' },
-    riya: { shell: 'from-fuchsia-100 to-purple-200 dark:from-fuchsia-950 dark:to-purple-900', skin: '#F3C9AF', hair: '#5B2167', shirt: '#A855F7', accent: '#F0ABFC' },
+    veena: { shell: 'from-teal-100 to-cyan-200 dark:from-teal-950 dark:to-cyan-900',     skin: '#F0C9A8', hair: '#1A3A3A', shirt: '#0D9488', accent: '#5EEAD4' },
+    isha:  { shell: 'from-amber-100 to-yellow-200 dark:from-amber-950 dark:to-yellow-900', skin: '#EFC09A', hair: '#3B2000', shirt: '#D97706', accent: '#FCD34D' },
+    neel:  { shell: 'from-blue-100 to-indigo-200 dark:from-blue-950 dark:to-indigo-900',  skin: '#D8A27D', hair: '#1A2456', shirt: '#2563EB', accent: '#93C5FD' },
+    tara:  { shell: 'from-violet-100 to-purple-200 dark:from-violet-950 dark:to-purple-900', skin: '#F3C9AF', hair: '#3B1A5B', shirt: '#7C3AED', accent: '#C4B5FD' },
+    sam:   { shell: 'from-lime-100 to-green-200 dark:from-lime-950 dark:to-green-900',    skin: '#EAC49A', hair: '#2D3A1A', shirt: '#65A30D', accent: '#BEF264' },
+    kiran: { shell: 'from-pink-100 to-rose-200 dark:from-pink-950 dark:to-rose-900',     skin: '#F6C7A5', hair: '#4A1A2C', shirt: '#DB2777', accent: '#F9A8D4' },
+    zara:  { shell: 'from-indigo-100 to-violet-200 dark:from-indigo-950 dark:to-violet-900', skin: '#F6C7A5', hair: '#3B2C67', shirt: '#5B5CE2', accent: '#B6A5FF' },
+    maya:  { shell: 'from-sky-100 to-cyan-200 dark:from-sky-950 dark:to-cyan-900',       skin: '#EFC09A', hair: '#243B7A', shirt: '#0EA5E9', accent: '#8BE3FF' },
+    riya:  { shell: 'from-fuchsia-100 to-purple-200 dark:from-fuchsia-950 dark:to-purple-900', skin: '#F3C9AF', hair: '#5B2167', shirt: '#A855F7', accent: '#F0ABFC' },
     arjun: { shell: 'from-emerald-100 to-green-200 dark:from-emerald-950 dark:to-green-900', skin: '#D9A77E', hair: '#243B2F', shirt: '#16A34A', accent: '#86EFAC' },
-    dev: { shell: 'from-orange-100 to-amber-200 dark:from-orange-950 dark:to-amber-900', skin: '#D8A27D', hair: '#4B2E1F', shirt: '#F97316', accent: '#FDBA74' },
-    priya: { shell: 'from-rose-100 to-pink-200 dark:from-rose-950 dark:to-pink-900', skin: '#EFB89A', hair: '#4A2238', shirt: '#E11D48', accent: '#FDA4AF' },
+    dev:   { shell: 'from-orange-100 to-amber-200 dark:from-orange-950 dark:to-amber-900', skin: '#D8A27D', hair: '#4B2E1F', shirt: '#F97316', accent: '#FDBA74' },
+    priya: { shell: 'from-rose-100 to-pink-200 dark:from-rose-950 dark:to-pink-900',     skin: '#EFB89A', hair: '#4A2238', shirt: '#E11D48', accent: '#FDA4AF' },
   };
 
   const avatar = avatarMap[name.toLowerCase()] || avatarMap.zara;
@@ -189,8 +287,33 @@ function AgentAvatar({
   );
 }
 
+// Per-user per-workspace last-run store keyed by `{userId}_{workspaceId}` → agentName → ISO timestamp
+function runsKey(userId: string, workspaceId: string) {
+  return `marqq_agent_runs_${userId}_${workspaceId}`;
+}
+
+function loadUserRuns(userId: string, workspaceId: string): Partial<Record<EmployeeName, string>> {
+  try {
+    const raw = localStorage.getItem(runsKey(userId, workspaceId));
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveUserRun(userId: string, workspaceId: string, agentName: EmployeeName, timestamp: string) {
+  try {
+    const runs = loadUserRuns(userId, workspaceId);
+    runs[agentName] = timestamp;
+    localStorage.setItem(runsKey(userId, workspaceId), JSON.stringify(runs));
+  } catch { /* ignore */ }
+}
+
 export function AgentDashboard() {
-  const [heartbeat, setHeartbeat] = useState<HeartbeatData | null>(null);
+  const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
+  const userId = user?.id ?? 'anonymous';
+  const workspaceId = activeWorkspace?.id ?? 'default';
+
+  const [userRuns, setUserRuns] = useState<Partial<Record<EmployeeName, string>>>(() => loadUserRuns(userId, workspaceId));
   const [runningAgents, setRunningAgents] = useState<Set<EmployeeName>>(new Set());
   const [meetAgent, setMeetAgent] = useState<EmployeeName | null>(null);
   const [taskAgent, setTaskAgent] = useState<EmployeeName | null>(null);
@@ -199,15 +322,14 @@ export function AgentDashboard() {
   const [planPreview, setPlanPreview] = useState<AgentExecutionPlan | null>(null);
   const [agentPlans, setAgentPlans] = useState<Partial<Record<EmployeeName, AgentExecutionPlan>>>({});
 
+  // Reload runs when user or workspace changes
+  useEffect(() => {
+    setUserRuns(loadUserRuns(userId, workspaceId));
+  }, [userId, workspaceId]);
+
   const fetchHeartbeat = async () => {
-    try {
-      const res = await fetch('/api/agents/status');
-      if (res.ok) {
-        setHeartbeat(await res.json());
-      }
-    } catch {
-      /* backend may not be running in dev */
-    }
+    // No-op: we no longer show global server heartbeat to users.
+    // Per-user run history is tracked in userRuns / localStorage.
   };
 
   const runAgentNow = async (name: EmployeeName) => {
@@ -238,8 +360,10 @@ export function AgentDashboard() {
           if (decoder.decode(value).includes('[DONE]')) break;
         }
       }
+      const completedAt = new Date().toISOString();
+      saveUserRun(userId, workspaceId, name, completedAt);
+      setUserRuns(prev => ({ ...prev, [name]: completedAt }));
       toast.success(`${name} finished`);
-      await fetchHeartbeat();
     } catch {
       toast.error(`${name}: run failed`);
     } finally {
@@ -368,8 +492,8 @@ export function AgentDashboard() {
 
         <div className="grid gap-3 md:grid-cols-3">
           {DIGITAL_EMPLOYEES.map((employee) => {
-            const hb = heartbeat?.agents[employee.name];
-            const isRunning = runningAgents.has(employee.name) || hb?.status === 'running';
+            const isRunning = runningAgents.has(employee.name);
+            const lastRun = userRuns[employee.name] ?? null;
             const profile = EMPLOYEE_PROFILES[employee.name];
             const savedPlan = agentPlans[employee.name];
 
@@ -387,8 +511,8 @@ export function AgentDashboard() {
                         <p className="truncate text-xs text-muted-foreground">{employee.role}</p>
                       </div>
                     </div>
-                    <Badge className={cn('px-2 py-0 text-xs capitalize', statusColour(isRunning ? 'running' : hb?.status))}>
-                      {isRunning ? 'running' : hb?.status ?? 'idle'}
+                    <Badge className={cn('px-2 py-0 text-xs capitalize', statusColour(isRunning ? 'running' : lastRun ? 'completed' : undefined))}>
+                      {isRunning ? 'running' : lastRun ? 'completed' : 'idle'}
                     </Badge>
                   </div>
 
@@ -420,7 +544,7 @@ export function AgentDashboard() {
                   <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs">
                     <div>
                       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Last run</p>
-                      <p className="mt-1 font-medium text-foreground">{formatLastRun(hb?.last_run ?? null)}</p>
+                      <p className="mt-1 font-medium text-foreground">{formatLastRun(lastRun)}</p>
                     </div>
                   </div>
 

@@ -476,7 +476,7 @@ export function strategyToBlocks(strategy: GtmStrategyResponse): GtmStrategyBloc
 // Persistence
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'torqq_gtm_strategies';
+const STORAGE_KEY = 'marqq_gtm_strategies';
 
 export function saveGtmStrategy(saved: SavedGtmStrategy): void {
   try {

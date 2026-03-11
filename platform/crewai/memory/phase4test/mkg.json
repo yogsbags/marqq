@@ -1,0 +1,128 @@
+{
+  "company_id": "phase4test",
+  "updated_at": "2026-03-10T12:06:35.681Z",
+  "positioning": {
+    "value": {
+      "summary": "Test mode patch for neel",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "neel",
+    "expires_at": "2026-03-10"
+  },
+  "icp": {
+    "value": {
+      "summary": "Test mode patch for isha",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "isha",
+    "expires_at": "2026-03-10"
+  },
+  "competitors": {
+    "value": {
+      "summary": "Test mode patch for priya",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "priya",
+    "expires_at": "2026-03-10"
+  },
+  "offers": {
+    "value": {
+      "summary": "Test mode patch for tara",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "tara",
+    "expires_at": "2026-03-10"
+  },
+  "messaging": {
+    "value": {
+      "summary": "Test mode patch for sam",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "sam",
+    "expires_at": "2026-03-10"
+  },
+  "channels": {
+    "value": {
+      "summary": "Test mode patch for zara",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "zara",
+    "expires_at": "2026-03-10"
+  },
+  "funnel": {
+    "value": {
+      "summary": "Test mode patch for arjun",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "arjun",
+    "expires_at": "2026-03-10"
+  },
+  "metrics": {
+    "value": {
+      "summary": "Test mode patch for dev",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "dev",
+    "expires_at": "2026-03-10"
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "content_pillars": {
+    "value": {
+      "summary": "Test mode patch for riya",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "riya",
+    "expires_at": "2026-03-10"
+  },
+  "campaigns": {
+    "value": {
+      "summary": "Test mode patch for kiran",
+      "source": "AGENT_RUN_TEST_MODE",
+      "query": "Generate a deterministic test-mode run."
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "kiran",
+    "expires_at": "2026-03-10"
+  },
+  "insights": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  }
+}

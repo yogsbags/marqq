@@ -1,0 +1,171 @@
+{
+  "company_id": "test-veena-onboard-1773155472478",
+  "updated_at": "2026-03-10T15:11:30.041Z",
+  "positioning": {
+    "value": {
+      "statement": "Stripe is a financial services platform that helps all types of businesses accept payments, build flexible billing models and manage money movement.",
+      "unique_value": "Financial infrastructure to grow your revenue"
+    },
+    "confidence": 0.95,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "icp": {
+    "value": {
+      "company_size": "all sizes",
+      "industry": "online commerce / digital businesses",
+      "geography": [],
+      "role": "founders, business owners, developers"
+    },
+    "confidence": 0.88,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "competitors": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "offers": {
+    "value": [
+      {
+        "name": "Payments",
+        "price_signal": null,
+        "tier": null
+      },
+      {
+        "name": "Billing",
+        "price_signal": null,
+        "tier": null
+      },
+      {
+        "name": "Connect",
+        "price_signal": null,
+        "tier": null
+      },
+      {
+        "name": "Atlas",
+        "price_signal": null,
+        "tier": null
+      }
+    ],
+    "confidence": 0.7,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "messaging": {
+    "value": {
+      "headline": "Financial infrastructure to grow your revenue",
+      "tagline": null,
+      "key_messages": [
+        "Accept payments",
+        "Offer financial services",
+        "Implement custom revenue models",
+        "Flexible solutions for every business model",
+        "The backbone of global commerce",
+        "Powering businesses of all sizes"
+      ]
+    },
+    "confidence": 0.93,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "channels": {
+    "value": [
+      {
+        "channel": "Website (Products, Solutions, Developers, Resources, Pricing pages)",
+        "evidence": "CTAs listed on homepage"
+      },
+      {
+        "channel": "Developer documentation",
+        "evidence": "Navigation includes 'Developers'"
+      },
+      {
+        "channel": "Blog & Press",
+        "evidence": "Links to Stripe Press and Works in Progress"
+      }
+    ],
+    "confidence": 0.85,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "funnel": {
+    "value": {
+      "entry_points": [
+        "Products",
+        "Solutions",
+        "Developers",
+        "Resources",
+        "Pricing"
+      ],
+      "cta_primary": "Get started / Sign up"
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "metrics": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "content_pillars": {
+    "value": [
+      {
+        "topic": "Payments & payment processing",
+        "evidence": "Homepage H1 mentions accepting payments"
+      },
+      {
+        "topic": "Flexible billing & revenue models",
+        "evidence": "Meta description and H1 reference flexible billing models"
+      },
+      {
+        "topic": "Global commerce infrastructure",
+        "evidence": "H2s: 'The backbone of global commerce', 'Powering businesses of all sizes'"
+      }
+    ],
+    "confidence": 0.88,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "campaigns": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "insights": {
+    "value": {
+      "summary": "Stripe positions itself as the financial infrastructure for internet businesses, targeting a broad range of companies and emphasizing developer-friendly, flexible solutions. The site clearly highlights product categories and global reach, but lacks explicit competitor listings, pricing details, and measurable marketing metrics.",
+      "gaps": [
+        "Specific competitor identification and positioning",
+        "Detailed pricing tiers and price signals",
+        "Quantitative marketing metrics and baselines",
+        "Explicit tagline or mission statement on the homepage"
+      ]
+    },
+    "confidence": 0.85,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  }
+}

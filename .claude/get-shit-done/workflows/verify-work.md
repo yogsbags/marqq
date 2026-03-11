@@ -20,6 +20,17 @@ No Pass/Fail buttons. No severity questions. Just: "Here's what should happen. D
 
 <process>
 
+<step name="initialize" priority="first">
+If $ARGUMENTS contains a phase number, load context:
+
+```bash
+INIT=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" init verify-work "${PHASE_ARG}")
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+```
+
+Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `has_verification`.
+</step>
+
 <step name="check_active_session">
 **First: Check for active UAT sessions**
 
@@ -70,14 +81,10 @@ Continue to `create_uat_file`.
 <step name="find_summaries">
 **Find what to test:**
 
-Parse $ARGUMENTS as phase number (e.g., "4") or plan number (e.g., "04-02").
+Use `phase_dir` from init (or run init if not already done).
 
 ```bash
-# Find phase directory
-PHASE_DIR=$(ls -d .planning/phases/${PHASE_ARG}* 2>/dev/null | head -1)
-
-# Find SUMMARY files
-ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+ls "$phase_dir"/*-SUMMARY.md 2>/dev/null
 ```
 
 Read each SUMMARY.md to extract testable deliverables.
@@ -102,6 +109,19 @@ Examples:
   → Expected: "Clicking Reply opens inline composer below comment. Submitting shows reply nested under parent with visual indentation."
 
 Skip internal/non-observable items (refactors, type changes, etc.).
+
+**Cold-start smoke test injection:**
+
+After extracting tests from SUMMARYs, scan the SUMMARY files for modified/created file paths. If ANY path matches these patterns:
+
+`server.ts`, `server.js`, `app.ts`, `app.js`, `index.ts`, `index.js`, `main.ts`, `main.js`, `database/*`, `db/*`, `seed/*`, `seeds/*`, `migrations/*`, `startup*`, `docker-compose*`, `Dockerfile*`
+
+Then **prepend** this test to the test list:
+
+- name: "Cold Start Smoke Test"
+- expected: "Kill any running server/service. Clear ephemeral state (temp DBs, caches, lock files). Start the application from scratch. Server boots without errors, any seed/migration completes, and a primary query (health check, homepage load, or basic API call) returns live data."
+
+This catches bugs that only manifest on fresh start — race conditions in startup sequences, silent seed failures, missing environment setup — which pass against warm state but break in production.
 </step>
 
 <step name="create_uat_file">
@@ -158,7 +178,7 @@ skipped: 0
 [none yet]
 ```
 
-Write to `.planning/phases/XX-name/{phase}-UAT.md`
+Write to `.planning/phases/XX-name/{phase_num}-UAT.md`
 
 Proceed to `present_test`.
 </step>
@@ -168,14 +188,20 @@ Proceed to `present_test`.
 
 Read Current Test section from UAT file.
 
-Display:
+Display using checkpoint box format:
 
 ```
-## Test {number}: {name}
+╔══════════════════════════════════════════════════════════════╗
+║  CHECKPOINT: Verification Required                           ║
+╚══════════════════════════════════════════════════════════════╝
 
-**Expected:** {expected}
+**Test {number}: {name}**
 
-Does this match what you see?
+{expected}
+
+──────────────────────────────────────────────────────────────
+→ Type "pass" or describe what's wrong
+──────────────────────────────────────────────────────────────
 ```
 
 Wait for user response (plain text, no AskUserQuestion).
@@ -280,8 +306,7 @@ Clear Current Test section:
 
 Commit the UAT file:
 ```bash
-git add ".planning/phases/XX-name/{phase}-UAT.md"
-git commit -m "test({phase}): complete UAT - {passed} passed, {issues} issues"
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "test({phase_num}): complete UAT - {passed} passed, {issues} issues" --files ".planning/phases/XX-name/{phase_num}-UAT.md"
 ```
 
 Present summary:
@@ -327,28 +352,182 @@ Spawning parallel debug agents to investigate each issue.
 - Spawn parallel debug agents for each issue
 - Collect root causes
 - Update UAT.md with root causes
-- Proceed to `offer_gap_closure`
+- Proceed to `plan_gap_closure`
 
 Diagnosis runs automatically - no user prompt. Parallel agents investigate simultaneously, so overhead is minimal and fixes are more accurate.
 </step>
 
-<step name="offer_gap_closure">
-**Offer next steps after diagnosis:**
+<step name="plan_gap_closure">
+**Auto-plan fixes from diagnosed gaps:**
+
+Display:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► PLANNING FIXES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Spawning planner for gap closure...
+```
+
+Spawn gsd-planner in --gaps mode:
 
 ```
----
+Task(
+  prompt="""
+<planning_context>
 
-## Diagnosis Complete
+**Phase:** {phase_number}
+**Mode:** gap_closure
 
-| Gap | Root Cause |
-|-----|------------|
-| {truth 1} | {root_cause} |
-| {truth 2} | {root_cause} |
-...
+<files_to_read>
+- {phase_dir}/{phase_num}-UAT.md (UAT with diagnoses)
+- .planning/STATE.md (Project State)
+- .planning/ROADMAP.md (Roadmap)
+</files_to_read>
 
-Next steps:
-- `/gsd:plan-phase {phase} --gaps` — Create fix plans from diagnosed gaps
-- `/gsd:verify-work {phase}` — Re-test after fixes
+</planning_context>
+
+<downstream_consumer>
+Output consumed by /gsd:execute-phase
+Plans must be executable prompts.
+</downstream_consumer>
+""",
+  subagent_type="gsd-planner",
+  model="{planner_model}",
+  description="Plan gap fixes for Phase {phase}"
+)
+```
+
+On return:
+- **PLANNING COMPLETE:** Proceed to `verify_gap_plans`
+- **PLANNING INCONCLUSIVE:** Report and offer manual intervention
+</step>
+
+<step name="verify_gap_plans">
+**Verify fix plans with checker:**
+
+Display:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► VERIFYING FIX PLANS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Spawning plan checker...
+```
+
+Initialize: `iteration_count = 1`
+
+Spawn gsd-plan-checker:
+
+```
+Task(
+  prompt="""
+<verification_context>
+
+**Phase:** {phase_number}
+**Phase Goal:** Close diagnosed gaps from UAT
+
+<files_to_read>
+- {phase_dir}/*-PLAN.md (Plans to verify)
+</files_to_read>
+
+</verification_context>
+
+<expected_output>
+Return one of:
+- ## VERIFICATION PASSED — all checks pass
+- ## ISSUES FOUND — structured issue list
+</expected_output>
+""",
+  subagent_type="gsd-plan-checker",
+  model="{checker_model}",
+  description="Verify Phase {phase} fix plans"
+)
+```
+
+On return:
+- **VERIFICATION PASSED:** Proceed to `present_ready`
+- **ISSUES FOUND:** Proceed to `revision_loop`
+</step>
+
+<step name="revision_loop">
+**Iterate planner ↔ checker until plans pass (max 3):**
+
+**If iteration_count < 3:**
+
+Display: `Sending back to planner for revision... (iteration {N}/3)`
+
+Spawn gsd-planner with revision context:
+
+```
+Task(
+  prompt="""
+<revision_context>
+
+**Phase:** {phase_number}
+**Mode:** revision
+
+<files_to_read>
+- {phase_dir}/*-PLAN.md (Existing plans)
+</files_to_read>
+
+**Checker issues:**
+{structured_issues_from_checker}
+
+</revision_context>
+
+<instructions>
+Read existing PLAN.md files. Make targeted updates to address checker issues.
+Do NOT replan from scratch unless issues are fundamental.
+</instructions>
+""",
+  subagent_type="gsd-planner",
+  model="{planner_model}",
+  description="Revise Phase {phase} plans"
+)
+```
+
+After planner returns → spawn checker again (verify_gap_plans logic)
+Increment iteration_count
+
+**If iteration_count >= 3:**
+
+Display: `Max iterations reached. {N} issues remain.`
+
+Offer options:
+1. Force proceed (execute despite issues)
+2. Provide guidance (user gives direction, retry)
+3. Abandon (exit, user runs /gsd:plan-phase manually)
+
+Wait for user response.
+</step>
+
+<step name="present_ready">
+**Present completion and next steps:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► FIXES READY ✓
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Phase {X}: {Name}** — {N} gap(s) diagnosed, {M} fix plan(s) created
+
+| Gap | Root Cause | Fix Plan |
+|-----|------------|----------|
+| {truth 1} | {root_cause} | {phase}-04 |
+| {truth 2} | {root_cause} | {phase}-04 |
+
+Plans verified and ready for execution.
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Execute fixes** — run fix plans
+
+`/clear` then `/gsd:execute-phase {phase} --gaps-only`
+
+───────────────────────────────────────────────────────────────
 ```
 </step>
 
@@ -396,5 +575,9 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] Severity inferred from description (never asked)
 - [ ] Batched writes: on issue, every 5 passes, or completion
 - [ ] Committed on completion
-- [ ] Clear next steps based on results (plan-phase --gaps if issues)
+- [ ] If issues: parallel debug agents diagnose root causes
+- [ ] If issues: gsd-planner creates fix plans (gap_closure mode)
+- [ ] If issues: gsd-plan-checker verifies fix plans
+- [ ] If issues: revision loop until plans pass (max 3 iterations)
+- [ ] Ready for `/gsd:execute-phase --gaps-only` when complete
 </success_criteria>

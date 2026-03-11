@@ -70,7 +70,7 @@ function Dashboard() {
   const [autoStartModule, setAutoStartModule] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     try {
-      const raw = localStorage.getItem('torqq_conversations');
+      const raw = localStorage.getItem('marqq_conversations');
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return parsed.map((c: { id: string; name: string; createdAt: string; lastMessageAt: string; messages: Array<{ id: string; content: string; sender: 'user' | 'ai'; timestamp: string }> }) => ({
@@ -85,7 +85,7 @@ function Dashboard() {
 
   const handleConversationsChange = () => {
     try {
-      const raw = localStorage.getItem('torqq_conversations');
+      const raw = localStorage.getItem('marqq_conversations');
       if (!raw) return;
       const parsed = JSON.parse(raw);
       setConversations(parsed.map((c: { id: string; name: string; createdAt: string; lastMessageAt: string; messages: Array<{ id: string; content: string; sender: 'user' | 'ai'; timestamp: string }> }) => ({
@@ -179,8 +179,8 @@ function Dashboard() {
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
-  const [isOnboarded, setIsOnboarded] = useState(() => localStorage.getItem('torqq_onboarded') === '1');
-  const [showTour, setShowTour] = useState(() => localStorage.getItem('torqq_tour_done') !== '1');
+  const [isOnboarded, setIsOnboarded] = useState(() => localStorage.getItem('marqq_onboarded') === '1');
+  const [showTour, setShowTour] = useState(() => localStorage.getItem('marqq_tour_done') !== '1');
 
   if (isLoading) {
     return (

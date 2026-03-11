@@ -20,6 +20,7 @@ wave: N                     # Execution wave (1, 2, 3...). Pre-computed at plan 
 depends_on: []              # Plan IDs this plan requires (e.g., ["01-01"]).
 files_modified: []          # Files this plan modifies.
 autonomous: true            # false if plan has checkpoints requiring user interaction
+requirements: []            # REQUIRED — Requirement IDs from ROADMAP this plan addresses. MUST NOT be empty.
 user_setup: []              # Human-required setup Claude cannot automate (see below)
 
 # Goal-backward verification (derived during planning, verified after execution)
@@ -75,33 +76,23 @@ Output: [What artifacts will be created]
   <done>[Acceptance criteria]</done>
 </task>
 
+<!-- For checkpoint task examples and patterns, see @./.claude/get-shit-done/references/checkpoints.md -->
+<!-- Key rule: Claude starts dev server BEFORE human-verify checkpoints. User only visits URLs. -->
+
 <task type="checkpoint:decision" gate="blocking">
   <decision>[What needs deciding]</decision>
   <context>[Why this decision matters]</context>
   <options>
-    <option id="option-a">
-      <name>[Option name]</name>
-      <pros>[Benefits and advantages]</pros>
-      <cons>[Tradeoffs and limitations]</cons>
-    </option>
-    <option id="option-b">
-      <name>[Option name]</name>
-      <pros>[Benefits and advantages]</pros>
-      <cons>[Tradeoffs and limitations]</cons>
-    </option>
+    <option id="option-a"><name>[Name]</name><pros>[Benefits]</pros><cons>[Tradeoffs]</cons></option>
+    <option id="option-b"><name>[Name]</name><pros>[Benefits]</pros><cons>[Tradeoffs]</cons></option>
   </options>
-  <resume-signal>[How to indicate choice - "Select: option-a or option-b"]</resume-signal>
+  <resume-signal>Select: option-a or option-b</resume-signal>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
-  <what-built>[What Claude just built that needs verification]</what-built>
-  <how-to-verify>
-    1. Run: [command to start dev server/app]
-    2. Visit: [URL to check]
-    3. Test: [Specific interactions]
-    4. Confirm: [Expected behaviors]
-  </how-to-verify>
-  <resume-signal>Type "approved" to continue, or describe issues to fix</resume-signal>
+  <what-built>[What Claude built] - server running at [URL]</what-built>
+  <how-to-verify>Visit [URL] and verify: [visual checks only, NO CLI commands]</how-to-verify>
+  <resume-signal>Type "approved" or describe issues</resume-signal>
 </task>
 
 </tasks>
@@ -139,6 +130,7 @@ After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
 | `depends_on` | Yes | Array of plan IDs this plan requires. |
 | `files_modified` | Yes | Files this plan touches. |
 | `autonomous` | Yes | `true` if no checkpoints, `false` if has checkpoints |
+| `requirements` | Yes | **MUST** list requirement IDs from ROADMAP. Every roadmap requirement MUST appear in at least one plan. |
 | `user_setup` | No | Array of human-required setup items (external services) |
 | `must_haves` | Yes | Goal-backward verification criteria (see below) |
 
@@ -403,15 +395,16 @@ Output: Working dashboard component.
   <done>Dashboard renders without errors</done>
 </task>
 
+<!-- Checkpoint pattern: Claude starts server, user visits URL. See checkpoints.md for full patterns. -->
+<task type="auto">
+  <name>Start dev server</name>
+  <action>Run `npm run dev` in background, wait for ready</action>
+  <verify>curl localhost:3000 returns 200</verify>
+</task>
+
 <task type="checkpoint:human-verify" gate="blocking">
-  <what-built>Responsive dashboard with user and product sections</what-built>
-  <how-to-verify>
-    1. Run: npm run dev
-    2. Visit: http://localhost:3000/dashboard
-    3. Desktop: Verify two-column grid
-    4. Mobile: Verify stacked layout
-    5. Check: No layout shift, no scroll issues
-  </how-to-verify>
+  <what-built>Dashboard - server at http://localhost:3000</what-built>
+  <how-to-verify>Visit localhost:3000/dashboard. Check: desktop grid, mobile stack, no scroll issues.</how-to-verify>
   <resume-signal>Type "approved" or describe issues</resume-signal>
 </task>
 </tasks>
@@ -573,5 +566,4 @@ Task completion ≠ Goal achievement. A task "create chat component" can complet
 5. Gaps found → fix plans created → execute → re-verify
 6. All must_haves pass → phase complete
 
-See `./.claude/get-shit-done/references/goal-backward.md` for derivation process.
 See `./.claude/get-shit-done/workflows/verify-phase.md` for verification logic.

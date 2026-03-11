@@ -21,7 +21,7 @@ export function CompetitorIntelligencePage({ artifact }: Props) {
   const [monitoringCompetitors, setMonitoringCompetitors] = useState<Record<string, boolean>>({})
   const [monitoredCompetitors, setMonitoredCompetitors] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem('torqq_monitored_competitors')
+      const raw = localStorage.getItem('marqq_monitored_competitors')
       const parsed = raw ? JSON.parse(raw) : []
       return new Set(Array.isArray(parsed) ? parsed.map((item) => String(item)) : [])
     } catch {
@@ -115,11 +115,11 @@ export function CompetitorIntelligencePage({ artifact }: Props) {
       })
 
       try {
-        const existing = localStorage.getItem('torqq_monitored_competitors')
+        const existing = localStorage.getItem('marqq_monitored_competitors')
         const parsed = existing ? JSON.parse(existing) : []
         const next = new Set(Array.isArray(parsed) ? parsed.map((item) => String(item)) : [])
         next.add(monitorKey)
-        localStorage.setItem('torqq_monitored_competitors', JSON.stringify(Array.from(next)))
+        localStorage.setItem('marqq_monitored_competitors', JSON.stringify(Array.from(next)))
         setMonitoredCompetitors(next)
       } catch {
         // ignore storage errors

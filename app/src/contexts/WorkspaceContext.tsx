@@ -22,7 +22,8 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 
-const STORAGE_KEY = 'torqq_workspace_id';
+const STORAGE_KEY = 'marqq_workspace_id';
+const ACTIVE_WS_KEY = 'marqq_active_workspace';
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -40,7 +41,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       const stored = localStorage.getItem(STORAGE_KEY);
       const found = stored ? list.find(w => w.id === stored) : null;
-      setActiveWorkspace(found ?? list[0] ?? null);
+      const active = found ?? list[0] ?? null;
+      setActiveWorkspace(active);
+      if (active) localStorage.setItem(ACTIVE_WS_KEY, JSON.stringify({ id: active.id, name: active.name }));
+      else localStorage.removeItem(ACTIVE_WS_KEY);
     } catch (err) {
       console.error('Failed to fetch workspaces:', err);
     } finally {
@@ -54,6 +58,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const ws = workspaces.find(w => w.id === id);
     if (!ws) return;
     localStorage.setItem(STORAGE_KEY, id);
+    localStorage.setItem(ACTIVE_WS_KEY, JSON.stringify({ id: ws.id, name: ws.name }));
     setActiveWorkspace(ws);
   };
 

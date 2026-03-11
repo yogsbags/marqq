@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Torqq AI** - A unified B2B Marketing Intelligence Platform with autonomous multi-agent AI for executing marketing tasks, monitoring, and self-improvement with minimal user intervention. Built with React, TypeScript, Vite, Supabase, LiveKit, and multiple AI providers (Groq, OpenAI, Gemini, HeyGen, Fal AI).
+**Marqq AI** - A unified B2B Marketing Intelligence Platform with autonomous multi-agent AI for executing marketing tasks, monitoring, and self-improvement with minimal user intervention. Built with React, TypeScript, Vite, Supabase, LiveKit, and multiple AI providers (Groq, OpenAI, Gemini, HeyGen, Fal AI).
 
 **Platform Vision**: Single platform for complete marketing automation covering lead intelligence, content creation, social media campaigns, video generation, SEO optimization, customer insights, and budget optimization.
 
@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Unified Platform Model
 
-Torqq AI is a **monolithic SPA** with clear internal module boundaries designed for future microservices migration. All modules share:
+Marqq AI is a **monolithic SPA** with clear internal module boundaries designed for future microservices migration. All modules share:
 
 - Common authentication (Supabase)
 - Shared UI components (shadcn/ui, Radix UI)
@@ -53,7 +53,7 @@ Torqq AI is a **monolithic SPA** with clear internal module boundaries designed 
 ## Directory Structure
 
 ```
-martech/                               # Torqq AI Unified Platform
+martech/                               # Marqq AI Unified Platform
 │
 ├── src/                               # Main Application (Vite + React)
 │   ├── components/
@@ -141,7 +141,7 @@ martech/                               # Torqq AI Unified Platform
 
 ## Platform Modules
 
-Torqq AI consists of **9 core modules** accessible from a unified dashboard:
+Marqq AI consists of **9 core modules** accessible from a unified dashboard:
 
 ### 1. Enhanced Bulk Generator
 
@@ -787,7 +787,7 @@ export VITE_LIVEKIT_URL=ws://localhost:7880
 export VITE_LIVEKIT_API_KEY=devkey
 export VITE_LIVEKIT_API_SECRET=secret
 
-# 3. Start Torqq AI
+# 3. Start Marqq AI
 npm run dev
 
 # 4. Navigate to AI Voice Bot module
@@ -813,7 +813,7 @@ ls -la data/raw-responses/
 
 ## Port Allocation
 
-**Torqq AI Platform**:
+**Marqq AI Platform**:
 
 - **5173**: Vite dev server (development)
 - **3007**: Production server (Railway/Vercel)
@@ -1003,7 +1003,7 @@ npm run postinstall
 
 ## Platform Vision
 
-Torqq AI is designed as a **unified martech intelligence platform** that:
+Marqq AI is designed as a **unified martech intelligence platform** that:
 
 1. **Automates** repetitive marketing tasks with minimal human intervention
 2. **Orchestrates** multiple AI agents for complex workflows

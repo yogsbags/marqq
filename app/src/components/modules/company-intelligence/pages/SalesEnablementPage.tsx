@@ -195,7 +195,7 @@ export function SalesEnablementPage({ artifact }: Props = {}) {
         body: JSON.stringify({
           context: {
             competitor: selectedCompetitor,
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             industry: 'B2B Marketing Technology',
             gtmInsights: gtmCtx?.bullets || [],
           },
@@ -237,7 +237,7 @@ export function SalesEnablementPage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             valueProposition: 'Unified B2B Marketing Intelligence Platform with autonomous multi-agent AI',
             targetAudience: 'Marketing teams at B2B SaaS companies',
             keyFeatures: [
@@ -285,7 +285,7 @@ export function SalesEnablementPage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             industry: 'B2B Marketing Technology',
             targetAudience: 'Marketing teams at B2B SaaS companies',
             commonConcerns: ['pricing', 'implementation', 'data security', 'ROI', 'integration'],
@@ -327,7 +327,7 @@ export function SalesEnablementPage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             industry: 'B2B Marketing Technology',
             targetAudience: 'Marketing teams at B2B SaaS companies',
             competitorPricing: battlecards.map(b => ({ competitor: b.competitor })),

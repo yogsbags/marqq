@@ -28,6 +28,18 @@ ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
 
 <process>
 
+## 0. Initialize Context
+
+```bash
+INIT=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" state load)
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+```
+
+Extract `commit_docs` from init JSON. Resolve debugger model:
+```bash
+debugger_model=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" resolve-model gsd-debugger --raw)
+```
+
 ## 1. Check Active Sessions
 
 If active sessions exist AND no $ARGUMENTS:
@@ -82,6 +94,7 @@ Create: .planning/debug/{slug}.md
 Task(
   prompt=filled_prompt,
   subagent_type="gsd-debugger",
+  model="{debugger_model}",
   description="Debug {slug}"
 )
 ```
@@ -98,6 +111,9 @@ Task(
 **If `## CHECKPOINT REACHED`:**
 - Present checkpoint details to user
 - Get user response
+- If checkpoint type is `human-verify`:
+  - If user confirms fixed: continue so agent can finalize/resolve/archive
+  - If user reports issues: continue so agent returns to investigation/fixing
 - Spawn continuation agent (see step 5)
 
 **If `## INVESTIGATION INCONCLUSIVE`:**
@@ -117,7 +133,9 @@ Continue debugging {slug}. Evidence is in the debug file.
 </objective>
 
 <prior_state>
-Debug file: @.planning/debug/{slug}.md
+<files_to_read>
+- .planning/debug/{slug}.md (Debug session state)
+</files_to_read>
 </prior_state>
 
 <checkpoint_response>
@@ -134,6 +152,7 @@ goal: find_and_fix
 Task(
   prompt=continuation_prompt,
   subagent_type="gsd-debugger",
+  model="{debugger_model}",
   description="Continue debug {slug}"
 )
 ```

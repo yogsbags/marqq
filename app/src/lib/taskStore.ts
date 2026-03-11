@@ -1,6 +1,6 @@
 import type { Task } from '@/types/chat';
 
-const STORAGE_KEY = 'torqq_tasks';
+const STORAGE_KEY = 'marqq_tasks';
 
 function normalizeTaskLabel(label: string): string {
   return label

@@ -215,9 +215,9 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
     if (!companiesLoaded || autoRunFiredRef.current) return
     autoRunFiredRef.current = true
 
-    const raw = sessionStorage.getItem('torqq_company_intel_autorun')
+    const raw = sessionStorage.getItem('marqq_company_intel_autorun')
     if (!raw) return
-    sessionStorage.removeItem('torqq_company_intel_autorun')
+    sessionStorage.removeItem('marqq_company_intel_autorun')
 
     let payload: { companyId?: string; companyName?: string; websiteUrl?: string }
     try { payload = JSON.parse(raw) } catch { return }

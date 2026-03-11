@@ -87,6 +87,55 @@ const VALID_AGENTS = new Set([
   "kiran",
   "sam",
 ]);
+// Maps each company-intel artifact type to the agent that owns it
+const ARTIFACT_AGENT_MAP = {
+  competitor_intelligence: { agent: "priya", taskType: "competitor_move_analysis" },
+  website_audit:           { agent: "veena", taskType: "company_intel_bootstrap" },
+  opportunities:           { agent: "isha",  taskType: "market_landscape_bootstrap" },
+  client_profiling:        { agent: "isha",  taskType: "market_landscape_bootstrap" },
+  partner_profiling:       { agent: "isha",  taskType: "market_landscape_bootstrap" },
+  icps:                    { agent: "isha",  taskType: "market_landscape_bootstrap" },
+  social_calendar:         { agent: "kiran", taskType: "daily_lifecycle_check" },
+  marketing_strategy:      { agent: "neel",  taskType: "strategy_bootstrap" },
+  positioning_messaging:   { agent: "neel",  taskType: "strategy_bootstrap" },
+  sales_enablement:        { agent: "sam",   taskType: "weekly_messaging_review" },
+  pricing_intelligence:    { agent: "neel",  taskType: "strategy_bootstrap" },
+  content_strategy:        { agent: "riya",  taskType: "weekly_content_brief" },
+  channel_strategy:        { agent: "zara",  taskType: "distribution_bootstrap" },
+  lookalike_audiences:     { agent: "isha",  taskType: "market_landscape_bootstrap" },
+  lead_magnets:            { agent: "tara",  taskType: "offer_friction_review" },
+};
+
+function buildAgentQueryForArtifact(type, companyName, inputs) {
+  const ctx = companyName
+    ? `Company: ${companyName}${inputs?.websiteUrl ? ` (${inputs.websiteUrl})` : ""}. `
+    : "";
+  const goal = inputs?.goal ? ` Goal: ${inputs.goal}.` : "";
+  const geo  = inputs?.geo  ? ` Market: ${inputs.geo}.`  : "";
+  const notes = inputs?.notes ? ` Notes: ${inputs.notes}.` : "";
+
+  const templates = {
+    competitor_intelligence: `${ctx}Scan for competitor moves, narrative shifts, pricing changes, and market threats. Identify top 3-5 direct competitors and surface actionable competitive intelligence. Return your full analysis plus a structured competitor_intelligence artifact.`,
+    website_audit:           `${ctx}Audit the company website for offer clarity, CTA effectiveness, messaging quality, and conversion blockers. Return your findings plus a structured website_audit artifact.`,
+    opportunities:           `${ctx}Identify the top market opportunities, demand gaps, and near-term growth vectors. Return your analysis plus a structured opportunities artifact.`,
+    client_profiling:        `${ctx}Profile the company's likely client base — who they serve, use cases, buying behaviour, and success patterns. Return a structured client_profiling artifact.`,
+    partner_profiling:       `${ctx}Identify partner, integration, and channel ecosystem opportunities. Return a structured partner_profiling artifact.`,
+    icps:                    `${ctx}Define 2-3 Ideal Customer Profiles with firmographic, behavioural, and psychographic attributes and recommended messaging angles. Return a structured icps artifact.`,
+    social_calendar:         `${ctx}Create a 30-day social media content calendar with platform-specific posts, themes, hashtags, and posting cadence. Return a structured social_calendar artifact.`,
+    marketing_strategy:      `${ctx}Develop a comprehensive marketing strategy covering positioning, target segments, key messages, channel mix, and 90-day priorities. Return a structured marketing_strategy artifact.`,
+    positioning_messaging:   `${ctx}Write a clear positioning statement, core value proposition, and message hierarchy for each ICP segment. Return a structured positioning_messaging artifact.`,
+    sales_enablement:        `${ctx}Create sales enablement content: objection handling guide, competitive battlecards, and proof points by persona. Return a structured sales_enablement artifact.`,
+    pricing_intelligence:    `${ctx}Analyse pricing strategy, competitive price positioning, and packaging or bundling recommendations. Return a structured pricing_intelligence artifact.`,
+    content_strategy:        `${ctx}Define a content strategy: pillar themes, formats, distribution channels, and a quarterly editorial calendar framework. Return a structured content_strategy artifact.`,
+    channel_strategy:        `${ctx}Recommend the optimal channel mix and distribution plan based on ICP and competitive context. Return a structured channel_strategy artifact.`,
+    lookalike_audiences:     `${ctx}Define lookalike audience profiles for paid and organic targeting based on best-fit customer patterns. Return a structured lookalike_audiences artifact.`,
+    lead_magnets:            `${ctx}Design 3-5 high-value lead magnet concepts aligned to ICP pain points and sales funnel stage. Return a structured lead_magnets artifact.`,
+  };
+
+  const base = templates[type] || `${ctx}Generate a comprehensive ${type} analysis.`;
+  return base + goal + geo + notes;
+}
+
 const AGENT_PROFILES = {
   isha: {
     title: "Market Research",
@@ -2258,20 +2307,57 @@ async function createAgentNotification(notification) {
   }
 }
 
-async function readSavedAgentContext(userId) {
-  if (!userId) {
+const EMPTY_CONTEXT = (ref = "") => ({
+  userId: ref, workspaceId: ref,
+  company: "", websiteUrl: "", industry: "", icp: "", competitors: "", primaryGoal: "", goals: "", campaigns: "", keywords: "",
+});
+
+async function readContextFromSupabase(workspaceId) {
+  if (!supabaseAdminClient || !workspaceId) return null;
+  try {
+    const { data, error } = await supabaseAdminClient
+      .from("workspace_context")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .single();
+    if (error || !data) return null;
     return {
-      userId: "",
-      company: "",
-      industry: "",
-      icp: "",
-      competitors: "",
-      campaigns: "",
-      keywords: "",
-      goals: "",
+      workspaceId,
+      company:      data.company      || "",
+      websiteUrl:   data.website_url  || "",
+      industry:     data.industry     || "",
+      icp:          data.icp          || "",
+      competitors:  data.competitors  || "",
+      primaryGoal:  data.primary_goal || "",
+      goals:        data.goals        || "",
+      campaigns:    data.campaigns    || "",
+      keywords:     data.keywords     || "",
     };
+  } catch {
+    return null;
+  }
+}
+
+async function writeContextToSupabase(workspaceId, fields) {
+  if (!supabaseAdminClient || !workspaceId) return;
+  try {
+    await supabaseAdminClient
+      .from("workspace_context")
+      .upsert({ workspace_id: workspaceId, ...fields }, { onConflict: "workspace_id" });
+  } catch (err) {
+    console.warn("[Context] Supabase write failed:", err.message);
+  }
+}
+
+async function readSavedAgentContext(userId, workspaceId = null) {
+  // 1. Try Supabase by workspaceId (source of truth)
+  if (workspaceId) {
+    const ctx = await readContextFromSupabase(workspaceId);
+    if (ctx) return { userId, ...ctx };
   }
 
+  // 2. Fall back to filesystem (legacy per-user file)
+  if (!userId) return EMPTY_CONTEXT();
   try {
     const raw = await readFile(join(CTX_DIR, `${userId}.md`), "utf-8");
     const matchField = (label) => {
@@ -2280,28 +2366,18 @@ async function readSavedAgentContext(userId) {
       const value = match?.[1]?.trim() || "";
       return value === "—" ? "" : value;
     };
-
     return {
-      userId,
-      company: matchField("Company"),
-      industry: matchField("Industry"),
-      icp: matchField("Target ICP"),
+      userId, workspaceId: workspaceId || "",
+      company:     matchField("Company"),
+      industry:    matchField("Industry"),
+      icp:         matchField("Target ICP"),
       competitors: matchField("Top Competitors"),
-      campaigns: matchField("Current Campaigns"),
-      keywords: matchField("Active Keywords"),
-      goals: matchField("Key Goals this Quarter"),
+      campaigns:   matchField("Current Campaigns"),
+      keywords:    matchField("Active Keywords"),
+      goals:       matchField("Key Goals this Quarter"),
     };
   } catch {
-    return {
-      userId,
-      company: "",
-      industry: "",
-      icp: "",
-      competitors: "",
-      campaigns: "",
-      keywords: "",
-      goals: "",
-    };
+    return EMPTY_CONTEXT(userId);
   }
 }
 
@@ -2327,7 +2403,7 @@ function summarizeArtifactData(data) {
 }
 
 async function assembleMarketingContext({ userId = "", workspaceId = "", companyId = "" } = {}) {
-  const agentContext = await readSavedAgentContext(userId);
+  const agentContext = await readSavedAgentContext(userId, workspaceId);
   let workspace = null;
   let company = null;
   let companyArtifacts = {};
@@ -2745,47 +2821,60 @@ app.get("/api/agents/status", async (_req, res) => {
 app.post("/api/agents/context", async (req, res) => {
   const {
     userId,
+    workspaceId,
     company,
+    websiteUrl,
     industry,
     icp,
     competitors,
+    primaryGoal,
     campaigns,
     keywords,
     goals,
   } = req.body;
 
-  if (!userId || !company) {
-    return res.status(400).json({ error: "userId and company are required" });
+  if (!company) {
+    return res.status(400).json({ error: "company is required" });
   }
 
-  const content = `# Client Context
+  const fields = {
+    company:      company      || "",
+    website_url:  websiteUrl   || "",
+    industry:     industry     || "",
+    icp:          icp          || "",
+    competitors:  competitors  || "",
+    primary_goal: primaryGoal  || "",
+    goals:        goals        || "",
+    campaigns:    campaigns    || "",
+    keywords:     keywords     || "",
+  };
 
-**Company**: ${company}
-**Industry**: ${industry || "—"}
-**Target ICP**: ${icp || "—"}
-**Top Competitors**: ${competitors || "—"}
-**Current Campaigns**: ${campaigns || "—"}
-**Active Keywords**: ${keywords || "—"}
-**Key Goals this Quarter**: ${goals || "—"}
-`;
-
-  try {
-    await mkdir(CTX_DIR, { recursive: true });
-    await writeFile(join(CTX_DIR, `${userId}.md`), content, "utf-8");
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
+  // 1. Write to Supabase (primary — workspace-scoped)
+  if (workspaceId) {
+    await writeContextToSupabase(workspaceId, fields);
   }
+
+  // 2. Write to filesystem (legacy cache — user-scoped fallback)
+  if (userId) {
+    const content = `# Client Context\n\n**Company**: ${fields.company}\n**Website**: ${fields.website_url || "—"}\n**Industry**: ${fields.industry || "—"}\n**Target ICP**: ${fields.icp || "—"}\n**Top Competitors**: ${fields.competitors || "—"}\n**Primary Goal**: ${fields.primary_goal || "—"}\n**Key Goals this Quarter**: ${fields.goals || "—"}\n`;
+    try {
+      await mkdir(CTX_DIR, { recursive: true });
+      await writeFile(join(CTX_DIR, `${userId}.md`), content, "utf-8");
+    } catch { /* non-critical */ }
+  }
+
+  res.json({ success: true });
 });
 
 app.get("/api/agents/context", async (req, res) => {
   const userId = String(req.query.userId || "").trim();
+  const workspaceId = String(req.query.workspaceId || "").trim() || null;
 
-  if (!userId) {
-    return res.status(400).json({ error: "userId is required" });
+  if (!userId && !workspaceId) {
+    return res.status(400).json({ error: "userId or workspaceId is required" });
   }
 
-  res.json(await readSavedAgentContext(userId));
+  res.json(await readSavedAgentContext(userId, workspaceId));
 });
 
 app.get("/api/marketing-context", async (req, res) => {
@@ -3503,6 +3592,120 @@ app.post("/api/agents/:name/plan", async (req, res) => {
   }
 });
 
+// ── runAgentForArtifact — internal (non-SSE) agent call ───────────────────────
+// Used by /api/company-intel/companies/:id/generate to route through named agents.
+// Loads the same SOUL+skills+memory as the SSE endpoint, calls Groq non-streaming,
+// extracts the contract, patches the MKG, and returns the parsed contract object.
+
+async function runAgentForArtifact(agentName, query, companyId, taskType) {
+  const { randomUUID } = await import("node:crypto");
+  const runId = randomUUID();
+  const startedAt = Date.now();
+
+  // Load SOUL.md
+  const soulPath = join(AGENTS_DIR, agentName, "SOUL.md");
+  let systemPrompt = `You are ${agentName}, a marketing AI agent.`;
+  try { systemPrompt = await readFile(soulPath, "utf-8"); } catch { /* default */ }
+
+  // Load memory + calibration note
+  const { memory, calibrationNote } = await loadAgentPromptContext(agentName, companyId);
+
+  // Load skills
+  let skillsBlock = "";
+  try {
+    const skillsDir = join(AGENTS_DIR, agentName, "skills");
+    const files = (await readdir(skillsDir)).filter((f) => f.endsWith(".md")).sort();
+    if (files.length) {
+      const contents = await Promise.all(files.map((f) => readFile(join(skillsDir, f), "utf-8")));
+      skillsBlock =
+        "\n\n## Your Available Skills\nYou have the following specialist workflows available.\n\n" +
+        contents.map((c, i) => `### ${files[i].replace(".md", "")}\n${c}`).join("\n\n---\n\n");
+    }
+  } catch { /* no skills dir */ }
+
+  const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\ntask_type: ${taskType ?? "artifact_generation"}\n`;
+
+  const contractInstruction = `
+
+## Output Contract (REQUIRED — do not skip)
+
+After your COMPLETE response (all prose, analysis, and recommendations have been written),
+append the following block EXACTLY at the very END. Do not include ---CONTRACT--- anywhere
+else in your response.
+
+---CONTRACT---
+{
+  "agent": "${agentName}",
+  "task": "<one-line description of what you just did>",
+  "company_id": "${companyId ?? "unknown"}",
+  "run_id": "${runId}",
+  "timestamp": "${new Date().toISOString()}",
+  "input": { "mkg_version": null, "dependencies_read": [], "assumptions_made": [] },
+  "artifact": {
+    "data": {},
+    "summary": "<one paragraph summary of your output — be specific>",
+    "confidence": 0.75
+  },
+  "context_patch": { "writes_to": [], "patch": {} },
+  "handoff_notes": "",
+  "missing_data": [],
+  "tasks_created": [],
+  "outcome_prediction": null
+}
+
+Replace ALL placeholder values with your actual outputs.
+- artifact.data: must contain the structured artifact content for the requested type
+- context_patch.patch: use only valid MKG field names: positioning, icp, competitors, offers, messaging, channels, funnel, metrics, baselines, content_pillars, campaigns, insights
+- The JSON must be valid JSON (no trailing commas, no comments)
+`;
+
+  const fullSystem = [
+    systemPrompt,
+    memory ? `\n\n## Your Recent Memory\n${memory}` : "",
+    calibrationNote?.text ? `\n\n## Latest Calibration Note\n${calibrationNote.text}` : "",
+    skillsBlock,
+    runContextBlock,
+    contractInstruction,
+  ].join("");
+
+  await markAgentHeartbeat(agentName, "running");
+
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      { role: "system", content: fullSystem },
+      { role: "user", content: query },
+    ],
+    stream: false,
+    max_tokens: 8192,
+    temperature: 0.4,
+  });
+
+  const fullText = completion.choices[0]?.message?.content?.trim() || "";
+  const contract = extractContract(fullText);
+
+  await markAgentHeartbeat(agentName, "completed", Date.now() - startedAt);
+
+  if (!contract) {
+    throw new Error(`[runAgentForArtifact] ${agentName} did not return a ---CONTRACT--- block`);
+  }
+
+  contract.run_id = runId;
+  contract.agent = agentName;
+  if (companyId) contract.company_id = companyId;
+
+  // Patch MKG if context_patch present
+  if (companyId && contract.context_patch?.patch && Object.keys(contract.context_patch.patch).length > 0) {
+    try {
+      await MKGService.patch(companyId, contract.context_patch.patch);
+    } catch (mkgErr) {
+      console.warn(`[runAgentForArtifact] MKG patch failed for ${companyId}:`, mkgErr.message);
+    }
+  }
+
+  return contract;
+}
+
 // ── Agent Contract Persistence Helpers ────────────────────────────────────────
 
 /**
@@ -3789,6 +3992,7 @@ app.post("/api/agents/:name/run", async (req, res) => {
     trigger_id,
     hook_id,
     trigger_metadata,
+    offer_focus,
   } = req.body;
 
   if (!VALID_AGENTS.has(name)) {
@@ -3841,11 +4045,51 @@ app.post("/api/agents/:name/run", async (req, res) => {
     /* no skills dir */
   }
 
+  // Load MKG + company profile for context injection
+  let mkgBlock = "";
+  if (companyId) {
+    try {
+      const [mkgData, companiesData] = await Promise.all([
+        MKGService.read(companyId).catch(() => null),
+        fetch(`http://localhost:${process.env.PORT || 3007}/api/company-intel/companies`).then(r => r.json()).catch(() => null),
+      ]);
+
+      const company = (companiesData?.companies ?? []).find(c => c.id === companyId);
+      const profile = company?.profile ?? {};
+      const mkg = mkgData ?? {};
+
+      const lines = ["## Company Knowledge Base"];
+
+      if (company?.companyName) lines.push(`Company: ${company.companyName}`);
+      if (company?.websiteUrl) lines.push(`Website: ${company.websiteUrl}`);
+      if (profile.summary) lines.push(`Summary: ${profile.summary}`);
+      if (profile.industry) lines.push(`Industry: ${profile.industry}`);
+      if (Array.isArray(profile.geoFocus) && profile.geoFocus.length) lines.push(`Geography: ${profile.geoFocus.join(", ")}`);
+      if (Array.isArray(profile.offerings) && profile.offerings.length) lines.push(`Offerings: ${profile.offerings.join(", ")}`);
+      if (Array.isArray(profile.primaryAudience) && profile.primaryAudience.length) lines.push(`Primary Audience: ${profile.primaryAudience.join(", ")}`);
+      if (profile.brandVoice?.tone) lines.push(`Brand Voice: ${profile.brandVoice.tone}${profile.brandVoice.style ? `, ${profile.brandVoice.style}` : ""}`);
+
+      // Inject high-confidence MKG fields
+      const mkgFields = ["positioning", "icp", "competitors", "offers", "messaging", "channels", "content_pillars"];
+      for (const field of mkgFields) {
+        const entry = mkg[field];
+        if (entry?.value != null && entry.confidence >= 0.5) {
+          lines.push(`MKG.${field} (confidence ${entry.confidence}): ${JSON.stringify(entry.value)}`);
+        }
+      }
+
+      if (lines.length > 1) mkgBlock = "\n\n" + lines.join("\n");
+    } catch { /* non-blocking */ }
+  }
+
   // Run context block — injected so LLM echoes correct values into contract JSON
   const triggerContextBlock = triggered_by
     ? `\n## Trigger Context\ntriggered_by: ${triggered_by}\ntrigger_id: ${trigger_id ?? "unknown"}\nhook_id: ${hook_id ?? "unknown"}\ntask_type: ${task_type ?? "unknown"}\ntrigger_metadata: ${JSON.stringify(trigger_metadata || {})}\n`
     : "";
-  const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\n${triggerContextBlock}`;
+  const offerFocusBlock = offer_focus?.name
+    ? `\n## Product / Service Focus\nThis run is scoped to a specific product or service. All analysis, copy, and recommendations MUST be anchored to this product — do not generalise to the full company portfolio unless explicitly asked.\nname: ${offer_focus.name}${offer_focus.price_signal ? `\nprice_signal: ${offer_focus.price_signal}` : ""}${offer_focus.tier ? `\ntier: ${offer_focus.tier}` : ""}\n`
+    : "";
+  const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\n${triggerContextBlock}${offerFocusBlock}`;
 
   // Contract instruction — always appended LAST so it takes precedence
   const contractInstruction = `
@@ -3884,6 +4128,8 @@ else in your response.
 }
 
 Replace ALL placeholder values with your actual outputs.
+- artifact.data: MUST contain the key structured outputs. For content (posts, briefs, calendars), include the full content as strings inside data. For analysis, include findings, scores, or lists. Never leave data as {}.
+  Examples: {"post": "...", "hashtags": ["#A","#B"]} | {"blog_ideas": [...]} | {"calendar": [...]} | {"scores": {...}, "variants": [...]}
 - confidence: your honest assessment of output quality (0.0–1.0)
 - context_patch.patch: use only valid MKG field names: positioning, icp, competitors, offers, messaging, channels, funnel, metrics, baselines, content_pillars, campaigns, insights
 - tasks_created: array of { "task_type": "...", "agent_name": "...", "description": "...", "priority": "low|medium|high" }
@@ -3893,6 +4139,7 @@ Replace ALL placeholder values with your actual outputs.
 
   const fullSystem = [
     systemPrompt,
+    mkgBlock,
     memory ? `\n\n## Your Recent Memory\n${memory}` : "",
     calibrationNote?.text ? `\n\n## Latest Calibration Note\n${calibrationNote.text}` : "",
     skillsBlock,
@@ -4920,8 +5167,9 @@ async function ensureCompanyEntry(companyId) {
   return entry || null;
 }
 
-app.get("/api/company-intel/companies", async (_req, res) => {
-  const dbCompanies = await loadCompanies();
+app.get("/api/company-intel/companies", async (req, res) => {
+  const workspaceId = req.headers["x-workspace-id"] || null;
+  const dbCompanies = await loadCompanies(workspaceId);
   if (dbCompanies.length) {
     for (const company of dbCompanies) {
       const existing = _companies.get(company.id);
@@ -4941,6 +5189,7 @@ app.get("/api/company-intel/companies", async (_req, res) => {
 
 app.post("/api/company-intel/companies", async (req, res) => {
   const { companyName, websiteUrl } = req.body || {};
+  const workspaceId = req.headers["x-workspace-id"] || null;
   if (!companyName?.trim())
     return res.status(400).json({ error: "companyName is required" });
 
@@ -4958,7 +5207,7 @@ app.post("/api/company-intel/companies", async (req, res) => {
           .find(
             (company) =>
               normalizeWebsiteUrl(company.websiteUrl) === normalizedWebsiteUrl,
-          ) || (await loadCompanyByWebsiteUrl(normalizedWebsiteUrl));
+          ) || (await loadCompanyByWebsiteUrl(normalizedWebsiteUrl, workspaceId));
     }
 
     const id = existingCompany?.id || randomUUID();
@@ -4991,7 +5240,7 @@ app.post("/api/company-intel/companies", async (req, res) => {
     });
 
     // Save to Supabase
-    await saveCompany(company);
+    await saveCompany(company, workspaceId);
     if (normalizedWebsiteUrl) {
       await deleteDuplicateCompaniesByWebsiteUrl(normalizedWebsiteUrl, id);
     }
@@ -5316,14 +5565,43 @@ app.post("/api/company-intel/companies/:id/generate", async (req, res) => {
   if (!type) return res.status(400).json({ error: "type is required" });
 
   try {
-    if (
-      !hasNonEmptyProfile(entry.company.profile) &&
-      entry.company.websiteUrl
-    ) {
+    if (!hasNonEmptyProfile(entry.company.profile) && entry.company.websiteUrl) {
       await refreshCompanyProfile(entry, entry.company.companyName);
     }
 
     const now = new Date().toISOString();
+    const companyId = req.params.id;
+
+    // ── Step 1: Try agent-based generation (SOUL + skills + MKG patch) ──────────
+    const agentMapping = ARTIFACT_AGENT_MAP[type];
+    if (agentMapping) {
+      const enrichedInputs = {
+        ...(inputs || {}),
+        websiteUrl: entry.company.websiteUrl,
+        companyProfile: entry.company.profile,
+      };
+      const query = buildAgentQueryForArtifact(type, entry.company.companyName, enrichedInputs);
+      console.log(`[generate] Routing ${type} to agent "${agentMapping.agent}" for company ${companyId}`);
+      try {
+        const contract = await runAgentForArtifact(
+          agentMapping.agent,
+          query,
+          companyId,
+          agentMapping.taskType,
+        );
+        const artifactData = contract.artifact?.data || {};
+        entry.artifacts[type] = { type, updatedAt: now, data: artifactData };
+        entry.company.updatedAt = now;
+        await saveArtifact(companyId, entry.artifacts[type]);
+        await saveCompany(entry.company);
+        console.log(`[generate] ${type} generated via agent "${agentMapping.agent}" — confidence ${contract.artifact?.confidence ?? "?"}`);
+        return res.json({ artifact: entry.artifacts[type] });
+      } catch (agentErr) {
+        console.warn(`[generate] Agent "${agentMapping.agent}" failed for ${type}, falling back to direct Groq: ${agentErr.message}`);
+      }
+    }
+
+    // ── Step 2: Fallback — direct Groq (original behaviour) ─────────────────────
     let directGroqError = null;
     try {
       const directGroqData = await generateArtifactWithGroq(
@@ -5340,56 +5618,35 @@ app.post("/api/company-intel/companies/:id/generate", async (req, res) => {
           existingArtifacts: entry.artifacts || {},
         },
       );
-
-      entry.artifacts[type] = {
-        type,
-        updatedAt: now,
-        data: normalizeArtifact(type, directGroqData),
-      };
+      entry.artifacts[type] = { type, updatedAt: now, data: normalizeArtifact(type, directGroqData) };
       directGroqError = null;
     } catch (err) {
       directGroqError = err instanceof Error ? err : new Error(String(err));
     }
 
+    // ── Step 3: Fallback — CrewAI ────────────────────────────────────────────────
     if (directGroqError) {
       const CREWAI_URL = process.env.CREWAI_URL || "http://localhost:8002";
-      console.warn(
-        `Direct Groq failed, falling back to CrewAI: ${directGroqError.message}`,
-      );
-
-      const resp = await fetch(
-        `${CREWAI_URL}/api/crewai/company-intel/generate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            company_name: entry.company.companyName,
-            company_url: entry.company.websiteUrl,
-            artifact_type: type,
-            inputs,
-            company_profile: entry.company.profile,
-          }),
-        },
-      );
-
-      if (!resp.ok) {
-        throw new Error(`CrewAI responded with ${resp.status}`);
-      }
-
+      console.warn(`Direct Groq failed, falling back to CrewAI: ${directGroqError.message}`);
+      const resp = await fetch(`${CREWAI_URL}/api/crewai/company-intel/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: entry.company.companyName,
+          company_url: entry.company.websiteUrl,
+          artifact_type: type,
+          inputs,
+          company_profile: entry.company.profile,
+        }),
+      });
+      if (!resp.ok) throw new Error(`CrewAI responded with ${resp.status}`);
       const crewData = await resp.json();
-      if (crewData.status === "failed") {
-        throw new Error(crewData.error || "CrewAI generation failed");
-      }
-
-      entry.artifacts[type] = {
-        type,
-        updatedAt: crewData.generated_at || now,
-        data: crewData.data,
-      };
+      if (crewData.status === "failed") throw new Error(crewData.error || "CrewAI generation failed");
+      entry.artifacts[type] = { type, updatedAt: crewData.generated_at || now, data: crewData.data };
     }
 
     entry.company.updatedAt = now;
-    await saveArtifact(req.params.id, entry.artifacts[type]);
+    await saveArtifact(companyId, entry.artifacts[type]);
     await saveCompany(entry.company);
     res.json({ artifact: entry.artifacts[type] });
   } catch (err) {

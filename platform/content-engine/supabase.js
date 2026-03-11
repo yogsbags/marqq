@@ -93,17 +93,20 @@ function normalizeWebsiteUrl(url) {
 /**
  * Ensures a company exists in Supabase.
  */
-export async function saveCompany(company) {
+export async function saveCompany(company, workspaceId = null) {
   if (!supabase) return company
   try {
+    const row = {
+      id: company.id,
+      company_name: company.companyName,
+      website_url: company.websiteUrl,
+      profile: company.profile || {}
+    }
+    if (workspaceId) row.workspace_id = workspaceId
+
     const { data, error } = await supabase
       .from('companies')
-      .upsert({
-        id: company.id,
-        company_name: company.companyName,
-        website_url: company.websiteUrl,
-        profile: company.profile || {}
-      }, { onConflict: 'id' })
+      .upsert(row, { onConflict: 'id' })
       .select()
       .single()
 
@@ -198,13 +201,19 @@ export async function loadCompanyWithArtifacts(companyId) {
   }
 }
 
-export async function loadCompanies() {
+export async function loadCompanies(workspaceId = null) {
   if (!supabase) return []
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('companies')
       .select('*')
       .order('updated_at', { ascending: false })
+
+    if (workspaceId) {
+      query = query.eq('workspace_id', workspaceId)
+    }
+
+    const { data, error } = await query
 
     if (error || !data) return []
 
@@ -229,11 +238,11 @@ export async function loadCompanies() {
   }
 }
 
-export async function loadCompanyByWebsiteUrl(websiteUrl) {
+export async function loadCompanyByWebsiteUrl(websiteUrl, workspaceId = null) {
   if (!supabase || !websiteUrl) return null
   try {
     const normalizedTarget = normalizeWebsiteUrl(websiteUrl)
-    const companies = await loadCompanies()
+    const companies = await loadCompanies(workspaceId)
     return companies.find((company) => normalizeWebsiteUrl(company.websiteUrl) === normalizedTarget) || null
   } catch {
     return null

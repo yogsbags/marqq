@@ -11,6 +11,14 @@ export type BrandConfig = {
 };
 
 export const BRANDS = {
+  marqq: {
+    name: 'Marqq AI',
+    shortName: 'Marqq',
+    supportEmail: 'support@marqq.ai',
+    titleSuffix: 'Marqq AI',
+    platformTagline: 'Marketing Intelligence Platform',
+    logoSrc: torqqLogo,
+  },
   torqq: {
     name: 'Torqq AI',
     shortName: 'Torqq',
@@ -29,5 +37,5 @@ export const BRANDS = {
   },
 } as const satisfies Record<string, BrandConfig>;
 
-export const ACTIVE_BRAND_KEY = 'elevate';
+export const ACTIVE_BRAND_KEY = 'marqq';
 export const BRAND: BrandConfig = BRANDS[ACTIVE_BRAND_KEY];

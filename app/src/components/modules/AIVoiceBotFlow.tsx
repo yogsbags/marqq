@@ -33,7 +33,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { AgentService } from '@/services/agentService';
+import { useAgentRun } from '@/hooks/useAgentRun';
+import { AgentRunPanel } from '@/components/agent/AgentRunPanel';
+import { CompanySelector } from '@/components/agent/CompanySelector';
 import { LiveKitVoiceSession } from './voicebot/LiveKitVoiceSession';
 import { KnowledgeBaseUploader } from './voicebot/KnowledgeBaseUploader';
 import { VoicebotSimulator } from './voicebot/VoicebotSimulator';
@@ -52,6 +54,8 @@ interface AIVoiceBotFlowProps {
 }
 
 export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
+  const kiranRun = useAgentRun();
+  const [voiceCompanyId, setVoiceCompanyId] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -291,6 +295,20 @@ export function AIVoiceBotFlow({ autoStart = false }: AIVoiceBotFlowProps) {
 
   return (
     <div className="space-y-6">
+      {/* Kiran pre-call briefing */}
+      <CompanySelector value={voiceCompanyId} onChange={setVoiceCompanyId} />
+      <div className="space-y-2">
+        <Button size="sm" disabled={kiranRun.streaming}
+          onClick={() => kiranRun.run('kiran',
+            'Review retention signals and social engagement trends. Prepare a pre-call briefing: top 3 conversation angles, likely objections and responses, and a recommended call script outline for this company.',
+            'daily_lifecycle_check', voiceCompanyId || undefined)}>
+          Run Kiran — Pre-call Briefing
+        </Button>
+        <AgentRunPanel agentName="kiran" label="Kiran — Lifecycle & Outreach Brief" {...kiranRun} onReset={kiranRun.reset} />
+      </div>
+
+      <div className="border-t pt-2" />
+
       {/* Header */}
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">

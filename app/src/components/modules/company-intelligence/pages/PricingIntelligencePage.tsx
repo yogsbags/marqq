@@ -174,7 +174,7 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             industry: 'B2B Marketing Technology',
             targetMarket: 'SMB and Mid-Market',
             existingCompetitors: competitors.map(c => c.competitor),
@@ -218,7 +218,7 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             productType: 'B2B SaaS Platform',
             targetCustomers: ['SMB', 'Mid-Market', 'Enterprise'],
             competitorPricing: competitors,
@@ -261,7 +261,7 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             basePrice: recommendation?.suggestedTiers?.[1]?.price || '$500/month',
             segments: ['SMB', 'Mid-Market', 'Enterprise'],
             competitorPricing: competitors,
@@ -303,7 +303,7 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Torqq AI',
+            companyName: 'Marqq AI',
             productType: 'B2B Marketing Intelligence Platform',
             keyFeatures: [
               'Lead Intelligence',

@@ -8,6 +8,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
+import { useAgentRun } from '@/hooks/useAgentRun'
+import { AgentRunPanel } from '@/components/agent/AgentRunPanel'
+import { CompanySelector } from '@/components/agent/CompanySelector'
 
 type ConnectorStatus = 'available' | 'configured' | 'not_configured'
 
@@ -110,6 +113,9 @@ function downloadTextFile(filename: string, content: string, mime = 'text/plain;
 
 export function BudgetOptimizationFlow() {
   const { user } = useAuth()
+  const devRun = useAgentRun()
+  const arjunRun = useAgentRun()
+  const [budgetCompanyId, setBudgetCompanyId] = useState('')
   const [connectors, setConnectors] = useState<ConnectorInfo[]>([])
   const [selectedConnectors, setSelectedConnectors] = useState<string[]>(['manual'])
   const [connectorsMeta, setConnectorsMeta] = useState<Pick<ConnectorsResponse, 'philosophy' | 'rateLimit' | 'cacheTtlSeconds'> | null>(
@@ -242,6 +248,31 @@ export function BudgetOptimizationFlow() {
 
   return (
     <div className="space-y-4">
+      {/* Agent panels — dev diagnoses KPIs, arjun verifies outcomes */}
+      <CompanySelector value={budgetCompanyId} onChange={setBudgetCompanyId} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <Button size="sm" disabled={devRun.streaming}
+            onClick={() => devRun.run('dev',
+              'Review KPI movement against baselines. Identify the top anomalies in spend, ROAS, CPA, and conversion rate. Prepare a diagnosis with root causes and recommended budget shifts.',
+              'nightly_kpi_watch', budgetCompanyId || undefined)}>
+            Run Dev — KPI Diagnosis
+          </Button>
+          <AgentRunPanel agentName="dev" label="Dev — KPI Watch & Diagnosis" {...devRun} onReset={devRun.reset} />
+        </div>
+        <div className="space-y-3">
+          <Button size="sm" disabled={arjunRun.streaming}
+            onClick={() => arjunRun.run('arjun',
+              'Verify predicted outcomes against actual KPI movement. Where variance exceeds tolerance, write calibration notes. Recommend budget reallocation based on verified performance data.',
+              'weekly_outcome_verification', budgetCompanyId || undefined)}>
+            Run Arjun — Outcome Verification
+          </Button>
+          <AgentRunPanel agentName="arjun" label="Arjun — Budget Verification" {...arjunRun} onReset={arjunRun.reset} />
+        </div>
+      </div>
+
+      <div className="border-t pt-4" />
+
       <div className="space-y-2 text-center">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
           Budget Optimization

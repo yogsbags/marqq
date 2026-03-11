@@ -12,11 +12,20 @@ import { AIVideoBotFlow } from './AIVideoBotFlow';
 import { UserEngagementFlow } from './UserEngagementFlow';
 import { BudgetOptimizationFlow } from './BudgetOptimizationFlow';
 import { PerformanceScorecard } from './PerformanceScorecard';
-import { SocialMediaFlow } from './SocialMediaFlow';
+import { SocialMediaFlow, SocialCalendarFlow } from './SocialMediaFlow';
 import { EnhancedBulkGenerator } from './EnhancedBulkGenerator';
 import { UnifiedCustomerViewFlow } from './UnifiedCustomerViewFlow';
 import { CompanyIntelligenceFlow } from './CompanyIntelligenceFlow';
 import { GuidedFlowShell } from './GuidedFlowShell';
+import { MarketSignalsFlow } from './MarketSignalsFlow';
+import { AudienceProfilesFlow } from './AudienceProfilesFlow';
+import { PositioningFlow } from './PositioningFlow';
+import { OfferDesignFlow } from './OfferDesignFlow';
+import { MessagingFlow } from './MessagingFlow';
+import { ChannelHealthFlow } from './ChannelHealthFlow';
+import { LandingPagesFlow } from './LandingPagesFlow';
+import { AIContentFlow } from './AIContentFlow';
+import { SEOLLMOFlow } from './SEOLLMOFlow';
 
 interface ModuleDetailProps {
   module: ModuleStats;
@@ -186,6 +195,18 @@ export function ModuleDetail({ module, onBack, autoStart = false }: ModuleDetail
       </div>
     );
   }
+
+  // New agent-driven modules
+  if (module.id === 'market-signals') return <MarketSignalsFlow />;
+  if (module.id === 'audience-profiles') return <AudienceProfilesFlow />;
+  if (module.id === 'positioning') return <PositioningFlow />;
+  if (module.id === 'offer-design') return <OfferDesignFlow />;
+  if (module.id === 'messaging') return <MessagingFlow />;
+  if (module.id === 'channel-health') return <ChannelHealthFlow />;
+  if (module.id === 'landing-pages') return <LandingPagesFlow />;
+  if (module.id === 'social-calendar') return <SocialCalendarFlow />;
+  if (module.id === 'ai-content') return <AIContentFlow />;
+  if (module.id === 'seo-llmo') return <SEOLLMOFlow />;
 
   return (
     <div className="space-y-6">

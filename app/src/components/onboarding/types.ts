@@ -1,13 +1,15 @@
 export type Phase = 'welcome' | 'form' | 'activate' | 'done';
 
+export type PrimaryGoal = 'leads' | 'conversion' | 'content' | 'market' | 'budget';
+
 export interface FormData {
   company: string;
+  websiteUrl: string;   // moved here from post-onboarding checklist
   industry: string;
   icp: string;
   competitors: string;
-  campaigns: string;
-  keywords: string;
-  goals: string;
+  primaryGoal: string;  // one of PrimaryGoal — drives guided path
+  goals: string;        // optional free-text "anything else?"
   [key: string]: string;
 }
 
@@ -25,7 +27,8 @@ export interface StepField {
   key: keyof FormData;
   label: string;
   placeholder: string;
-  type: 'input' | 'textarea';
+  type: 'input' | 'textarea' | 'goal-picker';
+  optional?: boolean;
 }
 
 export interface OnboardingStep {

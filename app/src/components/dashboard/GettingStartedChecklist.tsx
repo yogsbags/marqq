@@ -9,7 +9,7 @@ import { BRAND } from '@/lib/brand';
 import { fetchJson } from '@/components/modules/company-intelligence/api';
 import { toast } from 'sonner';
 
-const DISMISSED_KEY = 'torqq_checklist_dismissed';
+const DISMISSED_KEY = 'marqq_checklist_dismissed';
 
 interface GettingStartedChecklistProps {
   onNavigate: (moduleId: string) => void;
@@ -17,7 +17,7 @@ interface GettingStartedChecklistProps {
 
 function queueCompanyIntelAutorun(companyName: string, websiteUrl: string, companyId?: string) {
   try {
-    sessionStorage.setItem('torqq_company_intel_autorun', JSON.stringify({
+    sessionStorage.setItem('marqq_company_intel_autorun', JSON.stringify({
       companyName,
       websiteUrl,
       companyId,
@@ -218,7 +218,7 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">Enter your website URL</p>
               <p className="text-xs text-muted-foreground mb-2">
-                Strategy agent (Zara) will research and analyze your brand automatically
+                Company Intelligence agent (Veena) will research and analyze your brand automatically
               </p>
               {!step1Complete && (
                 <div className="flex gap-2">

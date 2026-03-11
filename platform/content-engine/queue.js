@@ -768,7 +768,7 @@ function normalizeLeadMagnets(raw) {
   };
 }
 
-function normalizeArtifact(type, raw) {
+export function normalizeArtifact(type, raw) {
   switch (type) {
     case 'social_calendar':
       return normalizeSocialCalendar(raw);
@@ -803,7 +803,7 @@ function normalizeArtifact(type, raw) {
   }
 }
 
-async function generateArtifactWithGroq(type, companyName, inputs) {
+export async function generateArtifactWithGroq(type, companyName, inputs) {
   let lastError = null;
   const spec = buildArtifactSpec(type, companyName, inputs);
 

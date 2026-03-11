@@ -11,7 +11,7 @@ interface AgentGridProps {
 
 export function AgentGrid({ phase, activatedAgents, activatingAgent }: AgentGridProps) {
   return (
-    <div className={`w-[420px] flex-shrink-0 border-r border-white/5 flex flex-col px-9 py-11 relative z-10 transition-colors duration-[2000ms] ease-in-out ${phase === 'done'
+    <div className={`w-[500px] flex-shrink-0 border-r border-white/5 flex flex-col px-9 py-11 relative z-10 transition-colors duration-[2000ms] ease-in-out ${phase === 'done'
         ? 'bg-gradient-to-br from-[#0F1A0E] to-[#090914]'
         : 'bg-gradient-to-br from-[#0E0B1A] to-[#090910]'
       }`}>
@@ -26,7 +26,7 @@ export function AgentGrid({ phase, activatedAgents, activatingAgent }: AgentGrid
       </div>
 
       {/* Agent cards — 2 column grid */}
-      <div className="grid grid-cols-2 gap-2.5 flex-1 content-start">
+      <div className="grid grid-cols-3 gap-2 flex-1 content-start">
         {AGENTS.map((agent) => {
           const isActive = activatedAgents.has(agent.id);
           const isActivating = activatingAgent === agent.id;

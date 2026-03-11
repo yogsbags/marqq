@@ -10,7 +10,7 @@ import { removeTask as removeStoredTask } from '@/lib/taskStore';
 
 type Horizon = 'day' | 'week' | 'month';
 
-const STORAGE_KEY = 'torqq_tasks';
+const STORAGE_KEY = 'marqq_tasks';
 
 function loadTasks(): Task[] {
   try {

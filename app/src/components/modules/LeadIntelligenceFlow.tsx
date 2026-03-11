@@ -28,7 +28,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { AgentService } from '@/services/agentService';
+import { useAgentRun } from '@/hooks/useAgentRun';
+import { AgentRunPanel } from '@/components/agent/AgentRunPanel';
+import { CompanySelector } from '@/components/agent/CompanySelector';
 
 interface LeadIntelligenceFlowProps {
   autoStart?: boolean;
@@ -117,65 +119,11 @@ export function LeadIntelligenceFlow({ autoStart = false }: LeadIntelligenceFlow
 
   const deployAIAgent = async () => {
     setIsProcessing(true);
-    
+
     try {
-      // Step 1: Execute lead analysis
-      const leadAgent = AgentService.getAgents().find(agent => agent.role.includes('Lead'));
-      if (leadAgent) {
-        // Execute lead analysis task  
-        const leadAnalysisTask = await AgentService.executeTask(leadAgent.id, {
-          type: 'lead_analysis',
-          description: 'Analyze uploaded customer data and generate lead intelligence',
-          input: {
-            email: 'prospect@company.com',
-            company: 'Target Company',
-            customerDataset: Array(1000).fill({}).map(() => ({
-              email: 'customer@example.com',
-              company: 'Example Inc',
-              revenue: Math.random() * 1000000,
-              industry: 'Technology'
-            }))
-          }
-        });
-
-        // Step 2: Build lookalike audience using ICP from lead analysis
-        const lookalikeTask = await AgentService.executeTask(leadAgent.id, {
-          type: 'lookalike_audience_generation',
-          description: 'Build lookalike audience based on ICP analysis',
-          input: {
-            icpProfile: leadAnalysisTask.result?.icpAnalysis || {
-              industry: ['SaaS', 'Technology'],
-              companySize: '50-500 employees',
-              revenue: '$10M-$100M'
-            },
-            bestCustomers: leadAnalysisTask.result?.enrichedData ? [leadAnalysisTask.result.enrichedData] : [],
-            targetPlatform: 'all',
-            audienceSize: 12000
-          }
-        });
-
-        // Step 3: Execute AI outreach campaign
-        const contentAgent = AgentService.getAgents().find(agent => agent.role.includes('Content'));
-        if (contentAgent) {
-          await AgentService.executeTask(contentAgent.id, {
-            type: 'ai_outreach',
-            description: 'Deploy AI-powered outreach campaign to lookalike audience',
-            input: {
-              leads: lookalikeTask.result?.audienceData?.segments?.flatMap((s: any) => 
-                Array(Math.min(s.size, 100)).fill({}).map(() => ({
-                  email: `prospect${Math.floor(Math.random() * 1000)}@${s.name.toLowerCase().replace(/\s+/g, '')}.com`,
-                  company: `${s.name} Company ${Math.floor(Math.random() * 100)}`,
-                  firstName: ['John', 'Sarah', 'Michael', 'Emily', 'David'][Math.floor(Math.random() * 5)]
-                }))
-              ) || [],
-              messageTemplate: 'Hi {firstName}, I noticed {company} is growing rapidly in the {industry} space. Our AI platform has helped similar companies achieve 300% ROI improvement...',
-              channels: ['email', 'linkedin'],
-              sendRate: 50,
-              followUpSequence: '3-touch'
-            }
-          });
-        }
-      }
+      // Replaced: fake AgentService mock → real isha + priya agents via POST /api/agents/:name/run
+      // The actual agent calls are handled by the AgentRunPanel components rendered below.
+      // This function now just drives the step progress animation.
 
       // Simulate AI agent deployment process
       for (let i = currentStep; i < steps.length; i++) {
@@ -291,8 +239,43 @@ export function LeadIntelligenceFlow({ autoStart = false }: LeadIntelligenceFlow
     }
   };
 
+  const ishaRun = useAgentRun();
+  const priyaRun = useAgentRun();
+  const [leadCompanyId, setLeadCompanyId] = useState('');
+
   return (
     <div className="space-y-6">
+      {/* Agent panels — isha scores/profiles leads, priya adds competitor context */}
+      <CompanySelector value={leadCompanyId} onChange={setLeadCompanyId} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Button size="sm" disabled={ishaRun.streaming}
+              onClick={() => ishaRun.run('isha',
+                'Score and profile the inbound lead list. Identify top ICP matches, flag low-fit leads, and recommend prioritisation order with reasoning.',
+                'market_landscape_bootstrap', leadCompanyId || undefined)}>
+              Run Isha — Lead Scoring
+            </Button>
+            {(ishaRun.text || ishaRun.error) && <Button size="sm" variant="ghost" onClick={ishaRun.reset}>Reset</Button>}
+          </div>
+          <AgentRunPanel agentName="isha" label="Isha — Lead Scoring & ICP" {...ishaRun} />
+        </div>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Button size="sm" disabled={priyaRun.streaming}
+              onClick={() => priyaRun.run('priya',
+                'Review the lead list against competitor activity. Flag leads that competitors are likely targeting and recommend personalised outreach angles for each.',
+                'daily_competitor_scan', leadCompanyId || undefined)}>
+              Run Priya — Competitor Context
+            </Button>
+            {(priyaRun.text || priyaRun.error) && <Button size="sm" variant="ghost" onClick={priyaRun.reset}>Reset</Button>}
+          </div>
+          <AgentRunPanel agentName="priya" label="Priya — Competitive Lead Intelligence" {...priyaRun} />
+        </div>
+      </div>
+
+      <div className="border-t pt-4" />
+
       {/* Header */}
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">

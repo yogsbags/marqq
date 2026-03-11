@@ -1,0 +1,178 @@
+{
+  "company_id": "test-sc4-001",
+  "updated_at": "2026-03-10T15:23:37.316Z",
+  "positioning": {
+    "value": "AI-native marketing solutions for B2B SMBs",
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "neel",
+    "expires_at": "2026-04-10"
+  },
+  "icp": {
+    "value": {
+      "segments": [
+        "Small and Medium-Sized Businesses (SMBs)",
+        "Large Enterprises",
+        "Industry-Specific Solutions"
+      ]
+    },
+    "confidence": 0.7,
+    "last_verified": "2026-03-10",
+    "source_agent": "isha",
+    "expires_at": "2026-04-10"
+  },
+  "competitors": {
+    "value": [
+      {
+        "name": "HubSpot",
+        "positioning": "Enterprise Sales Focus"
+      },
+      {
+        "name": "Salesforce",
+        "positioning": "AI-Powered CRM"
+      },
+      {
+        "name": "Zoho",
+        "positioning": "Integrated Business Applications"
+      }
+    ],
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "priya",
+    "expires_at": "2026-04-10"
+  },
+  "offers": {
+    "value": {
+      "pricing_tiers": [
+        {
+          "name": "Basic",
+          "price": 99,
+          "features": [
+            "access to marketing platform",
+            "support"
+          ]
+        },
+        {
+          "name": "Premium",
+          "price": 299,
+          "features": [
+            "access to marketing platform",
+            "support",
+            "onboarding"
+          ]
+        },
+        {
+          "name": "Enterprise",
+          "price": 999,
+          "features": [
+            "access to marketing platform",
+            "support",
+            "onboarding",
+            "dedicated account manager"
+          ]
+        }
+      ]
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "tara",
+    "expires_at": "2026-04-10"
+  },
+  "messaging": {
+    "value": "Refined phone call script and stronger CTAs",
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "sam",
+    "expires_at": "2026-04-10"
+  },
+  "channels": {
+    "value": {
+      "google_ads": {
+        "budget_allocation": 0.3
+      },
+      "facebook_ads": {
+        "budget_allocation": 0.3
+      },
+      "linkedin_ads": {
+        "budget_allocation": 0.4
+      }
+    },
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "zara",
+    "expires_at": "2026-04-10",
+    "email": {
+      "open_rate": 0.3,
+      "ctr": 0.08
+    }
+  },
+  "funnel": {
+    "value": "Updated final email CTA to 'Schedule a consultation'",
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "sam",
+    "expires_at": "2026-04-10"
+  },
+  "metrics": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null,
+    "website_traffic": 12000,
+    "conversion_rate": 0.031,
+    "aov": 55,
+    "cac": 25,
+    "roas": 1.8
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null,
+    "website_traffic": 10000,
+    "conversion_rate": 0.025,
+    "aov": 50,
+    "cac": 20,
+    "roas": 1.5
+  },
+  "content_pillars": {
+    "value": [
+      "AI-powered marketing",
+      "SaaS marketing",
+      "streamlining operations"
+    ],
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "riya",
+    "expires_at": "2026-04-10"
+  },
+  "campaigns": {
+    "value": [
+      "AI-powered marketing for SaaS",
+      "streamlining operations"
+    ],
+    "confidence": 0.8,
+    "last_verified": "2026-03-10",
+    "source_agent": "riya",
+    "expires_at": "2026-04-10",
+    "nurture_sequence": {
+      "email_1": {
+        "open_rate": 0.4,
+        "ctr": 0.1
+      },
+      "email_2": {
+        "open_rate": 0.3,
+        "ctr": 0.08
+      }
+    }
+  },
+  "insights": {
+    "value": "Competitors are shifting towards more integrated, AI-driven solutions for enterprise and small businesses alike.",
+    "confidence": 0.75,
+    "last_verified": "2026-03-10",
+    "source_agent": "priya",
+    "expires_at": "2026-04-10"
+  }
+}

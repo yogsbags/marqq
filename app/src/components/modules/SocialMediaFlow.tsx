@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { AgentModuleShell } from '@/components/agent/AgentModuleShell'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CheckCircle2, Circle, FileText, XCircle } from 'lucide-react'
@@ -73,6 +74,24 @@ function LogEntry({ text, index }: { text: string; index: number }) {
       {text}
     </div>
   );
+}
+
+export function SocialCalendarFlow() {
+  return (
+    <AgentModuleShell
+      title="Social Calendar"
+      description="Lifecycle signals, social engagement trends, and content calendar from kiran."
+      agents={[
+        {
+          name: 'kiran',
+          label: 'Kiran — Lifecycle & Social',
+          taskType: 'daily_lifecycle_check',
+          defaultQuery:
+            'Review retention signals, social engagement trends, and nurture loop performance. Recommend immediate touchpoint adjustments and deliver a 2-week social content calendar with platform, format, caption, and CTA for each post.',
+        },
+      ]}
+    />
+  )
 }
 
 export function SocialMediaFlow() {

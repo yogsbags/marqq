@@ -9,16 +9,18 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
 import { Moon, Sun, User, Bell, Shield, Database, Bot } from 'lucide-react';
 
 export function GeneralTab() {
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
 
   // AI Team Context form
   const [agentCtx, setAgentCtx] = useState({
-    company: '', industry: '', icp: '', competitors: '', campaigns: '', keywords: '', goals: '',
+    company: '', websiteUrl: '', industry: '', icp: '', competitors: '', primaryGoal: '', campaigns: '', keywords: '', goals: '',
   });
   const [ctxSaving, setCtxSaving] = useState(false);
 
@@ -29,15 +31,19 @@ export function GeneralTab() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/agents/context?userId=${encodeURIComponent(user.id)}`);
+        const params = new URLSearchParams({ userId: user.id });
+        if (activeWorkspace?.id) params.set('workspaceId', activeWorkspace.id);
+        const res = await fetch(`/api/agents/context?${params}`);
         const data = await res.json().catch(() => null);
         if (!res.ok || !data || cancelled) return;
 
         setAgentCtx({
           company: String(data.company || ''),
+          websiteUrl: String(data.websiteUrl || ''),
           industry: String(data.industry || ''),
           icp: String(data.icp || ''),
           competitors: String(data.competitors || ''),
+          primaryGoal: String(data.primaryGoal || ''),
           campaigns: String(data.campaigns || ''),
           keywords: String(data.keywords || ''),
           goals: String(data.goals || ''),
@@ -60,7 +66,7 @@ export function GeneralTab() {
       const res = await fetch('/api/agents/context', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, ...agentCtx }),
+        body: JSON.stringify({ userId: user.id, workspaceId: activeWorkspace?.id, ...agentCtx }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -240,6 +246,18 @@ export function GeneralTab() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="ctx-website">Website URL</Label>
+              <Input
+                id="ctx-website"
+                placeholder="e.g. plcapital.in"
+                value={agentCtx.websiteUrl}
+                onChange={(e) => setAgentCtx((p) => ({ ...p, websiteUrl: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="ctx-industry">Industry / niche</Label>
               <Input
                 id="ctx-industry"
@@ -248,16 +266,15 @@ export function GeneralTab() {
                 onChange={(e) => setAgentCtx((p) => ({ ...p, industry: e.target.value }))}
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ctx-icp">Target ICP (ideal customer profile)</Label>
-            <Input
-              id="ctx-icp"
-              placeholder="e.g. HNI investors, 35–55, Tier 1 cities, ₹10L+ portfolio"
-              value={agentCtx.icp}
-              onChange={(e) => setAgentCtx((p) => ({ ...p, icp: e.target.value }))}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="ctx-icp-inline">Target ICP</Label>
+              <Input
+                id="ctx-icp-inline"
+                placeholder="e.g. HNI investors, 35–55, Tier 1 cities"
+                value={agentCtx.icp}
+                onChange={(e) => setAgentCtx((p) => ({ ...p, icp: e.target.value }))}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

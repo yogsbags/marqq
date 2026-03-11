@@ -1,5 +1,10 @@
 "use client";
 
+import { useAgentRun } from '@/hooks/useAgentRun';
+import { AgentRunPanel } from '@/components/agent/AgentRunPanel';
+import { CompanySelector } from '@/components/agent/CompanySelector';
+import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { AudioUploader } from '../video-gen/AudioUploader';
 import { ImageGenerator } from '../video-gen/ImageGenerator';
 import { ImageUploader } from '../video-gen/ImageUploader';
@@ -10,7 +15,6 @@ import { VideoDisplay } from '../video-gen/VideoDisplay';
 import { VideoPromptInput } from '../video-gen/VideoPromptInput';
 import * as fal from "@fal-ai/serverless-client";
 import { AlertCircle, Settings2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
 
 fal.config({
   proxyUrl: "/api/video-gen/fal/proxy",
@@ -35,6 +39,8 @@ const I2V_ENDPOINTS: Record<ModelType, string> = {
 };
 
 export function VideoGenFlow() {
+  const riyaRun = useAgentRun();
+  const [videoCompanyId, setVideoCompanyId] = useState('');
   const [reelType, setReelType] = useState<ReelType>('educational');
   const [model, setModel] = useState<ModelType>('wan-2.5');
   const [prompt, setPrompt] = useState('');
@@ -345,6 +351,20 @@ export function VideoGenFlow() {
 
   return (
     <div className="space-y-8">
+      {/* Riya script briefing — generates video script before production */}
+      <CompanySelector value={videoCompanyId} onChange={setVideoCompanyId} />
+      <div className="space-y-2">
+        <Button size="sm" disabled={riyaRun.streaming}
+          onClick={() => riyaRun.run('riya',
+            'Write a video content brief and full script: hook (first 5 seconds), 3 key points with supporting visuals described, CTA, and recommended B-roll prompts. Format for direct use in video production.',
+            'weekly_content_brief', videoCompanyId || undefined)}>
+          Run Riya — Video Script Brief
+        </Button>
+        <AgentRunPanel agentName="riya" label="Riya — Video Script & Brief" {...riyaRun} onReset={riyaRun.reset} />
+      </div>
+
+      <div className="border-t pt-2" />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column: Controls */}
         <div className="space-y-6">

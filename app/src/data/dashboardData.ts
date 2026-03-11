@@ -108,5 +108,85 @@ export const dashboardData: DashboardData = {
         { label: 'Calendars', value: '—' },
       ],
     },
+    {
+      id: 'market-signals',
+      name: 'Market Signals',
+      color: '#6366F1',
+      metrics: [
+        { label: 'Agent', value: 'isha + priya' },
+        { label: 'Cadence', value: 'Daily' },
+        { label: 'Coverage', value: 'Category + Competitor' },
+      ],
+    },
+    {
+      id: 'audience-profiles',
+      name: 'Audience Profiles',
+      color: '#8B5CF6',
+      metrics: [
+        { label: 'Agent', value: 'isha' },
+        { label: 'Output', value: 'ICP cards' },
+        { label: 'Depth', value: 'Firmographic + Psychographic' },
+      ],
+    },
+    {
+      id: 'positioning',
+      name: 'Positioning & Strategy',
+      color: '#0EA5E9',
+      metrics: [
+        { label: 'Agent', value: 'neel' },
+        { label: 'Cadence', value: 'Weekly' },
+        { label: 'Output', value: 'Strategy brief' },
+      ],
+    },
+    {
+      id: 'offer-design',
+      name: 'Offer Design',
+      color: '#F59E0B',
+      metrics: [
+        { label: 'Agent', value: 'tara' },
+        { label: 'Cadence', value: 'Daily' },
+        { label: 'Focus', value: 'CTA + Friction' },
+      ],
+    },
+    {
+      id: 'messaging',
+      name: 'Messaging & Copy',
+      color: '#10B981',
+      metrics: [
+        { label: 'Agent', value: 'sam' },
+        { label: 'Cadence', value: 'Weekly' },
+        { label: 'Output', value: 'Copy review' },
+      ],
+    },
+    {
+      id: 'social-calendar',
+      name: 'Social Calendar',
+      color: '#EC4899',
+      metrics: [
+        { label: 'Agent', value: 'kiran' },
+        { label: 'Cadence', value: 'Daily' },
+        { label: 'Output', value: '30-day calendar' },
+      ],
+    },
+    {
+      id: 'channel-health',
+      name: 'Channel Health',
+      color: '#14B8A6',
+      metrics: [
+        { label: 'Agent', value: 'zara' },
+        { label: 'Cadence', value: 'Daily' },
+        { label: 'Focus', value: 'Distribution mix' },
+      ],
+    },
+    {
+      id: 'landing-pages',
+      name: 'Landing Pages',
+      color: '#F43F5E',
+      metrics: [
+        { label: 'Agents', value: 'tara + sam' },
+        { label: 'Output', value: 'Audit + Copy' },
+        { label: 'Publish', value: 'WordPress / Sanity' },
+      ],
+    },
   ],
 };

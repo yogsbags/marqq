@@ -1,0 +1,192 @@
+{
+  "company_id": "test-veena-onboard-1773139874124",
+  "updated_at": "2026-03-10T10:51:29.733Z",
+  "positioning": {
+    "value": {
+      "statement": "Financial infrastructure to grow your revenue",
+      "unique_value": "A comprehensive financial services platform that lets businesses accept payments, offer financial services, and build custom revenue models"
+    },
+    "confidence": 0.95,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "icp": {
+    "value": {
+      "company_size": "All sizes (from startups to enterprises)",
+      "industry": "E‑commerce, SaaS, Marketplace, On‑demand services, Subscription businesses",
+      "geography": [
+        "Global"
+      ],
+      "role": "Founders, CEOs, CFOs, Product Leaders, Developers"
+    },
+    "confidence": 0.65,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "competitors": {
+    "value": [
+      {
+        "name": "PayPal",
+        "positioning": "Global payments platform for online and in‑store transactions"
+      },
+      {
+        "name": "Adyen",
+        "positioning": "Unified commerce payments solution for large enterprises"
+      },
+      {
+        "name": "Square",
+        "positioning": "Payments and business tools for small and medium‑size merchants"
+      }
+    ],
+    "confidence": 0.35,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "offers": {
+    "value": [
+      {
+        "name": "Payments",
+        "price_signal": "Transaction‑based fees",
+        "tier": "Standard / Custom"
+      },
+      {
+        "name": "Billing",
+        "price_signal": "Subscription/usage‑based fees",
+        "tier": "Standard / Custom"
+      },
+      {
+        "name": "Connect",
+        "price_signal": "Per‑connected‑account fees",
+        "tier": "Standard / Custom"
+      },
+      {
+        "name": "Atlas",
+        "price_signal": "Flat‑rate subscription",
+        "tier": "Standard"
+      },
+      {
+        "name": "Issuing",
+        "price_signal": "Card‑issuance and transaction fees",
+        "tier": "Custom"
+      }
+    ],
+    "confidence": 0.6,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "messaging": {
+    "value": {
+      "headline": "Financial infrastructure to grow your revenue",
+      "tagline": "Powering businesses of all sizes",
+      "key_messages": [
+        "Accept payments from anywhere",
+        "Build flexible billing models",
+        "Manage money movement end‑to‑end",
+        "Scale from first transaction to billions"
+      ]
+    },
+    "confidence": 0.9,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "channels": {
+    "value": [
+      {
+        "channel": "Website (homepage, product pages, docs)",
+        "evidence": "CTAs: Products, Solutions, Developers, Resources, Pricing"
+      },
+      {
+        "channel": "Developer documentation",
+        "evidence": "Developers CTA on homepage"
+      },
+      {
+        "channel": "Blog & Stripe Press",
+        "evidence": "Links to Stripe Press and Works in Progress in footer"
+      },
+      {
+        "channel": "Email newsletters",
+        "evidence": "Resources CTA implies email resources"
+      }
+    ],
+    "confidence": 0.78,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "funnel": {
+    "value": {
+      "entry_points": [
+        "Products",
+        "Solutions",
+        "Developers",
+        "Resources",
+        "Pricing"
+      ],
+      "cta_primary": "Get started / Sign up"
+    },
+    "confidence": 0.55,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "metrics": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "content_pillars": {
+    "value": [
+      {
+        "topic": "Flexible solutions for every business model",
+        "evidence": "H2: Flexible solutions for every business model."
+      },
+      {
+        "topic": "The backbone of global commerce",
+        "evidence": "H2: The backbone of global commerce."
+      },
+      {
+        "topic": "Powering businesses of all sizes",
+        "evidence": "H2: Powering businesses of all sizes."
+      }
+    ],
+    "confidence": 0.7,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  },
+  "campaigns": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": "veena",
+    "expires_at": null
+  },
+  "insights": {
+    "value": {
+      "summary": "Stripe positions itself as the universal financial infrastructure for businesses of any size, emphasizing flexibility, global reach, and developer‑first tools. The site clearly highlights core product families (Payments, Billing, Connect, etc.) and targets founders, finance leaders, and developers worldwide.",
+      "gaps": [
+        "Limited explicit competitor comparison on the site",
+        "Pricing details are high‑level; no granular tier breakdown",
+        "ICP details (specific industry verticals, company revenue ranges) are not explicitly stated"
+      ]
+    },
+    "confidence": 0.6,
+    "last_verified": "2026-03-10",
+    "source_agent": "veena",
+    "expires_at": "2026-04-09"
+  }
+}

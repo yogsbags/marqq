@@ -13,7 +13,7 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     target: null,
-    title: 'Welcome to Torqq AI',
+    title: 'Welcome to Marqq AI',
     description: 'Your AI-powered marketing intelligence platform is ready. Let us show you the key areas in 4 quick steps.',
     placement: 'center',
   },
@@ -32,7 +32,7 @@ const STEPS: TourStep[] = [
   {
     target: 'nav-dashboard',
     title: 'AI Team Dashboard',
-    description: 'Monitor your 6 autonomous agents — Zara, Maya, Riya, Arjun, Dev, and Priya — running in the background for you.',
+    description: 'Monitor your 12 autonomous agents — Veena, Isha, Neel, Tara, Sam, Kiran, Zara, Maya, Riya, Arjun, Dev, and Priya — running in the background for you.',
     placement: 'right',
   },
   {
@@ -141,7 +141,7 @@ export function ProductTour({ onDone }: Props) {
   }, [step, current.target])
 
   const finish = () => {
-    localStorage.setItem('torqq_tour_done', '1')
+    localStorage.setItem('marqq_tour_done', '1')
     onDone()
   }
 

@@ -1,21 +1,23 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useCallback, useState } from 'react';
 import { AGENTS, STEPS } from '../components/onboarding/constants';
 import { FormData, Phase } from '../components/onboarding/types';
 
 export function useOnboarding(onComplete: () => void) {
   const { user } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const [phase, setPhase] = useState<Phase>('welcome');
   const [stepIdx, setStepIdx] = useState(0);
   const [formData, setFormData] = useState<FormData>({
-    company: '', industry: '', icp: '', competitors: '', campaigns: '', keywords: '', goals: '',
+    company: '', websiteUrl: '', industry: '', icp: '', competitors: '', primaryGoal: '', goals: '',
   });
 
   const [activatedAgents, setActivatedAgents] = useState<Set<string>>(new Set());
   const [activatingAgent, setActivatingAgent] = useState<string | null>(null);
 
   const currentStep = STEPS[stepIdx];
-  const canAdvance = currentStep?.fields.every(f => formData[f.key]?.trim()) !== false;
+  const canAdvance = currentStep?.fields.every(f => f.optional || !!formData[f.key]?.trim()) !== false;
 
   const updateField = useCallback((key: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -24,11 +26,15 @@ export function useOnboarding(onComplete: () => void) {
   const handleActivate = async () => {
     setPhase('activate');
 
-    // Persist context (non-blocking)
+    // Persist context to Supabase (workspace-scoped) + filesystem fallback
     fetch('/api/agents/context', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user?.id, ...formData }),
+      body: JSON.stringify({
+        userId: user?.id,
+        workspaceId: activeWorkspace?.id,
+        ...formData,
+      }),
     }).catch(() => {/* non-blocking */ });
 
     // Cascade agent activation
@@ -41,7 +47,7 @@ export function useOnboarding(onComplete: () => void) {
 
     await new Promise(r => setTimeout(r, 900));
     setPhase('done');
-    localStorage.setItem('torqq_onboarded', '1');
+    localStorage.setItem('marqq_onboarded', '1');
 
     await new Promise(r => setTimeout(r, 1800));
     onComplete();
@@ -62,7 +68,7 @@ export function useOnboarding(onComplete: () => void) {
   };
 
   const handleSkip = () => {
-    localStorage.setItem('torqq_onboarded', '1');
+    localStorage.setItem('marqq_onboarded', '1');
     onComplete();
   };
 
