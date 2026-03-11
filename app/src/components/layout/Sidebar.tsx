@@ -277,8 +277,8 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
         ) : (
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             <img src={BRAND.logoSrc} alt={`${BRAND.name} logo`} className="block h-11 w-11 rounded-md flex-shrink-0" />
-            <h1 className="font-brand text-2xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent truncate">
-              {BRAND.name}
+            <h1 className={`${BRAND.wordmarkFontClass} text-2xl font-bold uppercase bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent truncate`}>
+              {BRAND.name.toUpperCase()}
             </h1>
           </div>
         )}

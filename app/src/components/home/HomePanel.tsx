@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { AgentTarget } from '@/types/gtm';
 import { storeGtmContext } from '@/lib/gtmContext';
+import { BRAND } from '@/lib/brand';
 import { ArrowRight, BarChart3, FileText, Users } from 'lucide-react';
 
 interface HomePanelProps {
@@ -78,6 +79,9 @@ export function HomePanel({ onModuleSelect }: HomePanelProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
+        <p className={`${BRAND.wordmarkFontClass} text-3xl leading-none tracking-[0.08em] text-foreground uppercase sm:text-4xl`}>
+          {BRAND.name.toUpperCase()}
+        </p>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Marketing Copilot Home</h2>
         <p className="text-sm text-muted-foreground">
           Pick your business goal and follow a guided flow designed for non-technical marketing teams.

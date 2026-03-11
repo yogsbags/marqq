@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Righteous&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Righteous&family=Syne:wght@600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -212,6 +212,16 @@ button:focus-visible {
 
 .font-brand {
   font-family: 'Righteous', 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+}
+
+.font-brand-syne {
+  font-family: 'Syne', 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+}
+
+.font-brand-amplitude {
+  font-family: 'Poppins', 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 /* Fix dropdown and select field colors — theme-aware */

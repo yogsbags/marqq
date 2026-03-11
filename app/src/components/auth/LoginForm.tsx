@@ -43,8 +43,16 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   return (
     <div className="w-full max-w-md mx-auto space-y-6">
       {/* Logo */}
-      <div className="flex items-center justify-center animate-in fade-in-50 slide-in-from-top-5 duration-700">
+      <div className="flex flex-col items-center justify-center gap-3 animate-in fade-in-50 slide-in-from-top-5 duration-700">
         <img src={BRAND.logoSrc} alt={`${BRAND.name} logo`} className="h-16 w-auto max-w-[220px]" />
+        <div className="text-center">
+          <p className={`${BRAND.wordmarkFontClass} text-3xl leading-none tracking-[0.08em] text-foreground uppercase sm:text-4xl`}>
+            {BRAND.name.toUpperCase()}
+          </p>
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground">
+            {BRAND.platformTagline}
+          </p>
+        </div>
       </div>
 
       <Card className="animate-in fade-in-50 slide-in-from-bottom-5 duration-700">

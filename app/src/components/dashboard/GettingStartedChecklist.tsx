@@ -11,6 +11,10 @@ import { toast } from 'sonner';
 
 const DISMISSED_KEY = 'marqq_checklist_dismissed';
 
+function getWebsiteStepKey(workspaceId: string) {
+  return `marqq_checklist_website_step_completed:${workspaceId}`;
+}
+
 interface GettingStartedChecklistProps {
   onNavigate: (moduleId: string) => void;
 }
@@ -65,10 +69,24 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
   const [hasIntegration, setHasIntegration] = useState(false);
   const [hasAgentRun, setHasAgentRun] = useState(false);
   const [allDoneShown, setAllDoneShown] = useState(false);
+  const [websiteStepCompleted, setWebsiteStepCompleted] = useState(false);
 
   useEffect(() => {
     setWebsiteUrl(activeWorkspace?.website_url ?? '');
   }, [activeWorkspace?.id, activeWorkspace?.website_url]);
+
+  useEffect(() => {
+    if (!activeWorkspace?.id) {
+      setWebsiteStepCompleted(false);
+      return;
+    }
+
+    try {
+      setWebsiteStepCompleted(localStorage.getItem(getWebsiteStepKey(activeWorkspace.id)) === '1');
+    } catch {
+      setWebsiteStepCompleted(false);
+    }
+  }, [activeWorkspace?.id]);
 
   const checkCompletionStatus = useCallback(async () => {
     if (!user?.id) return;
@@ -93,9 +111,9 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
 
   useEffect(() => { checkCompletionStatus(); }, [checkCompletionStatus]);
 
-  const step1Complete = Boolean(activeWorkspace?.website_url);
-  const step2Complete = hasIntegration;
-  const step3Complete = step1Complete && hasAgentRun;
+  const step1Complete = websiteStepCompleted;
+  const step2Complete = step1Complete && hasIntegration;
+  const step3Complete = step2Complete && hasAgentRun;
   const completedCount = [step1Complete, step2Complete, step3Complete].filter(Boolean).length;
   const allComplete = completedCount === 3;
 
@@ -116,6 +134,10 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
     setSavingUrl(true);
     try {
       await updateWebsiteUrl(url);
+      if (activeWorkspace?.id) {
+        localStorage.setItem(getWebsiteStepKey(activeWorkspace.id), '1');
+        setWebsiteStepCompleted(true);
+      }
       const derivedName = deriveCompanyName(activeWorkspace?.name, url);
       queueCompanyIntelAutorun(derivedName, url)
       void (async () => {
