@@ -48,7 +48,7 @@ function ensureFavicon() {
     link.rel = 'icon';
     document.head.appendChild(link);
   }
-  link.href = BRAND.logoSrc;
+  link.href = BRAND.faviconSrc;
 }
 
 function AuthScreen() {

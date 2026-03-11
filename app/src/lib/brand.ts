@@ -8,6 +8,7 @@ export type BrandConfig = {
   titleSuffix: string;
   platformTagline: string;
   logoSrc: string;
+  faviconSrc: string;
   wordmarkFontClass: string;
 };
 
@@ -19,6 +20,7 @@ export const BRANDS = {
     titleSuffix: 'Marqq AI',
     platformTagline: 'Marketing Intelligence Platform',
     logoSrc: torqqLogo,
+    faviconSrc: torqqLogo,
     wordmarkFontClass: 'font-brand-amplitude',
   },
   torqq: {
@@ -28,6 +30,7 @@ export const BRANDS = {
     titleSuffix: 'Torqq AI',
     platformTagline: 'Marketing Intelligence Platform',
     logoSrc: torqqLogo,
+    faviconSrc: torqqLogo,
     wordmarkFontClass: 'font-brand',
   },
   elevate: {
@@ -37,6 +40,7 @@ export const BRANDS = {
     titleSuffix: 'Elevate AI',
     platformTagline: 'Marketing Intelligence Platform',
     logoSrc: elevateLogo,
+    faviconSrc: elevateLogo,
     wordmarkFontClass: 'font-brand',
   },
 } as const satisfies Record<string, BrandConfig>;
