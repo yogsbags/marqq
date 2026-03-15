@@ -4343,7 +4343,9 @@ app.post("/api/agents/:name/run", async (req, res) => {
 
   const companyId = (typeof company_id === "string" && company_id.trim())
     ? company_id.trim()
-    : null;
+    : (typeof workspaceId === "string" && workspaceId.trim())
+      ? workspaceId.trim()
+      : null;
 
   // Load SOUL.md
   const soulPath = join(AGENTS_DIR, name, "SOUL.md");
