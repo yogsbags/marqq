@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { getActiveAgentContext } from '@/lib/agentContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type Connector = {
   id: string;
@@ -178,12 +178,13 @@ function IntegrationLogo({ id, name }: { id: string; name: string }) {
 }
 
 export function AccountsTab() {
+  const { activeWorkspace } = useWorkspace();
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const { companyId } = getActiveAgentContext();
+    const companyId = activeWorkspace?.id;
     if (!companyId) return;
     setLoading(true);
     try {
@@ -191,7 +192,7 @@ export function AccountsTab() {
       const json = await res.json();
       setConnectors(json?.connectors ?? []);
     } catch { setConnectors([]); } finally { setLoading(false); }
-  }, []);
+  }, [activeWorkspace]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -217,8 +218,8 @@ export function AccountsTab() {
   }, [connectors]);
 
   const connect = async (id: string) => {
-    const { companyId } = getActiveAgentContext();
-    if (!companyId) { toast.error('Select a company first'); return; }
+    const companyId = activeWorkspace?.id;
+    if (!companyId) { toast.error('Create or select a workspace first'); return; }
     setActionId(id);
     try {
       const res = await fetch('/api/integrations/connect', {
@@ -252,8 +253,8 @@ export function AccountsTab() {
   const disconnect = async (id: string) => {
     setActionId(id);
     try {
-      const { companyId } = getActiveAgentContext();
-      if (!companyId) { toast.error('Select a company first'); setActionId(null); return; }
+      const companyId = activeWorkspace?.id;
+      if (!companyId) { toast.error('Create or select a workspace first'); setActionId(null); return; }
       const res = await fetch('/api/integrations/disconnect', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ companyId, connectorId: id }),
@@ -274,6 +275,11 @@ export function AccountsTab() {
           security controls.
         </p>
       </div>
+      {!activeWorkspace && (
+        <p className="text-sm text-amber-500">
+          Create a workspace to connect integrations.
+        </p>
+      )}
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : connectors.length === 0 ? (
