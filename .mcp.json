@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "marqq-n8n": {
+      "command": "node",
+      "args": ["/Users/yogs87/Documents/New project/marqq/platform/mcp-servers/n8n/server.js"],
+      "env": {
+        "N8N_URL": "https://productverse.up.railway.app",
+        "N8N_API_KEY": ""
+      }
+    }
+  }
+}
