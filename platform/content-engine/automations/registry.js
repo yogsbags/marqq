@@ -24,6 +24,7 @@ export const REGISTRY = [
     },
     returns: "{ campaigns: [...], adsets: [...], ads: [...] }",
     which_agents_can_invoke: ["isha", "maya", "arjun"],
+    requires_credential: "facebookads",
   },
   {
     id: "competitor_ad_library",
@@ -38,6 +39,7 @@ export const REGISTRY = [
     },
     returns: "{ ads: [{ id, page_name, creative, impressions_range }] }",
     which_agents_can_invoke: ["*"],
+    requires_credential: null,
   },
   {
     id: "creative_fatigue_check",
@@ -51,6 +53,7 @@ export const REGISTRY = [
     },
     returns: "{ fatigued_ads: [...], healthy_ads: [...], summary: string }",
     which_agents_can_invoke: ["isha", "maya"],
+    requires_credential: null,
   },
   {
     id: "google_ads_fetch",
@@ -65,6 +68,7 @@ export const REGISTRY = [
     },
     returns: "{ campaigns: [...], keywords: [...], search_terms: [...] }",
     which_agents_can_invoke: ["isha", "arjun"],
+    requires_credential: "googleads",
   },
   {
     id: "apollo_lead_enrich",
@@ -79,6 +83,7 @@ export const REGISTRY = [
     },
     returns: "{ person: {...}, organization: {...} }",
     which_agents_can_invoke: ["neel", "sam", "kiran"],
+    requires_credential: null,
   },
 ];
 
@@ -123,6 +128,31 @@ function creativeFatigueCheck(params) {
 }
 
 /**
+ * getComposioToken — fetches an active OAuth access token from Composio for a given company + app.
+ * Returns null if COMPOSIO_API_KEY is unset, appName is null, or no active account is found.
+ */
+async function getComposioToken(companyId, appName) {
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey || !appName) return null;
+  try {
+    let fetchFn;
+    try { fetchFn = fetch; } catch { fetchFn = null; }
+    if (!fetchFn) {
+      const mod = await import('node-fetch').catch(() => null);
+      fetchFn = mod?.default || null;
+    }
+    if (!fetchFn) return null;
+    const res = await fetchFn(
+      `https://backend.composio.dev/api/v1/connectedAccounts?entityId=${encodeURIComponent(companyId)}&appName=${appName}`,
+      { headers: { 'x-api-key': apiKey } }
+    );
+    const data = await res.json();
+    const acct = data.items?.find(a => a.status === 'ACTIVE');
+    return acct?.connectionConfig?.access_token || acct?.accessToken || null;
+  } catch { return null; }
+}
+
+/**
  * executeAutomation — dispatches a single trigger to the appropriate handler.
  */
 async function executeAutomation(trigger, companyId, runId) {
@@ -146,6 +176,15 @@ async function executeAutomation(trigger, companyId, runId) {
     };
   }
 
+  // Resolve OAuth access token from Composio if this automation requires one
+  let access_token = null;
+  if (entry.requires_credential) {
+    access_token = await getComposioToken(companyId, entry.requires_credential);
+    if (!access_token) {
+      console.warn(`[automations] No active Composio token for ${entry.requires_credential} (company: ${companyId}) — proceeding without access_token`);
+    }
+  }
+
   try {
     const { default: fetch } = await import("node-fetch").catch(() => {
       throw new Error("node-fetch not available");
@@ -159,6 +198,7 @@ async function executeAutomation(trigger, companyId, runId) {
         params: trigger.params || {},
         company_id: companyId,
         run_id: runId,
+        ...(access_token ? { access_token } : {}),
       }),
     });
 
