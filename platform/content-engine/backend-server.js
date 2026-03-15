@@ -3948,6 +3948,26 @@ async function runAgentForArtifact(agentName, query, companyId, taskType) {
 
   const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\ntask_type: ${taskType ?? "artifact_generation"}\n`;
 
+  // Fetch recent automation results for this company
+  let recentAutomationData = '';
+  if (companyId) {
+    try {
+      const { data: recentRuns } = await supabase
+        .from('automation_runs')
+        .select('automation_name, result, created_at')
+        .eq('company_id', companyId)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (recentRuns?.length) {
+        const lines = recentRuns.map(r =>
+          `- ${r.automation_name} (${new Date(r.created_at).toLocaleDateString()}): ${JSON.stringify(r.result).slice(0, 400)}`
+        ).join('\n');
+        recentAutomationData = `\n\n## Recent Automation Data\nThe following connector data was automatically fetched for this company and is available for your analysis:\n${lines}`;
+      }
+    } catch { /* non-blocking */ }
+  }
+
   const contractInstruction = `
 
 ## Output Contract (REQUIRED — do not skip)
@@ -3990,6 +4010,7 @@ Replace ALL placeholder values with your actual outputs.
     calibrationNote?.text ? `\n\n## Latest Calibration Note\n${calibrationNote.text}` : "",
     skillsBlock,
     runContextBlock,
+    recentAutomationData,
     contractInstruction,
   ].join("");
 
@@ -4459,6 +4480,27 @@ app.post("/api/agents/:name/run", async (req, res) => {
     ? `\n## Product / Service Focus\nThis run is scoped to a specific product or service. All analysis, copy, and recommendations MUST be anchored to this product — do not generalise to the full company portfolio unless explicitly asked.\nname: ${offer_focus.name}${offer_focus.price_signal ? `\nprice_signal: ${offer_focus.price_signal}` : ""}${offer_focus.tier ? `\ntier: ${offer_focus.tier}` : ""}\n`
     : "";
   const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\n${triggerContextBlock}${offerFocusBlock}`;
+
+  // Fetch recent automation results for this company
+  let recentAutomationData = '';
+  if (companyId) {
+    try {
+      const { data: recentRuns } = await supabase
+        .from('automation_runs')
+        .select('automation_name, result, created_at')
+        .eq('company_id', companyId)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (recentRuns?.length) {
+        const lines = recentRuns.map(r =>
+          `- ${r.automation_name} (${new Date(r.created_at).toLocaleDateString()}): ${JSON.stringify(r.result).slice(0, 400)}`
+        ).join('\n');
+        recentAutomationData = `\n\n## Recent Automation Data\nThe following connector data was automatically fetched for this company and is available for your analysis:\n${lines}`;
+      }
+    } catch { /* non-blocking */ }
+  }
+
   const guardrailsBlock = buildAgentRunGuardrails(name, task_type);
 
   // Contract instruction — always appended LAST so it takes precedence
@@ -4518,6 +4560,7 @@ Replace ALL placeholder values with your actual outputs.
     skillsBlock,
     runContextBlock,
     guardrailsBlock,
+    recentAutomationData,
     contractInstruction,  // always last
   ].join("");
 
