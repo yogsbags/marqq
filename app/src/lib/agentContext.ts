@@ -1,5 +1,17 @@
 const ACTIVE_WORKSPACE_KEY = 'marqq_active_workspace'
 const ACTIVE_COMPANY_KEY = 'marqq_active_company_context'
+const ACTIVE_USER_KEY = 'marqq_active_user_id'
+
+export function persistActiveUserId(userId: string | null) {
+  try {
+    if (userId) localStorage.setItem(ACTIVE_USER_KEY, userId)
+    else localStorage.removeItem(ACTIVE_USER_KEY)
+  } catch { /* ignore */ }
+}
+
+function readActiveUserId(): string | null {
+  try { return localStorage.getItem(ACTIVE_USER_KEY) || null } catch { return null }
+}
 
 type ActiveWorkspaceContext = {
   id: string | null
@@ -81,9 +93,11 @@ export function clearActiveCompanyContext() {
 
 export function buildAgentHeaders(extraHeaders?: HeadersInit): HeadersInit {
   const context = getActiveAgentContext()
+  const userId = readActiveUserId()
   return {
     'Content-Type': 'application/json',
     ...(context.workspaceId ? { 'x-workspace-id': context.workspaceId } : {}),
+    ...(userId ? { 'x-user-id': userId } : {}),
     ...(extraHeaders || {}),
   }
 }

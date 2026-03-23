@@ -1657,7 +1657,10 @@ export function HomeView({ onModuleSelect, onOpenChat }: HomeViewProps) {
     <div className="h-full overflow-auto px-6 py-6 space-y-8 max-w-6xl mx-auto">
 
       <div className="space-y-3">
-        <div className="rounded-[30px] border border-border/70 bg-gradient-to-br from-orange-500/[0.08] via-background to-amber-500/[0.05] px-5 py-5 shadow-sm">
+        <div
+          className="rounded-[30px] border border-border/70 bg-gradient-to-br from-orange-500/[0.08] via-background to-amber-500/[0.05] px-5 py-5 shadow-sm"
+          data-tour="home-start-here"
+        >
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-500">
             Start Here
           </div>
@@ -1680,8 +1683,12 @@ export function HomeView({ onModuleSelect, onOpenChat }: HomeViewProps) {
           </div>
         </div>
         <div className="space-y-4">
-          {workflowGoalGroups.map((group) => (
-            <div key={group.title} className="space-y-4 rounded-[28px] border border-border/70 bg-background/80 p-5 shadow-sm">
+          {workflowGoalGroups.map((group, groupIdx) => (
+            <div
+              key={group.title}
+              className="space-y-4 rounded-[28px] border border-border/70 bg-background/80 p-5 shadow-sm"
+              data-tour={groupIdx === 0 ? 'home-goal-grid' : undefined}
+            >
               <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
                 <div className="space-y-1">
                   <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{group.title}</h3>

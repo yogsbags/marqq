@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type PlanName = 'growth' | 'scale' | 'agency';
 
@@ -40,6 +41,7 @@ export function requiredPlanForModule(moduleId: string): PlanName {
 
 export function usePlan(): PlanState {
   const { activeWorkspace } = useWorkspace();
+  const { user } = useAuth();
   const [plan, setPlan] = useState<PlanName>('growth');
   const [creditsRemaining, setCreditsRemaining] = useState(500);
   const [creditsTotal, setCreditsTotal] = useState(500);
@@ -50,7 +52,10 @@ export function usePlan(): PlanState {
     if (!activeWorkspace?.id) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/plan`);
+      const url = user?.id
+        ? `/api/workspaces/${activeWorkspace.id}/plan?userId=${encodeURIComponent(user.id)}`
+        : `/api/workspaces/${activeWorkspace.id}/plan`;
+      const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
       setPlan((data.plan as PlanName) || 'growth');
@@ -62,7 +67,7 @@ export function usePlan(): PlanState {
     } finally {
       setIsLoading(false);
     }
-  }, [activeWorkspace?.id]);
+  }, [activeWorkspace?.id, user?.id]);
 
   useEffect(() => { fetchPlan(); }, [fetchPlan]);
 

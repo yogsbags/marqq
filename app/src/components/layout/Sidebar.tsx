@@ -247,7 +247,15 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
             }
             onModuleSelect(item.id);
           }}
-          data-tour={item.id === 'company-intelligence' ? 'nav-company-intel' : item.id === 'dashboard' ? 'nav-dashboard' : undefined}
+          data-tour={
+            item.id === 'home'
+              ? 'nav-home'
+              : item.id === 'company-intelligence'
+                ? 'nav-company-intel'
+                : item.id === 'dashboard'
+                  ? 'nav-dashboard'
+                  : undefined
+          }
         >
           <item.icon className={cn("h-5 w-5", collapsed ? "" : "mr-2")} />
           {!collapsed && <span className="font-medium text-base text-left">{item.title}</span>}

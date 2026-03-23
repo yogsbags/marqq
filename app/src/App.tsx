@@ -1,5 +1,6 @@
 import { AgentDashboard } from '@/components/agents/AgentDashboard';
 import { ProductTour } from '@/components/tour/ProductTour';
+import { HomePostOnboardingTour } from '@/components/tour/HomePostOnboardingTour';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
 import { HelpPanel } from '@/components/help/HelpPanel';
@@ -80,7 +81,7 @@ function AuthScreen() {
   );
 }
 
-function Dashboard() {
+function Dashboard({ onHomeTourComplete }: { onHomeTourComplete?: () => void }) {
   const { activeWorkspace } = useWorkspace();
   const convKey = activeWorkspace?.id ? `marqq_conversations_${activeWorkspace.id}` : 'marqq_conversations';
 
@@ -161,6 +162,28 @@ function Dashboard() {
     : null;
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [homeTourOpen, setHomeTourOpen] = useState(false);
+
+  /** Post-onboarding home spotlight: session flag set from signup or legacy catch-up. */
+  useEffect(() => {
+    const isHome = !selectedModule || selectedModule === 'home';
+    if (!isHome || homeTourOpen) return;
+    if (typeof localStorage === 'undefined') return;
+    if (localStorage.getItem('marqq_onboarded') !== '1') return;
+    if (localStorage.getItem('marqq_home_tour_done') === '1') return;
+    if (typeof sessionStorage === 'undefined') return;
+    if (sessionStorage.getItem('marqq_post_onboard_home_tour') !== '1') return;
+
+    const id = window.setTimeout(() => {
+      try {
+        sessionStorage.removeItem('marqq_post_onboard_home_tour');
+      } catch {
+        /* ignore */
+      }
+      setHomeTourOpen(true);
+    }, 500);
+    return () => clearTimeout(id);
+  }, [selectedModule, homeTourOpen]);
 
   const renderContent = () => {
     // Home and default now show the goal-first HomeView
@@ -199,21 +222,31 @@ function Dashboard() {
   };
 
   return (
-    <MainLayout
-      selectedModule={selectedModule}
-      onModuleSelect={handleModuleSelect}
-      conversations={conversations}
-      activeConversationId={activeConversationId}
-      onConversationSelect={(id) => {
-        setActiveConversationId(id);
-        setChatOpen(true);
-      }}
-      onConversationsChange={handleConversationsChange}
-      chatOpen={chatOpen}
-      onChatOpenChange={setChatOpen}
-    >
-      {renderContent()}
-    </MainLayout>
+    <>
+      <MainLayout
+        selectedModule={selectedModule}
+        onModuleSelect={handleModuleSelect}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onConversationSelect={(id) => {
+          setActiveConversationId(id);
+          setChatOpen(true);
+        }}
+        onConversationsChange={handleConversationsChange}
+        chatOpen={chatOpen}
+        onChatOpenChange={setChatOpen}
+      >
+        {renderContent()}
+      </MainLayout>
+      {homeTourOpen && (
+        <HomePostOnboardingTour
+          onDone={() => {
+            setHomeTourOpen(false);
+            onHomeTourComplete?.();
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -221,6 +254,18 @@ function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const [isOnboarded, setIsOnboarded] = useState(() => localStorage.getItem('marqq_onboarded') === '1');
   const [showTour, setShowTour] = useState(() => localStorage.getItem('marqq_tour_done') !== '1');
+
+  // Queue home spotlight when onboarded but the tour is not finished (incl. legacy users).
+  useEffect(() => {
+    if (!isAuthenticated || !isOnboarded || isLoading) return;
+    if (localStorage.getItem('marqq_home_tour_done') === '1') return;
+    if (sessionStorage.getItem('marqq_post_onboard_home_tour')) return;
+    try {
+      sessionStorage.setItem('marqq_post_onboard_home_tour', '1');
+    } catch {
+      /* ignore */
+    }
+  }, [isAuthenticated, isOnboarded, isLoading]);
 
   if (isLoading) {
     return (
@@ -238,7 +283,11 @@ function AppContent() {
       <OnboardingFlow
         onComplete={() => {
           setIsOnboarded(true);
-          setShowTour(true);
+          try {
+            sessionStorage.setItem('marqq_post_onboard_home_tour', '1');
+          } catch {
+            /* ignore */
+          }
         }}
       />
     );
@@ -246,7 +295,13 @@ function AppContent() {
 
   return isAuthenticated ? (
     <>
-      <Dashboard />
+      <Dashboard
+        onHomeTourComplete={() => {
+          if (localStorage.getItem('marqq_tour_done') !== '1') {
+            setShowTour(true);
+          }
+        }}
+      />
       {showTour && <ProductTour onDone={() => setShowTour(false)} />}
     </>
   ) : <AuthScreen />;

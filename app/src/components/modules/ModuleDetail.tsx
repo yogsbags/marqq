@@ -251,17 +251,6 @@ export function ModuleDetail({ module, onBack, onModuleSelect, autoStart = false
   const [goalPreset, setGoalPreset] = useState<GoalPreset>(() => parseGoalPresetFromHash());
   const { plan } = usePlan();
 
-  // Gate locked modules
-  if (!canAccessModule(plan, module.id)) {
-    return (
-      <LockedModuleGate
-        moduleName={module.name}
-        requiredPlan={requiredPlanForModule(module.id)}
-        currentPlan={plan}
-      />
-    );
-  }
-
   // Reset auto-start after first use
   useEffect(() => {
     if (autoStart) {
@@ -279,6 +268,17 @@ export function ModuleDetail({ module, onBack, onModuleSelect, autoStart = false
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // Gate locked modules — checked AFTER all hooks
+  if (!canAccessModule(plan, module.id)) {
+    return (
+      <LockedModuleGate
+        moduleName={module.name}
+        requiredPlan={requiredPlanForModule(module.id)}
+        currentPlan={plan}
+      />
+    );
+  }
 
   // Special handling for Lead Intelligence module
   if (module.id === 'lead-intelligence') {

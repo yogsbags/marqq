@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthState } from '@/types/auth';
 import { supabase } from '@/lib/supabase';
 import type { Session, AuthError } from '@supabase/supabase-js';
+import { persistActiveUserId } from '@/lib/agentContext';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
@@ -49,12 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           const user = mapSupabaseUser(session.user);
+          persistActiveUserId(session.user.id);
           setState({
             user,
             isAuthenticated: true,
             isLoading: false,
           });
         } else {
+          persistActiveUserId(null);
           setState(prev => ({ ...prev, isLoading: false }));
         }
       } catch (error) {
@@ -70,12 +73,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
           const user = mapSupabaseUser(session.user);
+          persistActiveUserId(session.user.id);
           setState({
             user,
             isAuthenticated: true,
             isLoading: false,
           });
         } else if (event === 'SIGNED_OUT') {
+          persistActiveUserId(null);
           setState({
             user: null,
             isAuthenticated: false,
@@ -83,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           const user = mapSupabaseUser(session.user);
+          persistActiveUserId(session.user.id);
           setState(prev => ({
             ...prev,
             user,

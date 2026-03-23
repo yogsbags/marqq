@@ -39,6 +39,16 @@ export const dashboardData: DashboardData = {
       ],
     },
     {
+      id: 'social-media',
+      name: 'Social Media Campaigns',
+      color: '#EC4899',
+      metrics: [
+        { label: 'Agents', value: 'kiran + maya' },
+        { label: 'Platforms', value: 'LinkedIn · Instagram · X' },
+        { label: 'Output', value: 'Content + schedule' },
+      ],
+    },
+    {
       id: 'user-engagement',
       name: 'User Engagement & Lifecycle',
       color: '#F59E0B',

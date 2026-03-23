@@ -82,6 +82,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
               variant="outline"
               size="sm"
               onClick={onOpenChat}
+              data-tour="header-ask-ai"
               className="gap-1.5 text-xs font-medium rounded-full border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600 dark:text-orange-400"
             >
               <MessageSquare className="h-3.5 w-3.5" />

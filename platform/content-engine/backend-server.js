@@ -1022,7 +1022,7 @@ Return ONLY valid JSON (no markdown, no commentary) with this exact shape:
   "timestamp": "${new Date().toISOString()}",
   "input": { "mkg_version": null, "dependencies_read": [], "assumptions_made": [] },
   "artifact": {
-    "data": {},
+    "data": "<IMPORTANT: extract structured data from the response below — do NOT leave this as {}. For a social calendar: {\"calendar\":[...],\"content_themes\":[...]}. For a strategy: {\"strategy_overview\":\"...\",\"phases\":[...]}. For leads: {\"leads\":[...]}. Extract whatever structured content is present.>",
     "summary": "<one paragraph summary extracted from the response>",
     "confidence": 0.75
   },
@@ -1034,12 +1034,19 @@ Return ONLY valid JSON (no markdown, no commentary) with this exact shape:
   "automation_triggers": []
 }
 
-If tool execution context is provided, use it to recover artifact.data fields such as doc_url and file_url.
+IMPORTANT for artifact.data: You MUST extract real structured content from the agent response. Do not return an empty object {}.
+- If the response contains a social media calendar, extract it as {"calendar": [...], "content_themes": [...], "platform_strategy": {...}}
+- If the response contains a strategy/plan, extract key sections as {"strategy_overview": "...", "phases": [...], "recommendations": [...]}
+- If the response contains leads/contacts, extract as {"leads": [...], "scoring": {...}}
+- If the response contains analysis/audit, extract as {"findings": [...], "recommendations": [...], "priority_actions": [...]}
+- Always populate artifact.data with whatever structured content you can extract.
+
+If tool execution context is provided, also recover artifact.data fields such as doc_url and file_url.
 If a successful Google Docs create call exists with a document_id, set artifact.data.doc_url to https://docs.google.com/document/d/<document_id>/edit.
 If a successful Google Drive file creation exists with a file id, set artifact.data.file_url to https://drive.google.com/file/d/<id>/view.
 
 Agent response to extract from:
-${prose.slice(0, 6000)}
+${prose.slice(0, 15000)}
 ${successfulToolContext}`;
 
       const recovery = await groq.chat.completions.create({
@@ -5354,6 +5361,9 @@ app.post("/api/agents/:name/run", async (req, res) => {
   const workspaceId = typeof req.headers["x-workspace-id"] === "string"
     ? req.headers["x-workspace-id"].trim()
     : null;
+  const headerUserId = typeof req.headers["x-user-id"] === "string"
+    ? req.headers["x-user-id"].trim()
+    : null;
 
   if (!VALID_AGENTS.has(name)) {
     return res.status(404).json({ error: "Unknown agent" });
@@ -5363,60 +5373,102 @@ app.post("/api/agents/:name/run", async (req, res) => {
   }
 
   // ── Plan + Credit check ────────────────────────────────────────────────────
-  if (workspaceId) {
+  // Credits are per user (shared across all their workspaces).
+  // Plan for module-access gating comes from user_plans; workspace plan is fallback.
+  if (workspaceId || headerUserId) {
     try {
-      const { data: ws } = await supabase
-        .from("workspaces")
-        .select("plan, credits_remaining, credits_total, credits_reset_at")
-        .eq("id", workspaceId)
-        .single();
+      // Resolve userId: prefer explicit header, fall back to workspace owner_id
+      let userId = headerUserId;
+      let workspacePlan = "growth";
 
-      if (ws) {
-        const plan = ws.plan || "growth";
+      if (workspaceId) {
+        const { data: ws } = await supabase
+          .from("workspaces")
+          .select("plan, owner_id")
+          .eq("id", workspaceId)
+          .single();
+        if (ws) {
+          workspacePlan = ws.plan || "growth";
+          if (!userId) userId = ws.owner_id || null;
+        }
+      }
 
-        // Reset credits if the monthly window has elapsed
-        const resetAt = ws.credits_reset_at ? new Date(ws.credits_reset_at) : null;
-        if (resetAt && new Date() > resetAt) {
-          const newTotal = PLAN_CREDITS[plan] ?? 500;
-          await supabase
-            .from("workspaces")
-            .update({
-              credits_remaining: newTotal,
-              credits_total: newTotal,
+      if (userId) {
+        // Look up user-level plan record
+        let { data: up } = await supabase
+          .from("user_plans")
+          .select("plan, credits_remaining, credits_total, credits_reset_at")
+          .eq("user_id", userId)
+          .single();
+
+        // Seed a record if none exists yet
+        if (!up) {
+          const seedTotal = PLAN_CREDITS[workspacePlan] ?? 500;
+          const { data: inserted } = await supabase
+            .from("user_plans")
+            .insert({
+              user_id: userId,
+              plan: workspacePlan,
+              credits_remaining: seedTotal,
+              credits_total: seedTotal,
               credits_reset_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             })
-            .eq("id", workspaceId);
-          ws.credits_remaining = newTotal;
+            .select()
+            .single();
+          up = inserted;
         }
 
-        // Check module access
-        if (!canAccessModule(plan, task_type)) {
-          return res.status(403).json({
-            error: "module_locked",
-            message: "This module is not available on your current plan.",
-            required_plan: plan === "growth" ? "scale" : "agency",
-            current_plan: plan,
-          });
-        }
+        if (up) {
+          const plan = up.plan || workspacePlan || "growth";
 
-        // Check credit balance (unlimited = -1)
-        const creditCost = CREDIT_COSTS.agent_run;
-        if (ws.credits_remaining !== -1 && ws.credits_remaining < creditCost) {
-          return res.status(402).json({
-            error: "insufficient_credits",
-            message: "You've used all your agent run credits for this month.",
-            credits_remaining: ws.credits_remaining,
-            credits_total: ws.credits_total,
-            reset_at: ws.credits_reset_at,
-          });
-        }
+          // Reset credits if the monthly window has elapsed
+          const resetAt = up.credits_reset_at ? new Date(up.credits_reset_at) : null;
+          if (resetAt && new Date() > resetAt) {
+            const newTotal = PLAN_CREDITS[plan] ?? 500;
+            await supabase
+              .from("user_plans")
+              .update({
+                credits_remaining: newTotal,
+                credits_total: newTotal,
+                credits_reset_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("user_id", userId);
+            up.credits_remaining = newTotal;
+          }
 
-        // Deduct credit immediately (optimistic deduction)
-        if (ws.credits_remaining !== -1) {
-          await supabase
-            .from("workspaces")
-            .update({ credits_remaining: ws.credits_remaining - creditCost })
-            .eq("id", workspaceId);
+          // Check module access
+          if (!canAccessModule(plan, task_type)) {
+            return res.status(403).json({
+              error: "module_locked",
+              message: "This module is not available on your current plan.",
+              required_plan: plan === "growth" ? "scale" : "agency",
+              current_plan: plan,
+            });
+          }
+
+          // Check credit balance (unlimited = -1)
+          const creditCost = CREDIT_COSTS.agent_run;
+          if (up.credits_remaining !== -1 && up.credits_remaining < creditCost) {
+            return res.status(402).json({
+              error: "insufficient_credits",
+              message: "You've used all your agent run credits for this month.",
+              credits_remaining: up.credits_remaining,
+              credits_total: up.credits_total,
+              reset_at: up.credits_reset_at,
+            });
+          }
+
+          // Deduct credit immediately (optimistic deduction)
+          if (up.credits_remaining !== -1) {
+            await supabase
+              .from("user_plans")
+              .update({
+                credits_remaining: up.credits_remaining - creditCost,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("user_id", userId);
+          }
         }
       }
     } catch (planErr) {
@@ -8514,32 +8566,71 @@ app.patch("/api/workspaces/:id", async (req, res) => {
   }
 });
 
-// GET /api/workspaces/:id/plan — get plan + credits for a workspace
+// GET /api/workspaces/:id/plan — get plan + credits (user-level, shared across workspaces)
+// Accepts optional ?userId= query param; falls back to workspace owner_id.
 app.get("/api/workspaces/:id/plan", async (req, res) => {
   const { id } = req.params;
+  const queryUserId = typeof req.query.userId === "string" ? req.query.userId.trim() : null;
   try {
-    const { data, error } = await supabase
+    // Get workspace for plan + owner_id fallback
+    const { data: ws, error: wsErr } = await supabase
       .from("workspaces")
-      .select("plan, credits_remaining, credits_total, credits_reset_at")
+      .select("plan, owner_id")
       .eq("id", id)
       .single();
-    if (error) throw error;
+    if (wsErr) throw wsErr;
 
-    const plan = data?.plan || "growth";
+    const workspacePlan = ws?.plan || "growth";
+    const userId = queryUserId || ws?.owner_id || null;
+
+    if (!userId) {
+      // No user context — return workspace plan with defaults
+      return res.json({
+        plan: workspacePlan,
+        credits_remaining: PLAN_CREDITS[workspacePlan] ?? 500,
+        credits_total: PLAN_CREDITS[workspacePlan] ?? 500,
+        credits_reset_at: null,
+      });
+    }
+
+    // Look up user-level plan record
+    let { data: up } = await supabase
+      .from("user_plans")
+      .select("plan, credits_remaining, credits_total, credits_reset_at")
+      .eq("user_id", userId)
+      .single();
+
+    // Seed record if missing
+    if (!up) {
+      const seedTotal = PLAN_CREDITS[workspacePlan] ?? 500;
+      const { data: inserted } = await supabase
+        .from("user_plans")
+        .insert({
+          user_id: userId,
+          plan: workspacePlan,
+          credits_remaining: seedTotal,
+          credits_total: seedTotal,
+          credits_reset_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .select()
+        .single();
+      up = inserted;
+    }
+
+    const plan = up?.plan || workspacePlan;
+    let creditsRemaining = up?.credits_remaining ?? PLAN_CREDITS[plan] ?? 500;
+    let creditsTotal = up?.credits_total ?? PLAN_CREDITS[plan] ?? 500;
+    let resetAtOut = up?.credits_reset_at ?? null;
 
     // Auto-reset if monthly window elapsed
-    const resetAt = data?.credits_reset_at ? new Date(data.credits_reset_at) : null;
-    let creditsRemaining = data?.credits_remaining ?? PLAN_CREDITS[plan] ?? 500;
-    let creditsTotal = data?.credits_total ?? PLAN_CREDITS[plan] ?? 500;
-    let resetAtOut = data?.credits_reset_at;
-
+    const resetAt = resetAtOut ? new Date(resetAtOut) : null;
     if (resetAt && new Date() > resetAt) {
       const newTotal = PLAN_CREDITS[plan] ?? 500;
       const newResetAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
       await supabase
-        .from("workspaces")
-        .update({ credits_remaining: newTotal, credits_total: newTotal, credits_reset_at: newResetAt })
-        .eq("id", id);
+        .from("user_plans")
+        .update({ credits_remaining: newTotal, credits_total: newTotal, credits_reset_at: newResetAt, updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
       creditsRemaining = newTotal;
       creditsTotal = newTotal;
       resetAtOut = newResetAt;
