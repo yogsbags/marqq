@@ -32,19 +32,22 @@ export function SettingsPanel({ initialTab = 'general' }: SettingsPanelProps) {
   };
 
   return (
-    <div className="flex gap-0 min-h-full">
-      {/* Sidebar */}
-      <aside className="w-52 shrink-0 border-r pr-0">
-        <div className="px-4 py-4 pb-2">
-          <h1 className="font-semibold text-base">Settings</h1>
+    <div className="flex gap-6 min-h-full">
+      <aside className="w-60 shrink-0 self-start rounded-[28px] border border-border/70 bg-background/80 shadow-sm">
+        <div className="px-5 py-5 pb-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500">Workspace</div>
+          <h1 className="mt-2 font-brand-syne text-xl font-semibold tracking-tight text-foreground">Settings</h1>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Manage workspace details, connected apps, members, and billing without leaving the product shell.
+          </p>
         </div>
-        <nav className="px-2 space-y-0.5">
+        <nav className="px-3 pb-3 space-y-1">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left',
+                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm transition-colors text-left',
                 activeTab === tab.id
                   ? 'bg-orange-50 text-orange-700 font-medium dark:bg-orange-900/20 dark:text-orange-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -58,7 +61,7 @@ export function SettingsPanel({ initialTab = 'general' }: SettingsPanelProps) {
       </aside>
 
       {/* Content */}
-      <main className="flex-1 px-8 py-6 overflow-auto">
+      <main className="flex-1 overflow-auto">
         {renderTab()}
       </main>
     </div>

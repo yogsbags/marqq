@@ -1,0 +1,63 @@
+{
+  "streamSid": "MZd3862fa21718315a4ae60a3a5a2a6da5",
+  "callSid": "CA5afd200ed1048cc0dbab2066a876642a",
+  "companyId": "81c90933-bd45-40a8-8db7-72c6692ef9b6",
+  "companyName": "the company",
+  "campaignId": "Voicebot Test - Outbound Brief Fix",
+  "leadId": null,
+  "leadName": "Yogesh Bagle",
+  "leadPhone": "+918104360600",
+  "leadEmail": "john@example.com",
+  "language": "en",
+  "openingLine": "Hello, this is the AI calling assistant from your marketing team. Is this a bad time for a quick conversation?",
+  "turns": [
+    {
+      "role": "assistant",
+      "text": "Hello, this is the AI calling assistant from your marketing team. Is this a bad time for a quick conversation?",
+      "createdAt": "2026-03-19T18:31:26.271Z",
+      "type": "opening_line"
+    },
+    {
+      "role": "lead",
+      "text": "Okay",
+      "createdAt": "2026-03-19T18:31:28.875Z",
+      "interruptedBot": false
+    },
+    {
+      "role": "assistant",
+      "text": "Thanks, Yogesh. To see if we can help, could you share how your team is currently handling AI inference workloads?",
+      "createdAt": "2026-03-19T18:31:33.157Z"
+    }
+  ],
+  "scorecard": {
+    "callSid": "CA5afd200ed1048cc0dbab2066a876642a",
+    "leadId": null,
+    "leadName": "Yogesh Bagle",
+    "companyId": "81c90933-bd45-40a8-8db7-72c6692ef9b6",
+    "companyName": "the company",
+    "status": "nurture",
+    "fitScore": 5,
+    "intentScore": 5,
+    "urgencyScore": 2,
+    "authorityScore": 5,
+    "budgetScore": 2,
+    "leadTemperature": "cold",
+    "detectedSignals": [
+      "lead agreed to conversation",
+      "expressed interest in AI inference workloads"
+    ],
+    "objections": [],
+    "nextAction": "Schedule a follow‑up call to uncover current AI inference workflow, pain points, authority, and budget.",
+    "humanCloserBrief": "Yogesh responded positively to the call and is willing to discuss how his team handles AI inference workloads. No details yet on fit, budget, or timeline. Needs deeper qualification.",
+    "recommendedCrmUpdate": {
+      "lifecycleStage": "prospect",
+      "ownerQueue": "AI_Inference_Prospects",
+      "disposition": "open"
+    }
+  },
+  "googleSheetsSync": null,
+  "lastTranscript": "Okay",
+  "lastAssistantText": "Thanks, Yogesh. To see if we can help, could you share how your team is currently handling AI inference workloads?",
+  "endedAt": "2026-03-19T18:32:08.647Z",
+  "persistedAt": "2026-03-19T18:32:08.647Z"
+}

@@ -18,7 +18,7 @@ import {
   HiLockOpen as LockOpen,
   HiChevronLeft as ChevronLeft,
 } from 'react-icons/hi';
-import { Map, Target, Megaphone, PenLine, Search, Calendar, BarChart3, Clock3, PlayCircle, Wrench, CheckCircle2 } from 'lucide-react';
+import { Map, Target, Megaphone, PenLine, Search, Calendar, BarChart3, Clock3, PlayCircle, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   GTM_QUESTIONS,
@@ -27,24 +27,11 @@ import {
   saveGtmStrategy,
 } from '@/services/gtmWizardService';
 import type { AgentTarget, GtmStrategyBlock, SavedGtmStrategy } from '@/types/gtm';
-import { addAiTask, loadTasks } from '@/lib/taskStore';
+
 import { storeGtmContext } from '@/lib/gtmContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { buildAgentHeaders, buildAgentRunPayload } from '@/lib/agentContext';
 
-// Horizon mapping: first 2 bullets are near-term (week), rest are monthly
-function bulletHorizon(blockId: string, bullet: string, index: number): 'day' | 'week' | 'month' {
-  const normalized = bullet.toLowerCase();
-  if (normalized.includes('today') || normalized.includes('tomorrow') || normalized.includes('this week')) return 'day';
-  if (normalized.includes('week 1') || normalized.includes('week 2')) return 'week';
-  if (normalized.includes('month 2') || normalized.includes('month 3') || normalized.includes('quarter')) return 'month';
-  if (blockId === 'roadmap') return index < 2 ? 'week' : 'month';
-  if (blockId === 'kpis') return 'month';
-  return index < 2 ? 'week' : 'month';
-}
-
-function taskLabel(blockTitle: string, bullet: string): string {
-  return `[GTM • ${blockTitle}] ${bullet}`;
-}
 
 function extractRoadmapPrefix(bullet: string): string | null {
   const match = bullet.match(/^(month\s*\d+|week\s*\d+|q[1-4]|quarter)\s*:\s*/i);
@@ -223,77 +210,7 @@ function stripRoadmapPrefix(bullet: string): string {
   return bullet.replace(/^(month\s*\d+|week\s*\d+|q[1-4]|quarter)\s*:\s*/i, '').trim();
 }
 
-function normalizeTaskText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
-function inferTaskFromBullet(block: GtmStrategyBlock, bullet: string, index: number) {
-  const trimmed = bullet.trim();
-  if (!trimmed) return null;
-
-  if (block.id === 'kpis') {
-    const normalized = trimmed.toLowerCase();
-    if (normalized.includes('tracking cadence') || normalized.includes('weekly review') || normalized.includes('scorecard')) {
-      return {
-        label: taskLabel(block.title, trimmed),
-        horizon: 'week' as const,
-      };
-    }
-
-    if (normalized.includes('track ') || normalized.includes('measure ') || normalized.includes('review ')) {
-      return {
-        label: taskLabel(block.title, trimmed),
-        horizon: 'month' as const,
-      };
-    }
-
-    return {
-      label: taskLabel(block.title, `Instrument tracking for ${trimmed.replace(/\.$/, '')}`),
-      horizon: 'week' as const,
-    };
-  }
-
-  if (block.id === 'roadmap') {
-    const prefix = extractRoadmapPrefix(trimmed);
-    const body = stripRoadmapPrefix(trimmed) || trimmed;
-    return {
-      label: prefix
-        ? `[GTM • ${block.title} • ${prefix}] ${body}`
-        : taskLabel(block.title, trimmed),
-      horizon: bulletHorizon(block.id, trimmed, index),
-    };
-  }
-
-  return {
-    label: taskLabel(block.title, trimmed),
-    horizon: bulletHorizon(block.id, trimmed, index),
-  };
-}
-
-function buildTasksFromBlocks(blocks: GtmStrategyBlock[]) {
-  const existing = new Set(loadTasks().map((task) => normalizeTaskText(task.label)));
-  const seen = new Set<string>();
-  const tasks: Array<{ label: string; horizon: 'day' | 'week' | 'month' }> = [];
-
-  blocks
-    .filter((block) => block.approved)
-    .forEach((block) => {
-      block.bullets.forEach((bullet, index) => {
-        const task = inferTaskFromBullet(block, bullet, index);
-        if (!task) return;
-        const normalized = normalizeTaskText(task.label);
-        if (seen.has(normalized) || existing.has(normalized)) return;
-        seen.add(normalized);
-        tasks.push(task);
-      });
-    });
-
-  return tasks;
-}
 
 // Section icon map
 const SECTION_ICON: Record<string, LucideIcon> = {
@@ -364,7 +281,6 @@ export function GTMWizard({ onClose, onNavigate }: Props) {
   const approvedCount = blocks.filter(b => b.approved).length;
   const allApproved = blocks.length > 0 && approvedCount === blocks.length;
 
-  const tasksForDeployingBlock = deployingBlock ? buildTasksFromBlocks([{ ...deployingBlock, approved: true }]) : [];
   const deployingAgent = deployingBlock ? DEPLOYMENT_AGENT_MAP[deployingBlock.recommendedAgentTarget] : null;
 
   // ── Interview ──────────────────────────────────────────────────────────────
@@ -433,8 +349,8 @@ export function GTMWizard({ onClose, onNavigate }: Props) {
 
     const res = await fetch(`/api/agents/${agent.runtimeName}/run`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
+      headers: buildAgentHeaders(),
+      body: JSON.stringify(buildAgentRunPayload({ query })),
     });
 
     if (!res.ok) {
@@ -463,9 +379,6 @@ export function GTMWizard({ onClose, onNavigate }: Props) {
         bullets: deployingBlock.bullets,
       });
 
-      tasksForDeployingBlock.forEach((task) => {
-        addAiTask(`[${deployingAgent.displayName}] ${task.label}`, task.horizon);
-      });
 
       if (deploymentMode === 'run_now') {
         await runAgentForBlock(deployingBlock, deployingAgent);
@@ -483,10 +396,7 @@ export function GTMWizard({ onClose, onNavigate }: Props) {
             summary: deployingBlock.summary,
             bullets: deployingBlock.bullets,
             source: 'gtm-wizard',
-            tasks: tasksForDeployingBlock.map((task) => ({
-              label: task.label,
-              horizon: task.horizon,
-            })),
+            tasks: [],
           }),
         });
         if (!response.ok) {
@@ -780,26 +690,7 @@ export function GTMWizard({ onClose, onNavigate }: Props) {
                   <p className="text-sm text-slate-600 dark:text-slate-400">{deployingAgent.taskSummary}</p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Tasks that will be created</p>
-                    </div>
-                    <div className="space-y-2">
-                      {tasksForDeployingBlock.length === 0 ? (
-                        <p className="text-xs text-slate-500 dark:text-slate-400">No executable tasks found in this card yet.</p>
-                      ) : (
-                        tasksForDeployingBlock.map((task) => (
-                          <div key={task.label} className="rounded-lg bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 px-3 py-2">
-                            <p className="text-xs font-medium text-slate-800 dark:text-slate-200">[{deployingAgent.displayName}] {task.label}</p>
-                            <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{task.horizon}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
+                <div className="grid gap-4">
                   <div className="space-y-4">
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
                       <div className="flex items-center gap-2 mb-3">
@@ -873,7 +764,7 @@ export function GTMWizard({ onClose, onNavigate }: Props) {
                 </Button>
                 <Button
                   onClick={() => void handleConfirmDeployment()}
-                  disabled={isDeploying || tasksForDeployingBlock.length === 0}
+                  disabled={isDeploying || !deployingBlock}
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                 >
                   {isDeploying

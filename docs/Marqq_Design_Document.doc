@@ -1,0 +1,120 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}{\f1 Arial;}}
+\fs24
+\pard\qc\b\f0 Marqq AI \endash  Design Document\par
+\pard\qc\b0\f0 System Architecture, Components, Data Flows, and Integrations\par
+\pard\qc\b0\f0 \line
+
+\pard\qj\f0\b 1) Purpose\par\b0
+This document describes the technical design of Marqq AI: a unified B2B marketing intelligence and automation platform built as a modular single-page application with a backend orchestration layer. It covers the major components, module boundaries, data persistence, automation mechanisms, and external integrations.\par
+\par
+
+\pard\qj\f0\b 2) High-Level Architecture\par\b0
+\pard\qj\f0 Marqq follows a monolithic deployment model with clear internal boundaries that can later be split into services.\par
+\pard\qj\f0\bullet\tx720 \b Web App (SPA)\b0 : React + TypeScript + Vite, module-driven UI\par
+\pard\qj\f0\bullet\tx720 \b Backend Orchestrator\b0 : Node/Express content-engine backend (API routes, agents, automation execution, connector routing)\par
+\pard\qj\f0\bullet\tx720 \b Data Plane\b0 : Supabase (Auth + Postgres + Realtime), plus filesystem logs for traces\par
+\pard\qj\f0\bullet\tx720 \b AI / Media Providers\b0 : Groq (primary LLM), Gemini/OpenAI fallback; HeyGen/Fal/Replicate/Shotstack for media\par
+\par
+
+\pard\qj\f0\b 3) Core Design Principles\par\b0
+\pard\qj\f0\bullet\tx720 \b Workspace-driven multi-tenancy\b0 : user membership determines data access (workspace members can read/write their context)\par
+\pard\qj\f0\bullet\tx720 \b Modular product surface\b0 : multiple modules share a unified shell (auth, theme, agents)\par
+\pard\qj\f0\bullet\tx720 \b Agent + automation execution\b0 : agents can declare automation triggers; a dispatcher runs them after agent execution\par
+\pard\qj\f0\bullet\tx720 \b Multi-provider resilience\b0 : provider fallback for LLM and media workloads\par
+\pard\qj\f0\bullet\tx720 \b Auditability\b0 : traces and artifacts are saved to enable replay, validation, and debugging\par
+\par
+
+\pard\qj\f0\b 4) Major Components\par\b0
+\pard\qj\f0\b 4.1 Frontend (SPA)\par\b0
+\pard\qj\f0 The UI is a unified dashboard with module screens (lead intelligence, content automation, social, video, voice, company intelligence, customer view, budget optimization, scorecards).\par
+\pard\qj\f0\bullet\tx720 Shared contexts: authentication and theme\par
+\pard\qj\f0\bullet\tx720 Shared component library: Radix UI + shadcn/ui + Tailwind\par
+\pard\qj\f0\bullet\tx720 Real-time updates: Supabase subscriptions (alerts, tasks, notifications)\par
+\par
+
+\pard\qj\f0\b 4.2 Backend Orchestrator (Content Engine)\par\b0
+\pard\qj\f0 The backend is an Express server that:\par
+\pard\qj\f0\bullet\tx720 Serves /api endpoints (agents, workflows, connectors)\par
+\pard\qj\f0\bullet\tx720 Orchestrates agent runs and artifact generation\par
+\pard\qj\f0\bullet\tx720 Runs a queue/worker for background jobs and scheduled workloads\par
+\pard\qj\f0\bullet\tx720 Executes automation triggers declared by agents\par
+\pard\qj\f0\bullet\tx720 Connects to Supabase (anon client for user-level reads; service/admin client for privileged writes)\par
+\par
+
+\pard\qj\f0\b 4.3 Agent System\par\b0
+\pard\qj\f0 The platform uses multiple named agents (e.g., Veena for Company Intelligence, plus other specialist agents) with:\par
+\pard\qj\f0\bullet\tx720 Persistent workspace context stored in Supabase\par
+\pard\qj\f0\bullet\tx720 Shared knowledge and guardrails via contracts and validation steps\par
+\pard\qj\f0\bullet\tx720 Ability to emit structured artifacts (e.g., competitor intelligence, opportunities, ICPs)\par
+\par
+
+\pard\qj\f0\b 4.4 Automation Registry + Dispatcher\par\b0
+\pard\qj\f0 Marqq maintains an automation registry that agents can reference in their contracts. After an agent run, the system executes automation triggers.\par
+\pard\qj\f0\bullet\tx720 Trigger types: direct API calls, internal functions, or webhooks\par
+\pard\qj\f0\bullet\tx720 Example automations:\par
+\pard\qj\f0\bullet\tx1440 YouTube channel monitoring via yt-dlp (transcripts + dedup)\par
+\pard\qj\f0\bullet\tx1440 Social intelligence extraction (dedup + structured extraction)\par
+\pard\qj\f0\bullet\tx1440 Ads intelligence scrape (LinkedIn/Facebook/Google transparency) via Apify\par
+\pard\qj\f0\bullet\tx1440 Ads intelligence analysis vs MKG positioning\par
+\pard\qj\f0\bullet\tx1440 Paid media fetch (Meta Ads / Google Ads) via Composio connected accounts\par
+\par
+
+\pard\qj\f0\b 5) Data Model and Persistence\par\b0
+\pard\qj\f0\b 5.1 Supabase\par\b0
+\pard\qj\f0 Primary persistent store for:\par
+\pard\qj\f0\bullet\tx720 Authentication and user identity\par
+\pard\qj\f0\bullet\tx720 Workspaces and workspace membership (RLS policies enforce access)\par
+\pard\qj\f0\bullet\tx720 Workspace context (onboarding / marketing context)\par
+\pard\qj\f0\bullet\tx720 Company + artifacts (scoped to workspaces)\par
+\pard\qj\f0\bullet\tx720 Alerts, notifications, tasks, and memory tables (depending on modules enabled)\par
+\par
+\pard\qj\f0\b 5.2 Filesystem Logs and Traces\par\b0
+\pard\qj\f0 Certain workflows store trace outputs and raw model outputs under logs/ to aid debugging and auditability.\par
+\par
+
+\pard\qj\f0\b 6) Key Flows\par\b0
+\pard\qj\f0\b 6.1 Competitor Monitoring (n8n + Backend)\par\b0
+\pard\qj\f0 A scheduled n8n workflow runs daily:\par
+\pard\qj\f0\bullet\tx720 Fetch monitoring configs from Supabase\par
+\pard\qj\f0\bullet\tx720 For each competitor: run web search, parse JSON, generate a content hash for deduplication\par
+\pard\qj\f0\bullet\tx720 POST to backend webhook: enforce deduplication, match users by preferences, create alerts\par
+\pard\qj\f0\bullet\tx720 Supabase realtime pushes alerts to the frontend\par
+\par
+
+\pard\qj\f0\b 6.2 Company Intelligence Artifact Generation\par\b0
+\pard\qj\f0 The backend routes company-intel artifact types to specialist agents, executes generation, validates output, stores artifacts, and records traces.\par
+\par
+
+\pard\qj\f0\b 6.3 Paid Media Data Access (Composio)\par\b0
+\pard\qj\f0 When a user connects an account via Composio, the system can retrieve tokens for active connected accounts and execute provider actions for Meta Ads and Google Ads. These are used by automations and budget/performance analysis.\par
+\par
+
+\pard\qj\f0\b 7) Integrations\par\b0
+\pard\qj\f0\bullet\tx720 \b LLMs\b0 : Groq (primary), Gemini/OpenAI (fallback)\par
+\pard\qj\f0\bullet\tx720 \b Data/Enrichment\b0 : Supabase; optional scrapers/providers (e.g., Apify)\par
+\pard\qj\f0\bullet\tx720 \b Automation\b0 : n8n (webhooks + scheduled workflows), internal automation registry\par
+\pard\qj\f0\bullet\tx720 \b Media\b0 : HeyGen, Fal AI, Replicate, Shotstack, Cloudinary/imgbb\par
+\pard\qj\f0\bullet\tx720 \b Real-time voice/video\b0 : LiveKit\par
+\pard\qj\f0\bullet\tx720 \b Observability\b0 : Langfuse tracing hooks in the backend\par
+\par
+
+\pard\qj\f0\b 8) Security and Multi-Tenancy\par\b0
+\pard\qj\f0\bullet\tx720 Supabase RLS policies enforce workspace-level access for user-facing tables.\par
+\pard\qj\f0\bullet\tx720 Privileged writes use a service/admin key in the backend for server-side workflows.\par
+\pard\qj\f0\bullet\tx720 Webhooks should validate signatures/keys for automated inputs (n8n) and enforce deduplication.\par
+\pard\qj\f0\bullet\tx720 API tokens for external providers (Composio, Apify, etc.) must be stored securely and never committed to git.\par
+\par
+
+\pard\qj\f0\b 9) Scalability Notes\par\b0
+\pard\qj\f0\bullet\tx720 The monolith can be split into services: agent orchestration, workflow automation, integrations gateway, analytics.\par
+\pard\qj\f0\bullet\tx720 Introduce organization-level billing and credits so one customer cannot bypass limits by creating multiple workspaces.\par
+\pard\qj\f0\bullet\tx720 Add rate limits and quotas per organization/workspace to control API and model usage.\par
+\par
+
+\pard\qj\f0\b 10) Open Items / Next Steps\par\b0
+\pard\qj\f0\bullet\tx720 Formal credits/billing entity (organization) and usage logging.\par
+\pard\qj\f0\bullet\tx720 Expand live connectors (Meta Ads, Google Ads, GA4, etc.) beyond manual uploads.\par
+\pard\qj\f0\bullet\tx720 Harden automation execution with retries, idempotency keys, and structured error reporting.\par
+\pard\qj\f0\bullet\tx720 Improve observability: consistent trace IDs across agents, automations, and workflows.\par
+}

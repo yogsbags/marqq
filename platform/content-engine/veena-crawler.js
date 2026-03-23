@@ -207,8 +207,8 @@ async function fetchHomepageSignals(websiteUrl) {
 async function getGroqClient() {
   if (TEST_OVERRIDES.groqClient) return TEST_OVERRIDES.groqClient;
   if (!groqClientPromise) {
-    groqClientPromise = import("groq-sdk").then(({ default: Groq }) => {
-      return new Groq({ apiKey: process.env.GROQ_API_KEY });
+    groqClientPromise = import("./langfuse.js").then(({ tracedLLM }) => {
+      return tracedLLM({ traceName: 'veena-crawl', tags: ['veena', 'crawler'] });
     });
   }
   return groqClientPromise;

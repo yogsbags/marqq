@@ -42,27 +42,27 @@ Your `artifact.data` must always contain multiple structured keys. Never return 
 {
   "icp_segments": [
     {
-      "segment": "Entrepreneurial Families",
-      "demographics": "Age 38-55, net worth ₹5Cr-₹50Cr, business owners or founders",
-      "psychographics": "Values legacy and wealth preservation; risk-tolerant but wants expert guidance",
-      "pain_points": ["No time to manage investments actively", "Fear of wealth erosion during market downturns"],
-      "buying_triggers": ["Business exit or IPO", "Inheritance received", "Child's education or marriage planning"],
+      "segment": "Operations Leaders at Mid-Market Real Estate Firms",
+      "demographics": "50-500 employee companies, India-based, digital transformation in progress",
+      "psychographics": "Outcome-oriented, cautious about implementation risk, values workflow efficiency",
+      "pain_points": ["Manual lead qualification", "Slow property valuation workflows", "Fragmented customer data"],
+      "buying_triggers": ["Rising ops costs", "Need for faster turnaround", "Pressure to improve sales efficiency"],
       "priority": "high"
     }
   ],
   "market_context": {
-    "category": "Wealth management and private banking, India",
-    "market_size_signal": "India HNI population growing 12% YoY; estimated ₹200Cr+ AUM market",
-    "demand_drivers": ["Rising entrepreneurial wealth", "NRI repatriation", "Tax optimization need"],
-    "validated_vs_assumed": "Demographics validated from census and AMFI data; psychographics inferred from category behavior"
+    "category": "AI application development for B2B vertical use cases",
+    "market_size_signal": "Use a company-relevant market signal tied to the selected sectors and geography",
+    "demand_drivers": ["Operational automation", "Need for better decision support", "Pressure to differentiate digitally"],
+    "validated_vs_assumed": "Separate validated company facts from inferred buyer behavior"
   },
   "competitor_set": [
-    {"name": "HDFC Wealth", "position": "Scale and trust via banking relationship", "gap": "Lacks personalization for ultra-HNIs"},
-    {"name": "Kotak Wealth", "position": "Family office services for 25Cr+ clients", "gap": "Minimum ticket too high for growing HNIs"}
+    {"name": "Example Competitor 1", "position": "State the competitor's actual market position", "gap": "Explain a specific gap Productverse can exploit"},
+    {"name": "Example Competitor 2", "position": "State the competitor's actual market position", "gap": "Explain a specific gap Productverse can exploit"}
   ],
   "research_gaps": [
-    "No data on NRI repatriation as acquisition trigger",
-    "Unknown: what % of HNIs use digital channels for first discovery vs referral"
+    "Unknown which acquisition channel creates the highest-intent inbound for this audience",
+    "Need better evidence on buyer objections and budget ownership"
   ]
 }
 ```

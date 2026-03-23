@@ -14,6 +14,7 @@ interface WorkspaceContextType {
   activeWorkspace: Workspace | null;
   switchWorkspace: (id: string) => void;
   createWorkspace: (name: string) => Promise<Workspace>;
+  renameWorkspace: (name: string) => Promise<void>;
   updateWebsiteUrl: (url: string) => Promise<void>;
   clearWebsiteUrl: () => Promise<void>;
   refreshWorkspaces: () => Promise<void>;
@@ -75,6 +76,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return workspace;
   };
 
+  const renameWorkspace = async (name: string) => {
+    if (!activeWorkspace || !user?.id || !name.trim()) return;
+    const res = await fetch(`/api/workspaces/${activeWorkspace.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, name: name.trim() }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to rename workspace');
+    const { workspace } = await res.json();
+    setWorkspaces(prev => prev.map(w => w.id === workspace.id ? { ...w, name: workspace.name } : w));
+    setActiveWorkspace(prev => prev?.id === workspace.id ? ({ ...prev, name: workspace.name } as Workspace) : prev);
+    localStorage.setItem(ACTIVE_WS_KEY, JSON.stringify({ id: workspace.id, name: workspace.name }));
+  };
+
   const updateWebsiteUrl = async (url: string) => {
     if (!activeWorkspace || !user?.id) return;
     const res = await fetch(`/api/workspaces/${activeWorkspace.id}`, {
@@ -104,7 +119,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceContext.Provider value={{
       workspaces, activeWorkspace, switchWorkspace,
-      createWorkspace, updateWebsiteUrl, clearWebsiteUrl,
+      createWorkspace, renameWorkspace, updateWebsiteUrl, clearWebsiteUrl,
       refreshWorkspaces: fetchWorkspaces, isLoading,
     }}>
       {children}

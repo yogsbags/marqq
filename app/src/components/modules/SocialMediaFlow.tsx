@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AgentModuleShell } from '@/components/agent/AgentModuleShell'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { CheckCircle2, Circle, FileText, XCircle } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Circle, FileText, LayoutGrid, Sparkles, XCircle } from 'lucide-react'
 import FileUpload from '../social-media/FileUpload'
 import PromptEditor from '../social-media/PromptEditor'
 import PublishingQueue from '../social-media/PublishingQueue'
@@ -18,6 +18,7 @@ if (typeof window !== 'undefined') {
   console.log('SocialMediaFlow: Component name:', StageDataModalComponent?.name || 'Unknown');
 }
 import VideoProducer from '../social-media/VideoProducer'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type WorkflowStage = {
   id: number
@@ -76,25 +77,232 @@ function LogEntry({ text, index }: { text: string; index: number }) {
   );
 }
 
-export function SocialCalendarFlow() {
+type SocialCalendarFlowProps = {
+  initialQuestion?: string
+  initialChannels?: string
+  initialMotion?: string
+  initialHorizon?: string
+}
+
+function formatCalendarLabel(value?: string) {
+  if (!value) return null
+  const labelMap: Record<string, string> = {
+    linkedin: 'LinkedIn first',
+    instagram: 'Instagram first',
+    multi: 'Multi-channel mix',
+    education: 'Educate and build trust',
+    campaign: 'Support a campaign',
+    engagement: 'Drive engagement',
+    two_weeks: 'Next 2 weeks',
+    month: 'This month',
+    quarter: 'Quarter arc',
+  }
+  return labelMap[value] || value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase())
+}
+
+function buildSocialCalendarQuery(channels: string, motion: string, horizon: string, initialQuestion?: string) {
+  return [
+    initialQuestion || `Build a ${formatCalendarLabel(horizon)?.toLowerCase() || 'monthly'} social calendar.`,
+    `Channel mix: ${formatCalendarLabel(channels) || 'Multi-channel mix'}.`,
+    `Primary job: ${formatCalendarLabel(motion) || 'Educate and build trust'}.`,
+    `Planning horizon: ${formatCalendarLabel(horizon) || 'This month'}.`,
+    'Return a practical social calendar with the publishing rhythm, priority content pillars, channel-specific post ideas, recommended formats, and the first posts or captions to ship.',
+    'Keep the result execution-ready for a real marketing team. Prefer a tight, usable calendar over generic social media advice.',
+  ].join('\n\n')
+}
+
+export function SocialCalendarFlow({
+  initialQuestion,
+  initialChannels,
+  initialMotion,
+  initialHorizon,
+}: SocialCalendarFlowProps = {}) {
+  const channels = initialChannels || 'multi'
+  const motion = initialMotion || 'education'
+  const horizon = initialHorizon || 'month'
+
+  const preAgentContent = (
+    <div className="space-y-5">
+      <section className="grid gap-4 lg:grid-cols-[1.02fr_0.98fr]">
+        <Card className="rounded-[2rem] border-orange-200/70 bg-zinc-950 text-orange-50 shadow-[0_28px_80px_-34px_rgba(124,45,18,0.46)] dark:border-orange-900/70">
+          <CardContent className="space-y-6 p-8 lg:p-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-500/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-200">
+              Calendar Desk
+            </div>
+            <div className="space-y-3">
+              <h2 className="max-w-xl text-4xl tracking-[-0.045em] text-orange-50 md:text-5xl">
+                Build a publishing rhythm the team can actually follow instead of another vague content wish list.
+              </h2>
+              <p className="max-w-[60ch] text-sm leading-7 text-orange-100/74">
+                This flow turns channel intent, campaign pressure, and publishing cadence into a usable social calendar
+                with a clear weekly rhythm and concrete posts to ship first.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[1.4rem] border border-orange-400/15 bg-white/5 p-4">
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/12 text-orange-200">
+                  <LayoutGrid className="h-4 w-4" />
+                </div>
+                <div className="text-xs uppercase tracking-[0.22em] text-orange-100/45">Channels</div>
+                <div className="mt-2 text-sm font-medium text-orange-50">{formatCalendarLabel(channels)}</div>
+              </div>
+              <div className="rounded-[1.4rem] border border-orange-400/15 bg-white/5 p-4">
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/12 text-orange-200">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div className="text-xs uppercase tracking-[0.22em] text-orange-100/45">Motion</div>
+                <div className="mt-2 text-sm font-medium text-orange-50">{formatCalendarLabel(motion)}</div>
+              </div>
+              <div className="rounded-[1.4rem] border border-orange-400/15 bg-white/5 p-4">
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/12 text-orange-200">
+                  <CalendarDays className="h-4 w-4" />
+                </div>
+                <div className="text-xs uppercase tracking-[0.22em] text-orange-100/45">Horizon</div>
+                <div className="mt-2 text-sm font-medium text-orange-50">{formatCalendarLabel(horizon)}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden rounded-[2rem] border-orange-200/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.99),rgba(255,247,237,0.95)_48%,rgba(255,237,213,0.9)_100%)] shadow-[0_28px_80px_-34px_rgba(154,52,18,0.22)] dark:border-orange-950/70 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.95),rgba(30,41,59,0.94)_55%,rgba(67,20,7,0.82)_100%)]">
+          <CardContent className="grid gap-4 p-8 lg:p-10">
+            <div className="space-y-3">
+              <div className="text-xs uppercase tracking-[0.24em] text-orange-600 dark:text-orange-200/70">Calendar stack</div>
+              <div className="rounded-[1.45rem] border border-orange-200/70 bg-white/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:border-orange-900/60 dark:bg-white/5">
+                <div className="text-xs uppercase tracking-[0.22em] text-slate-500 dark:text-orange-100/45">Rhythm</div>
+                <div className="mt-2 text-sm font-medium text-slate-900 dark:text-orange-50">A clear cadence by week, not just a pile of disconnected post ideas.</div>
+              </div>
+              <div className="rounded-[1.45rem] border border-orange-200/70 bg-white/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:border-orange-900/60 dark:bg-white/5">
+                <div className="text-xs uppercase tracking-[0.22em] text-slate-500 dark:text-orange-100/45">Coverage</div>
+                <div className="mt-2 text-sm font-medium text-slate-900 dark:text-orange-50">Channel-specific formats, content pillars, and why each slot exists.</div>
+              </div>
+              <div className="rounded-[1.45rem] border border-orange-200/70 bg-white/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:border-orange-900/60 dark:bg-white/5">
+                <div className="text-xs uppercase tracking-[0.22em] text-slate-500 dark:text-orange-100/45">First ship</div>
+                <div className="mt-2 text-sm font-medium text-slate-900 dark:text-orange-50">The first posts, captions, and production priorities to move into execution immediately.</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-[0.82fr_1.18fr]">
+        <Card className="rounded-[1.75rem] border-orange-200/70 bg-white/92 shadow-[0_18px_44px_-28px_rgba(180,83,9,0.24)] dark:border-orange-950/70 dark:bg-slate-950/86">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base tracking-tight text-slate-950 dark:text-orange-50">What You Should Get</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm leading-6 text-slate-700 dark:text-orange-100/78">
+            <div>• A repeatable posting cadence that fits the team’s current marketing motion.</div>
+            <div>• Better channel coverage without duplicating the same idea everywhere.</div>
+            <div>• Concrete first posts and content priorities the team can move on immediately.</div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-[1.75rem] border-orange-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,247,237,0.92))] shadow-[0_18px_44px_-28px_rgba(180,83,9,0.22)] dark:border-orange-950/70 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(30,41,59,0.88))]">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base tracking-tight text-slate-950 dark:text-orange-50">Calendar Lens</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-[1.25rem] border border-orange-200/70 bg-white/70 p-4 dark:border-orange-900/60 dark:bg-white/5">
+              <div className="mb-3 text-xs uppercase tracking-[0.22em] text-orange-600 dark:text-orange-200/70">Cadence</div>
+              <div className="text-sm leading-6 text-slate-700 dark:text-orange-100/78">How often should each channel publish before the rhythm becomes noise or too thin?</div>
+            </div>
+            <div className="rounded-[1.25rem] border border-orange-200/70 bg-white/70 p-4 dark:border-orange-900/60 dark:bg-white/5">
+              <div className="mb-3 text-xs uppercase tracking-[0.22em] text-orange-600 dark:text-orange-200/70">Mix</div>
+              <div className="text-sm leading-6 text-slate-700 dark:text-orange-100/78">What formats and pillars belong on each channel instead of repeating one idea everywhere?</div>
+            </div>
+            <div className="rounded-[1.25rem] border border-orange-200/70 bg-white/70 p-4 dark:border-orange-900/60 dark:bg-white/5">
+              <div className="mb-3 text-xs uppercase tracking-[0.22em] text-orange-600 dark:text-orange-200/70">Execution</div>
+              <div className="text-sm leading-6 text-slate-700 dark:text-orange-100/78">Which posts should ship first if the team only has room to execute a few pieces this cycle?</div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+    </div>
+  )
+
+  const agents = useMemo(
+    () => [
+      {
+        name: 'riya',
+        label: 'Build Social Calendar',
+        taskType: 'social_calendar_planning',
+        defaultQuery: buildSocialCalendarQuery(channels, motion, horizon, initialQuestion),
+        placeholder: 'Describe the campaign, channel pressure, or publishing problem you want the calendar to solve.',
+        tags: ['social', 'calendar', 'publishing'],
+      },
+    ],
+    [channels, horizon, initialQuestion, motion]
+  )
+
   return (
     <AgentModuleShell
-      title="Social Calendar"
-      description="Lifecycle signals, social engagement trends, and content calendar from kiran."
-      agents={[
-        {
-          name: 'kiran',
-          label: 'Kiran — Lifecycle & Social',
-          taskType: 'daily_lifecycle_check',
-          defaultQuery:
-            'Review retention signals, social engagement trends, and nurture loop performance. Recommend immediate touchpoint adjustments and deliver a 2-week social content calendar with platform, format, caption, and CTA for each post.',
-        },
-      ]}
+      moduleId="social-calendar"
+      title="Plan Your Social Calendar"
+      description="Turn the social motion into a publishing rhythm with the right channels, formats, and first posts to ship."
+      agents={agents}
+      preAgentContent={preAgentContent}
+      collapseSetupControls
+      resourceContextLabel="Campaign brief, content doc, or sheet URL"
+      resourceContextPlaceholder="Paste the campaign brief, planning sheet, or content doc URL if the calendar should follow a specific source"
+      resourceContextHint="Optional. Use this when the calendar should anchor to an exact campaign brief, sheet, or planning document."
+      buildResourceContext={(value) => `Use this exact campaign brief, planning sheet, or content document if needed: ${value}`}
+      resourceContextPlacement="primary"
     />
   )
 }
 
-export function SocialMediaFlow() {
+type SocialMediaFlowProps = {
+  initialPlatforms?: string[]
+  initialObjective?: string
+  initialFormat?: string
+  initialHorizon?: string
+}
+
+function formatGoalLabel(value?: string) {
+  return (value || '').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function resolveCampaignType(platforms: string[], format?: string) {
+  const primary = platforms[0] || 'linkedin'
+  if (format === 'video') {
+    if (primary === 'youtube') return 'youtube-short'
+    if (primary === 'instagram' || primary === 'facebook') return 'instagram-reel'
+    return 'linkedin-testimonial'
+  }
+  if (primary === 'youtube') return 'youtube-explainer'
+  if (primary === 'instagram' || primary === 'facebook') return 'instagram-carousel'
+  return 'linkedin-carousel'
+}
+
+function resolvePurpose(objective?: string) {
+  switch (objective) {
+    case 'leads':
+      return 'lead-generation'
+    case 'engagement':
+      return 'engagement'
+    case 'nurture':
+      return 'education'
+    case 'awareness':
+    default:
+      return 'brand-awareness'
+  }
+}
+
+function getCampaignTypeDefaults(campaignType: string) {
+  if (campaignType === 'infographic') {
+    return { contentType: 'image' as const, aspectRatio: '4:5' }
+  }
+  if (campaignType === 'instagram-reel' || campaignType === 'youtube-short') {
+    return { aspectRatio: '9:16' }
+  }
+  if (campaignType === 'linkedin-carousel' || campaignType === 'instagram-carousel') {
+    return { aspectRatio: '1:1' }
+  }
+  return {}
+}
+
+export function SocialMediaFlow({ initialPlatforms, initialObjective, initialFormat, initialHorizon }: SocialMediaFlowProps = {}) {
+  const isGuidedLaunch = Boolean(initialPlatforms?.length || initialObjective || initialFormat || initialHorizon)
   const [isRunning, setIsRunning] = useState(false)
   const [stages, setStages] = useState<WorkflowStage[]>([
     { id: 1, name: 'Stage 1: Campaign Planning', status: 'idle', message: '' },
@@ -114,14 +322,16 @@ export function SocialMediaFlow() {
   const [selectedStageData, setSelectedStageData] = useState<{ stageId: number; stageName: string; data: any; dataId: string } | null>(null)
 
   // Campaign configuration
-  const [campaignType, setCampaignType] = useState<string>('linkedin-testimonial')
-  const [purpose, setPurpose] = useState<string>('brand-awareness')
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['linkedin'])
+  const [campaignType, setCampaignType] = useState<string>(resolveCampaignType(initialPlatforms || ['linkedin'], initialFormat))
+  const [purpose, setPurpose] = useState<string>(resolvePurpose(initialObjective))
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(initialPlatforms?.length ? initialPlatforms : ['linkedin'])
   const [topic, setTopic] = useState<string>('')
   const [isGeneratingTopic, setIsGeneratingTopic] = useState<boolean>(false)
   const [topicError, setTopicError] = useState<string | null>(null)
   const [duration, setDuration] = useState<number>(15)
-  const [contentType, setContentType] = useState<'image' | 'faceless-video' | 'avatar-video'>('image')
+  const [contentType, setContentType] = useState<'image' | 'faceless-video' | 'avatar-video'>(
+    initialFormat === 'video' ? 'faceless-video' : 'image'
+  )
   const [facelessVideoMode, setFacelessVideoMode] = useState<'text-to-video' | 'image-to-video'>('text-to-video')
   const [imageSource, setImageSource] = useState<'generate' | 'upload'>('generate')
   const [useVeo, setUseVeo] = useState<boolean>(true)
@@ -194,6 +404,17 @@ export function SocialMediaFlow() {
   // Platform dropdown state
   const [showPlatformDropdown, setShowPlatformDropdown] = useState<boolean>(false)
 
+  const applyCampaignType = (next: string) => {
+    setCampaignType(next)
+    const defaults = getCampaignTypeDefaults(next)
+    if (defaults.contentType) {
+      setContentType(defaults.contentType)
+    }
+    if (defaults.aspectRatio) {
+      setAspectRatio(defaults.aspectRatio)
+    }
+  }
+
 	  const campaignTypes = [
 	    { value: 'linkedin-carousel', label: 'LinkedIn Carousel', platforms: ['linkedin'] },
 	    { value: 'linkedin-testimonial', label: 'LinkedIn Testimonial', platforms: ['linkedin'] },
@@ -209,47 +430,21 @@ export function SocialMediaFlow() {
   ]
 
   const purposeOptions = [
-    // Products
-    { value: 'falcon', label: 'Falcon', description: '5Lakh Min., Research Basket' },
-    { value: 'aqua', label: 'AQUA', description: 'Quant Portfolio Strategy (1Cr+ clients)' },
-    { value: 'madp', label: 'MADP', description: 'Multi-Asset Dynamic Portfolio (1Cr+ clients)' },
-    { value: 'loan-tieups', label: 'Loan Tie ups', description: 'Loan Against Securities' },
-    { value: 'scoutquest', label: 'Scoutquest', description: '45 days free, 24x7 alerts, track all stocks' },
-    { value: 'mobile-app', label: 'Mobile App', description: 'Easy Options, Scanners, Algos, Research Baskets' },
-    { value: 'open-account', label: 'Open Account in 5mins', description: 'Quick Account Opening (Lead Gen)' },
-    { value: 'commodity-activation', label: 'Commodity Account Activation', description: 'Gold, Silver & Commodity Trading, Call and Trade Support' },
-    { value: 'mtf-activation', label: 'MTF Account Activation', description: 'MTF Research Calls, Competitive ROI, 1000+ scrips, 4X multiplier' },
-    { value: 'dormant-activation', label: 'Dormant Account Activation', description: 'MTF, Research and New App' },
-    // Other
-    { value: 'partners-mobile-app', label: 'Partners Mobile App', description: 'IFA/Partner Platform' },
-    { value: 'website', label: 'Website', description: 'Corporate Website' },
-    { value: 'web-app', label: 'Web App', description: 'Web Application' },
-    { value: 'aif', label: 'AIF', description: 'Alternative Investment Fund' },
-    { value: 'brand-awareness', label: 'Brand Awareness', description: 'General Brand Building' },
+    { value: 'brand-awareness', label: 'Brand awareness', description: 'Increase reach, recognition, and message recall.' },
+    { value: 'lead-generation', label: 'Lead generation', description: 'Turn social activity into inbound demand or pipeline.' },
+    { value: 'engagement', label: 'Engagement', description: 'Drive more conversation, response, and audience interaction.' },
+    { value: 'education', label: 'Education', description: 'Teach the audience through explainers, proof, or insights.' },
+    { value: 'product-promo', label: 'Offer promotion', description: 'Promote a launch, offer, event, or campaign push.' },
+    { value: 'customer-proof', label: 'Customer proof', description: 'Use outcomes, testimonials, and credibility signals.' },
   ]
 
   const targetAudienceOptions = [
-    // General Segments
-    { value: 'all_clients', label: 'All', description: 'All clients' },
-    { value: 'lead_gen', label: 'Lead Gen', description: 'New customer acquisition' },
-    { value: 'internal', label: 'Internal communication', description: 'Employee communications, training' },
-    { value: 'mass_affluent', label: 'Mass affluent', description: 'Emerging investors, young professionals' },
-    { value: 'hni', label: 'HNIs', description: 'High Net Worth Individuals' },
-    { value: 'uhni', label: 'UHNIs', description: 'Ultra High Net Worth Individuals' },
-    // Client Segments by DP Value
-    { value: 'more_than_10l_dp', label: 'More than 10L DP', description: 'Clients with 10L+ demat portfolio' },
-    { value: '1cr_plus', label: '1cr+', description: 'Clients with 1 crore+ portfolio' },
-    // Activity-based Segments
-    { value: 'semi_active', label: 'Semi-active', description: 'Occasional trading activity' },
-    { value: 'dormant', label: 'Dormant', description: 'No recent activity, needs reactivation' },
-    { value: 'inactive', label: 'Inactive', description: 'Currently inactive accounts' },
-    // Performance-based Segments
-    { value: 'in_loss', label: 'In Loss', description: 'Clients currently in loss' },
-    // Product-based Segments
-    { value: 'fno_traders', label: 'F&O traders', description: 'Futures & Options active traders' },
-    { value: 'commodity', label: 'Commodity', description: 'Commodity trading clients' },
-    { value: 'non_mtf', label: 'Non-MTF', description: 'Clients not using Margin Trading' },
-    { value: 'cash', label: 'Cash', description: 'Cash segment traders' },
+    { value: 'all', label: 'Broad audience', description: 'Use a general campaign for your wider audience.' },
+    { value: 'prospects', label: 'Prospects', description: 'Target people who do not know the brand deeply yet.' },
+    { value: 'customers', label: 'Customers', description: 'Focus on existing users or customers.' },
+    { value: 'decision-makers', label: 'Decision-makers', description: 'Focus on buying roles and business stakeholders.' },
+    { value: 'community', label: 'Community', description: 'Nurture followers, engaged users, and repeat viewers.' },
+    { value: 'warm-audience', label: 'Warm audience', description: 'Focus on people already aware of the offer or brand.' },
   ]
 
   const platforms = [
@@ -284,6 +479,22 @@ export function SocialMediaFlow() {
     female3: 'a761ce70b43447ab8383684d98afcf22',
   } as const
 
+  // Pre-fill topic from festival campaign intent (set by CalendarPanel)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('marqq_festival_campaign')
+      if (!raw) return
+      sessionStorage.removeItem('marqq_festival_campaign')
+      const payload = JSON.parse(raw) as { festival?: string; description?: string; date?: string; mode?: string }
+      if (payload.festival) {
+        const brief = [payload.festival, payload.description].filter(Boolean).join(' — ')
+        setTopic(brief)
+        setPurpose('brand-awareness')
+      }
+    } catch { /* non-blocking */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Load available avatars on component mount
   useEffect(() => {
     const loadAvatars = async () => {
@@ -299,6 +510,23 @@ export function SocialMediaFlow() {
     }
     loadAvatars()
   }, [])
+
+  useEffect(() => {
+    if (!initialPlatforms?.length && !initialObjective && !initialFormat && !initialHorizon) return
+
+    const nextPlatforms = initialPlatforms?.length ? initialPlatforms : ['linkedin']
+    setSelectedPlatforms(nextPlatforms)
+    setCampaignType(resolveCampaignType(nextPlatforms, initialFormat))
+    setPurpose(resolvePurpose(initialObjective))
+
+    if (initialFormat === 'video') {
+      setContentType('faceless-video')
+      setAspectRatio(nextPlatforms[0] === 'youtube' || nextPlatforms[0] === 'instagram' || nextPlatforms[0] === 'facebook' ? '9:16' : '16:9')
+    } else {
+      setContentType('image')
+      setAspectRatio(nextPlatforms[0] === 'linkedin' ? '1:1' : '4:5')
+    }
+  }, [initialPlatforms, initialObjective, initialFormat, initialHorizon])
 
   const loadHeyGenAvatarGroup = async (groupId: string) => {
     try {
@@ -923,53 +1151,171 @@ export function SocialMediaFlow() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 space-y-2 text-center">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
-            AI Content
+            Run Social Media
           </h1>
           <p className="text-sm text-muted-foreground">
-            Plan, generate, and manage AI content across channels in one workflow.
+            Plan, generate, and manage channel-ready social campaigns in one workflow.
           </p>
         </div>
+
+        {(initialPlatforms?.length || initialObjective || initialFormat || initialHorizon) && (
+          <div className="mb-6 rounded-2xl border border-border/70 bg-muted/10 p-4">
+            <div className="text-sm font-semibold text-foreground">Veena campaign brief</div>
+            <div className="mt-3 grid gap-3 md:grid-cols-4">
+              <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Channels</div>
+                <div className="mt-1 text-sm text-foreground">
+                  {(initialPlatforms?.length ? initialPlatforms : ['linkedin']).map(formatGoalLabel).join(', ')}
+                </div>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Objective</div>
+                <div className="mt-1 text-sm text-foreground">{formatGoalLabel(initialObjective || 'awareness')}</div>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Format mix</div>
+                <div className="mt-1 text-sm text-foreground">{formatGoalLabel(initialFormat || 'image')}</div>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Horizon</div>
+                <div className="mt-1 text-sm text-foreground">{formatGoalLabel(initialHorizon || 'week')}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Control Panel */}
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-8 mb-8">
           <h2 className="text-2xl font-semibold text-foreground mb-6">
-            Campaign Configuration
+            {isGuidedLaunch ? 'Campaign plan and first action' : 'Campaign Configuration'}
           </h2>
 
-          {/* Execution Mode Toggle */}
-          <div className="mb-6 p-4 bg-muted/50 rounded-lg border-2 border-border">
-            <label className="block text-sm font-medium text-foreground mb-3">
-              Execution Mode:
-            </label>
-            <div className="flex gap-4">
-              <button
-                onClick={() => setExecutionMode('full')}
-                disabled={isRunning || executingStage !== null}
-                className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
-                  executionMode === 'full'
-                    ? 'bg-orange-500 text-white shadow-md'
-                    : 'bg-card border-2 border-border text-foreground hover:border-orange-300'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div>Full Campaign</div>
-                <p className="text-xs mt-1 opacity-80">Execute all 6 stages automatically</p>
-              </button>
-              <button
-                onClick={() => setExecutionMode('staged')}
-                disabled={isRunning || executingStage !== null}
-                className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
-                  executionMode === 'staged'
-                    ? 'bg-purple-500 text-white shadow-md'
-                    : 'bg-card border-2 border-border text-foreground hover:border-purple-300'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div>Stage-by-Stage</div>
-                <p className="text-xs mt-1 opacity-80">Review and approve each stage</p>
-              </button>
+          {isGuidedLaunch ? (
+            <div className="mb-6 rounded-2xl border border-border/70 bg-muted/10 p-4">
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Campaign type</div>
+                  <div className="mt-1 text-sm font-medium text-foreground">{campaignTypes.find((item) => item.value === campaignType)?.label || campaignType}</div>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Purpose</div>
+                  <div className="mt-1 text-sm font-medium text-foreground">{purposeOptions.find((item) => item.value === purpose)?.label || formatGoalLabel(purpose)}</div>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Audience</div>
+                  <div className="mt-1 text-sm font-medium text-foreground">{targetAudienceOptions.find((item) => item.value === targetAudience)?.label || formatGoalLabel(targetAudience)}</div>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Topic</div>
+                  <div className="mt-1 text-sm font-medium text-foreground">{topic || 'Generate the campaign topic to begin.'}</div>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={generateTopic}
+                  disabled={isRunning || executingStage !== null || isGeneratingTopic}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    isRunning || executingStage !== null
+                      ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 cursor-not-allowed'
+                      : 'bg-background border border-border text-foreground hover:border-orange-300'
+                  } ${isGeneratingTopic ? 'opacity-80 cursor-wait' : ''}`}
+                >
+                  {isGeneratingTopic ? 'Generating topic...' : topic ? 'Refresh topic' : 'Generate topic'}
+                </button>
+                <button
+                  type="button"
+                  onClick={executeWorkflow}
+                  disabled={isRunning || executingStage !== null || !topic}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    isRunning || executingStage !== null || !topic
+                      ? 'bg-slate-300 text-slate-600 dark:bg-slate-800 dark:text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-sm hover:from-orange-600 hover:to-orange-700'
+                  }`}
+                >
+                  {isRunning ? 'Running campaign...' : executionMode === 'staged' ? 'Start staged campaign' : 'Generate first campaign plan'}
+                </button>
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          {/* Campaign Configuration Row */}
+          {isGuidedLaunch ? (
+            <details className="mb-6 rounded-xl border border-border/70 bg-muted/10 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-medium text-foreground">
+                Refine campaign setup
+              </summary>
+              <div className="mt-4 p-4 bg-muted/50 rounded-lg border-2 border-border">
+                <label className="block text-sm font-medium text-foreground mb-3">
+                  Execution Mode:
+                </label>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setExecutionMode('full')}
+                    disabled={isRunning || executingStage !== null}
+                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
+                      executionMode === 'full'
+                        ? 'bg-orange-500 text-white shadow-md'
+                        : 'bg-card border-2 border-border text-foreground hover:border-orange-300'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <div>Full Campaign</div>
+                    <p className="text-xs mt-1 opacity-80">Execute all 6 stages automatically</p>
+                  </button>
+                  <button
+                    onClick={() => setExecutionMode('staged')}
+                    disabled={isRunning || executingStage !== null}
+                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
+                      executionMode === 'staged'
+                        ? 'bg-purple-500 text-white shadow-md'
+                        : 'bg-card border-2 border-border text-foreground hover:border-purple-300'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <div>Stage-by-Stage</div>
+                    <p className="text-xs mt-1 opacity-80">Review and approve each stage</p>
+                  </button>
+                </div>
+              </div>
+            </details>
+          ) : (
+            <div className="mb-6 p-4 bg-muted/50 rounded-lg border-2 border-border">
+              <label className="block text-sm font-medium text-foreground mb-3">
+                Execution Mode:
+              </label>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setExecutionMode('full')}
+                  disabled={isRunning || executingStage !== null}
+                  className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
+                    executionMode === 'full'
+                      ? 'bg-orange-500 text-white shadow-md'
+                      : 'bg-card border-2 border-border text-foreground hover:border-orange-300'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <div>Full Campaign</div>
+                  <p className="text-xs mt-1 opacity-80">Execute all 6 stages automatically</p>
+                </button>
+                <button
+                  onClick={() => setExecutionMode('staged')}
+                  disabled={isRunning || executingStage !== null}
+                  className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
+                    executionMode === 'staged'
+                      ? 'bg-purple-500 text-white shadow-md'
+                      : 'bg-card border-2 border-border text-foreground hover:border-purple-300'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <div>Stage-by-Stage</div>
+                  <p className="text-xs mt-1 opacity-80">Review and approve each stage</p>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <details className="mb-6 rounded-xl border border-border/70 bg-muted/10 px-4 py-3" open={!isGuidedLaunch}>
+            <summary className="cursor-pointer list-none text-sm font-medium text-foreground">
+              {isGuidedLaunch ? 'Open campaign builder' : 'Campaign builder'}
+            </summary>
+            <div className="mt-4">
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             {/* Campaign Type Selection */}
             <div>
@@ -979,29 +1325,7 @@ export function SocialMediaFlow() {
               <select
                 value={campaignType}
                 onChange={(e) => {
-                  const next = e.target.value
-                  setCampaignType(next)
-                  // Auto-set contentType to 'image' for infographic campaigns
-                  if (next === 'infographic') {
-                    setContentType('image')
-                    setAspectRatio('4:5')
-                  }
-                  // Instagram Reels defaults: vertical video
-                  if (next === 'instagram-reel') {
-                    setAspectRatio('9:16')
-                  }
-                  // YouTube Shorts defaults: vertical video
-                  if (next === 'youtube-short') {
-                    setAspectRatio('9:16')
-                  }
-                  // LinkedIn Carousel defaults: square slides
-                  if (next === 'linkedin-carousel') {
-                    setAspectRatio('1:1')
-                  }
-                  // Instagram Carousel defaults: square slides
-                  if (next === 'instagram-carousel') {
-                    setAspectRatio('1:1')
-                  }
+                  applyCampaignType(e.target.value)
                 }}
                 disabled={isRunning || executingStage !== null}
                 className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-slate-400 dark:focus:border-slate-600 focus:outline-none text-sm bg-background text-foreground disabled:bg-muted disabled:cursor-not-allowed"
@@ -2049,7 +2373,10 @@ export function SocialMediaFlow() {
           </div>
 
           {/* Execute Button */}
-          {executionMode === 'full' && (
+            </div>
+          </details>
+
+          {!isGuidedLaunch && executionMode === 'full' && (
             <div className="flex justify-center">
               <button
                 onClick={executeWorkflow}
@@ -2075,7 +2402,7 @@ export function SocialMediaFlow() {
             </div>
           )}
 
-          {executionMode === 'staged' && (
+          {!isGuidedLaunch && executionMode === 'staged' && (
             <div className="text-sm text-slate-600 dark:text-slate-300 bg-purple-50 dark:bg-slate-950/80 px-4 py-3 rounded-lg border-2 border-purple-200 dark:border-purple-900/60">
               <p className="font-semibold text-purple-700">Stage-by-Stage Mode Active</p>
               <p className="text-xs mt-1">Execute and review each stage individually below</p>

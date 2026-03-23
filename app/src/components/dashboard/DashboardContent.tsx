@@ -41,10 +41,10 @@ export function DashboardContent({ onViewDetails }: DashboardContentProps) {
     <div className="space-y-10">
       {/* Welcome Section */}
       <div className="text-center space-y-2 animate-in fade-in-50 slide-in-from-top-5 duration-700">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+        <h1 className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 bg-clip-text text-3xl font-bold text-transparent dark:from-orange-300 dark:via-orange-200 dark:to-amber-200">
           Marketing Intelligence Platform
         </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400">
+        <p className="text-lg text-muted-foreground">
           Start with Intelligence → build Strategy → create Content → distribute → measure.
         </p>
       </div>

@@ -141,7 +141,7 @@ export function HelpPanel() {
                 <div className="font-medium">Live Chat</div>
                 <div className="text-sm text-muted-foreground">Available 24/7</div>
               </div>
-              <Badge className="ml-auto bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Online</Badge>
+              <Badge className="ml-auto border border-orange-200/80 bg-orange-50 text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300">Online</Badge>
             </div>
           </CardContent>
         </Card>
@@ -194,7 +194,7 @@ export function HelpPanel() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Priority</label>
-              <select className="w-full p-2 border rounded-md bg-background text-foreground dark:border-gray-700">
+              <select className="w-full rounded-md border border-border bg-background p-2 text-foreground">
                 <option>Low</option>
                 <option>Medium</option>
                 <option>High</option>

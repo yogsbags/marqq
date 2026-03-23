@@ -9,6 +9,10 @@ function asObj(data: unknown): any {
   return data && typeof data === 'object' ? (data as any) : null
 }
 
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)))
+}
+
 export function ClientProfilingPage({ artifact }: Props) {
   const data = asObj(artifact?.data)
 
@@ -16,7 +20,7 @@ export function ClientProfilingPage({ artifact }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">No client profiling yet</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">No client profiling yet</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">Generate to see segments, pain points, objections, and channel insights.</CardContent>
       </Card>
@@ -25,12 +29,70 @@ export function ClientProfilingPage({ artifact }: Props) {
 
   const segments: any[] = Array.isArray(data.segments) ? data.segments : []
   const insights: string[] = Array.isArray(data.insights) ? data.insights : []
+  const aiScores = asObj(data.scores)
+  const segmentCoverageScore = Number.isFinite(Number(aiScores?.segmentCoverage))
+    ? clampScore(Number(aiScores.segmentCoverage))
+    : clampScore(
+    Math.min(segments.length * 20, 60) +
+      Math.min(segments.filter((segment) => String(segment?.profile || '').trim()).length * 10, 20) +
+      Math.min(
+        segments.filter((segment) => Array.isArray(segment?.channels) && segment.channels.length > 0).length * 7,
+        20
+      )
+  )
+  const painClarityScore = Number.isFinite(Number(aiScores?.painClarity))
+    ? clampScore(Number(aiScores.painClarity))
+    : clampScore(
+    Math.min(
+      segments.filter((segment) => Array.isArray(segment?.painPoints) && segment.painPoints.length > 0).length * 14,
+      42
+    ) +
+      Math.min(
+        segments.filter((segment) => Array.isArray(segment?.objections) && segment.objections.length > 0).length * 12,
+        36
+      ) +
+      Math.min(insights.length * 4, 22)
+  )
+  const activationReadinessScore = Number.isFinite(Number(aiScores?.activationReadiness))
+    ? clampScore(Number(aiScores.activationReadiness))
+    : clampScore(
+    Math.min(
+      segments.filter((segment) => Array.isArray(segment?.jobsToBeDone) && segment.jobsToBeDone.length > 0).length * 12,
+      36
+    ) +
+      Math.min(
+        segments.filter((segment) => Array.isArray(segment?.triggers) && segment.triggers.length > 0).length * 14,
+        42
+      ) +
+      Math.min(
+        segments.filter((segment) => Array.isArray(segment?.channels) && segment.channels.length > 0).length * 7,
+        22
+      )
+  )
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Segment Coverage</div>
+          <div className="text-2xl font-bold">{segmentCoverageScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How complete the client segment map and core profiles are.</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Pain Clarity</div>
+          <div className="text-2xl font-bold">{painClarityScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How clearly pains, objections, and buying friction are defined.</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Activation Readiness</div>
+          <div className="text-2xl font-bold">{activationReadinessScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How usable this client profile is for campaigns and messaging.</div>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Segments</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Segments</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {segments.length ? (
@@ -78,7 +140,7 @@ export function ClientProfilingPage({ artifact }: Props) {
       {insights.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Insights</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Insights</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {insights.map((n, idx) => (

@@ -15,19 +15,19 @@ export function ModuleCard({ module, onViewDetails }: ModuleCardProps) {
       <CardHeader>
         <CardTitle className="text-lg">{module.name}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 text-gray-700 dark:text-gray-300">
+      <CardContent className="space-y-4 text-foreground">
         <div className="grid gap-3">
           {module.metrics.map((metric, index) => (
             <div key={index} className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">{metric.label}</span>
+              <span className="text-sm text-muted-foreground">{metric.label}</span>
               <div className="flex items-center space-x-2">
-                <span className="font-medium text-gray-900 dark:text-gray-100">{metric.value}</span>
+                <span className="font-medium text-foreground">{metric.value}</span>
                 {metric.change && (
                   <span className={cn(
-                    "text-xs px-1.5 py-0.5 rounded",
+                    "rounded px-1.5 py-0.5 text-xs",
                     metric.change > 0 
-                      ? "bg-green-100 text-green-700" 
-                      : "bg-red-100 text-red-700"
+                      ? "bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300" 
+                      : "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-300"
                   )}>
                     {metric.change > 0 ? '+' : ''}{metric.change}%
                   </span>
@@ -39,7 +39,7 @@ export function ModuleCard({ module, onViewDetails }: ModuleCardProps) {
         
         <Button 
           variant="outline" 
-          className="w-full group-hover:bg-orange-50 group-hover:border-orange-200 transition-colors"
+          className="w-full transition-colors group-hover:border-orange-200 group-hover:bg-orange-50 dark:group-hover:border-orange-800/60 dark:group-hover:bg-orange-950/20"
           onClick={() => onViewDetails(module.id)}
         >
           View Details

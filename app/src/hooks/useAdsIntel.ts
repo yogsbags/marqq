@@ -42,8 +42,8 @@ export function useAdsIntel(companyId: string | undefined) {
       .then(({ data, error }) => {
         if (error) setError(error.message)
         setAds((data as CompetitorAd[]) || [])
+        setLoading(false)
       })
-      .finally(() => setLoading(false))
   }, [companyId])
 
   const byCompetitor = ads.reduce<Record<string, CompetitorAd[]>>((acc, ad) => {

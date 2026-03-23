@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 type Connector = {
   id: string;
   name: string;
-  status: string;
+  status: 'active' | 'expired' | 'initiated' | 'not_connected' | string;
   notes?: string;
   connected?: boolean;
   connectedAt?: string | null;
@@ -38,12 +39,14 @@ const CONNECTOR_META: Record<string, ConnectorMeta> = {
   meta_ads:        { category: 'Advertising & Acquisition', description: 'Connect Facebook & Instagram ad accounts.',                         logoBg: 'bg-[#0866FF]', logoLabel: 'M'   },
   linkedin_ads:    { category: 'Advertising & Acquisition', description: 'LinkedIn campaign performance for B2B funnels.',                    logoBg: 'bg-[#0A66C2]', logoLabel: 'IN'  },
   // CRM
+  apollo:          { category: 'CRM & Customer Data',       description: 'Prospect accounts and contacts from Apollo for lead generation.',        logoBg: 'bg-[#5B6CFF]', logoLabel: 'AP'  },
   hubspot:         { category: 'CRM & Customer Data',       description: 'Contacts, deals, and marketing events from HubSpot.',               logoBg: 'bg-[#FF7A59]', logoLabel: 'HS'  },
   zoho_crm:        { category: 'CRM & Customer Data',       description: 'Deals, contacts, and accounts from Zoho CRM.',                      logoBg: 'bg-[#E71E63]', logoLabel: 'Z'   },
   salesforce:      { category: 'CRM & Customer Data',       description: 'Accounts, opportunities, and pipelines from Salesforce.',            logoBg: 'bg-[#00A1E0]', logoLabel: 'SF'  },
   // Email & Messaging
   gmail:           { category: 'Email & Messaging',         description: 'Read campaign threads and outreach (read-only).',                   logoBg: 'bg-[#EA4335]', logoLabel: 'G'   },
   outlook:         { category: 'Email & Messaging',         description: 'Outlook mailboxes for sales and marketing outreach.',               logoBg: 'bg-[#0078D4]', logoLabel: 'O'   },
+  hunter:          { category: 'Email & Messaging',         description: 'Find and verify professional email addresses with Hunter.',         logoBg: 'bg-[#FF6A3D]', logoLabel: 'HU'  },
   mailchimp:       { category: 'Email & Messaging',         description: 'Email campaigns, audiences, and automations from Mailchimp.',       logoBg: 'bg-[#FFE01B]', logoLabel: 'MC'  },
   klaviyo:         { category: 'Email & Messaging',         description: 'Email & SMS flows, campaigns, and list metrics from Klaviyo.',      logoBg: 'bg-[#1A1A1A]', logoLabel: 'KL'  },
   sendgrid:        { category: 'Email & Messaging',         description: 'Transactional and marketing email stats from SendGrid.',            logoBg: 'bg-[#1A82E2]', logoLabel: 'SG'  },
@@ -131,16 +134,19 @@ export function AccountsTab() {
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
 
+  // Composio connections are per workspace/company — each workspace is a separate entityId
+  // so an agency user can have different Google Ads, Meta Ads etc. per client workspace
+  const entityId = activeWorkspace?.id;
+
   const load = useCallback(async () => {
-    const companyId = activeWorkspace?.id;
-    if (!companyId) return;
+    if (!entityId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/integrations?companyId=${encodeURIComponent(companyId)}`);
+      const res = await fetch(`/api/integrations?companyId=${encodeURIComponent(entityId)}`);
       const json = await res.json();
       setConnectors(json?.connectors ?? []);
     } catch { setConnectors([]); } finally { setLoading(false); }
-  }, [activeWorkspace]);
+  }, [entityId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -180,13 +186,12 @@ export function AccountsTab() {
   }, [connectors]);
 
   const connect = async (id: string) => {
-    const companyId = activeWorkspace?.id;
-    if (!companyId) { toast.error('Create or select a workspace first'); return; }
+    if (!entityId) { toast.error('Select a workspace to connect integrations'); return; }
     setActionId(id);
     try {
       const res = await fetch('/api/integrations/connect', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ companyId, connectorId: id }),
+        body: JSON.stringify({ companyId: entityId, connectorId: id }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || 'connect failed');
@@ -215,11 +220,10 @@ export function AccountsTab() {
   const disconnect = async (id: string) => {
     setActionId(id);
     try {
-      const companyId = activeWorkspace?.id;
-      if (!companyId) { toast.error('Create or select a workspace first'); setActionId(null); return; }
+      if (!entityId) { toast.error('Select a workspace to disconnect integrations'); setActionId(null); return; }
       const res = await fetch('/api/integrations/disconnect', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ companyId, connectorId: id }),
+        body: JSON.stringify({ companyId: entityId, connectorId: id }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || json?.details || 'disconnect failed');
@@ -228,10 +232,11 @@ export function AccountsTab() {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Accounts & Integrations</h2>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-5">
+      <div className="rounded-[28px] border border-border/70 bg-gradient-to-br from-orange-500/[0.08] via-background to-amber-500/[0.05] px-5 py-5 shadow-sm">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500">Integrations</div>
+        <h2 className="mt-2 font-brand-syne text-2xl font-semibold tracking-tight text-foreground">Accounts & Integrations</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
           Connect ad, analytics, and commerce platforms via secure OAuth. Agents only receive read-only access
           where possible, and your data is encrypted in transit and at rest with industry-standard, military-grade
           security controls.
@@ -251,7 +256,7 @@ export function AccountsTab() {
           {groupedConnectors.map(group => (
             <section key={group.category} className="space-y-3">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">{group.category}</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{group.category}</h3>
               </div>
               <div className="space-y-2">
                 {group.items.map(c => {
@@ -260,7 +265,7 @@ export function AccountsTab() {
                   return (
                     <div
                       key={c.id}
-                      className="border rounded-lg p-4 flex items-center justify-between gap-3 bg-card"
+                      className="rounded-[24px] border border-border/70 p-4 flex items-center justify-between gap-3 bg-card/90 shadow-sm"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <IntegrationLogo id={c.id} name={c.name} />
@@ -279,9 +284,15 @@ export function AccountsTab() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant={c.connected ? 'default' : 'secondary'}>
-                          {c.connected ? 'Connected' : 'Not connected'}
-                        </Badge>
+                        {c.connected ? (
+                          <Badge variant="default">Connected</Badge>
+                        ) : c.status === 'expired' ? (
+                          <Badge variant="destructive">Expired</Badge>
+                        ) : c.status === 'initiated' ? (
+                          <Badge variant="outline">Pending</Badge>
+                        ) : (
+                          <Badge variant="secondary">Not connected</Badge>
+                        )}
                         {c.connected ? (
                           <Button
                             variant="outline"
@@ -294,10 +305,11 @@ export function AccountsTab() {
                         ) : (
                           <Button
                             size="sm"
+                            variant={c.status === 'expired' ? 'destructive' : 'default'}
                             disabled={actionId === c.id}
                             onClick={() => connect(c.id)}
                           >
-                            {actionId === c.id ? 'Connecting…' : 'Connect'}
+                            {actionId === c.id ? 'Connecting…' : c.status === 'expired' ? 'Reconnect' : 'Connect'}
                           </Button>
                         )}
                       </div>

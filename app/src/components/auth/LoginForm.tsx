@@ -29,17 +29,6 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     }
   };
 
-  const handleDemoLogin = async () => {
-    try {
-      // Note: Demo login requires a demo account to be created in Supabase
-      // For development, you can create a test account or disable this feature
-      await login('demo@example.com', 'demo123');
-      toast.success('Welcome to the demo!');
-    } catch (error: any) {
-      toast.error(error.message || 'Demo login failed. Please create an account or check your Supabase configuration.');
-    }
-  };
-
   return (
     <div className="w-full max-w-md mx-auto space-y-6">
       {/* Logo */}
@@ -50,7 +39,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
             {BRAND.name.toUpperCase()}
           </p>
           <p className="mt-2 text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground">
-            {BRAND.platformTagline}
+            Your AI Marketing Co-Pilot
           </p>
         </div>
       </div>
@@ -98,24 +87,6 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
             {isLoading ? <LoadingSpinner size="sm" /> : 'Sign In'}
           </Button>
         </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or</span>
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          className="w-full transition-colors duration-200 hover:border-orange-500"
-          onClick={handleDemoLogin}
-          disabled={isLoading}
-        >
-          Try Demo Account
-        </Button>
 
         <div className="text-center text-sm">
           <span className="text-muted-foreground">Don't have an account? </span>

@@ -4,11 +4,10 @@ import { OnboardingStep } from './types';
 
 interface WelcomeStepProps {
   onStart: () => void;
-  onSkip: () => void;
   steps: OnboardingStep[];
 }
 
-export function WelcomeStep({ onStart, onSkip, steps }: WelcomeStepProps) {
+export function WelcomeStep({ onStart, steps }: WelcomeStepProps) {
   return (
     <OnboardingContainer ariaLabel="Welcome step">
       <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 w-full max-w-[500px]">
@@ -23,7 +22,7 @@ export function WelcomeStep({ onStart, onSkip, steps }: WelcomeStepProps) {
 
         <p className="text-[15px] text-white/40 leading-[1.75] mb-11 max-w-[400px]">
           Before Zara, Maya, Riya, Arjun, Dev, and Priya start working,
-          they need a quick brief. Answer 4 questions and they'll be
+          they need a quick brief. Answer 3 quick questions and they'll be
           operational tonight.
         </p>
 
@@ -33,12 +32,6 @@ export function WelcomeStep({ onStart, onSkip, steps }: WelcomeStepProps) {
             onClick={onStart}
           >
             Brief the team →
-          </button>
-          <button
-            onClick={onSkip}
-            className="bg-transparent border-none cursor-pointer text-white/20 text-[13px] py-1 transition-colors hover:text-white/50 font-sans"
-          >
-            Skip for now
           </button>
         </div>
 

@@ -1,12 +1,4 @@
-import { AgentData, OnboardingStep, PrimaryGoal } from './types';
-
-export const GOALS: { value: PrimaryGoal; label: string; sub: string; emoji: string }[] = [
-  { value: 'leads',      label: 'Get more qualified leads',          sub: 'Build pipeline from the right accounts',     emoji: '🎯' },
-  { value: 'conversion', label: 'Improve conversion & sales',        sub: 'Fix offers, copy, and landing pages',         emoji: '📈' },
-  { value: 'content',    label: 'Build a content strategy',          sub: 'Social, SEO, and editorial at scale',         emoji: '✍️' },
-  { value: 'market',     label: 'Understand my market & competitors', sub: 'Map the landscape before making moves',      emoji: '🔭' },
-  { value: 'budget',     label: 'Optimize marketing spend',          sub: 'Cut waste, improve ROI across channels',      emoji: '💰' },
-];
+import { AgentData, OnboardingStep } from './types';
 
 export const AGENTS: AgentData[] = [
   { id: 'veena', name: 'Veena', role: 'Company Intel',  specialty: 'Account Research',    task: 'Building company profiles',    color: '#2DD4BF', glow: 'rgba(45,212,191,0.4)' },
@@ -27,10 +19,10 @@ export const STEPS: OnboardingStep[] = [
   {
     num: '01', label: 'Your Company',
     question: 'Tell us about\nyour company.',
-    sub: 'Veena reads this before your first run — it anchors every analysis, brief, and campaign your agents produce.',
+    sub: 'Company name and website are required. Veena uses them immediately to crawl your site and build the first company context.',
     fields: [
       { key: 'company',    label: 'Company Name',   placeholder: 'e.g. PL Capital',    type: 'input' },
-      { key: 'websiteUrl', label: 'Website URL',     placeholder: 'e.g. plcapital.in — agents read this automatically', type: 'input', optional: true },
+      { key: 'websiteUrl', label: 'Website URL',     placeholder: 'e.g. plcapital.in', type: 'input' },
     ],
   },
   {
@@ -48,15 +40,6 @@ export const STEPS: OnboardingStep[] = [
     sub: 'Priya tracks these daily. Neel uses them to sharpen your positioning every week.',
     fields: [
       { key: 'competitors', label: 'Top Competitors', placeholder: 'e.g. Groww, Zerodha, ETMoney  —  skip if pre-launch', type: 'input', optional: true },
-    ],
-  },
-  {
-    num: '04', label: 'Your Goal',
-    question: 'What do you\nwant to achieve?',
-    sub: 'Pick your primary goal. Your agents will prioritise their work around it.',
-    fields: [
-      { key: 'primaryGoal', label: 'Primary Goal', placeholder: '', type: 'goal-picker' },
-      { key: 'goals',       label: 'Anything else? (optional)', placeholder: 'e.g. Launch by Q2, enter the SMB segment…', type: 'textarea', optional: true },
     ],
   },
 ];

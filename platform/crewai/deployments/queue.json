@@ -1,5 +1,32 @@
 [
   {
+    "id": "dep-1773469847222-7f21yw",
+    "agentName": "priya",
+    "agentTarget": "Test Competitor",
+    "workspaceId": null,
+    "companyId": "test-company",
+    "sectionId": "competitor_intelligence",
+    "sectionTitle": "Competitor Intelligence",
+    "summary": "test",
+    "bullets": [
+      "a"
+    ],
+    "tasks": [
+      {
+        "label": "watch competitor",
+        "horizon": "week"
+      }
+    ],
+    "scheduleMode": "monitor",
+    "recurrenceMinutes": 1440,
+    "runPrompt": "test prompt",
+    "source": "company-intelligence",
+    "status": "stopped",
+    "createdAt": "2026-03-14T06:30:47.222Z",
+    "scheduledFor": "2026-03-14T06:30:47.222Z",
+    "stoppedAt": "2026-03-14T06:30:55.923Z"
+  },
+  {
     "id": "dep-1772542272556-g2uqxi",
     "agentName": "zara",
     "agentTarget": "company_intel_marketing_strategy",
@@ -13,7 +40,7 @@
     ],
     "tasks": [
       {
-        "label": "[GTM \u2022 KPI Plan] Review LinkedIn reach weekly",
+        "label": "[GTM • KPI Plan] Review LinkedIn reach weekly",
         "horizon": "week"
       }
     ],
@@ -38,7 +65,7 @@
     ],
     "tasks": [
       {
-        "label": "[GTM \u2022 Content Strategy] Publish weekly analyst market notes",
+        "label": "[GTM • Content Strategy] Publish weekly analyst market notes",
         "horizon": "week"
       }
     ],
@@ -63,7 +90,7 @@
     ],
     "tasks": [
       {
-        "label": "[GTM \u2022 Channel Strategy] Launch LinkedIn thought leadership cadence",
+        "label": "[GTM • Channel Strategy] Launch LinkedIn thought leadership cadence",
         "horizon": "week"
       }
     ],

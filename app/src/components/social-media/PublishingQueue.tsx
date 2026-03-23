@@ -22,17 +22,17 @@ type PublishingQueueProps = {
 
 export default function PublishingQueue({ publishedUrls, platforms }: PublishingQueueProps) {
   const platformConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-    linkedin: { icon: Linkedin, color: 'bg-blue-500', label: 'LinkedIn' },
-    instagram: { icon: Instagram, color: 'bg-pink-500', label: 'Instagram' },
-    youtube: { icon: Youtube, color: 'bg-red-500', label: 'YouTube' },
-    facebook: { icon: Facebook, color: 'bg-blue-600', label: 'Facebook' },
-    twitter: { icon: Twitter, color: 'bg-sky-500', label: 'Twitter/X' },
+    linkedin: { icon: Linkedin, color: 'bg-orange-500', label: 'LinkedIn' },
+    instagram: { icon: Instagram, color: 'bg-orange-400', label: 'Instagram' },
+    youtube: { icon: Youtube, color: 'bg-orange-600', label: 'YouTube' },
+    facebook: { icon: Facebook, color: 'bg-orange-500', label: 'Facebook' },
+    twitter: { icon: Twitter, color: 'bg-amber-500', label: 'Twitter/X' },
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <Send className="h-5 w-5 text-gray-700 mr-2" />
+      <h3 className="mb-4 flex items-center text-lg font-semibold text-foreground">
+        <Send className="mr-2 h-5 w-5 text-orange-500" />
         Publishing Queue
       </h3>
 
@@ -47,10 +47,10 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
           return (
             <div
               key={platform}
-              className={`p-4 rounded-lg border-2 transition-all ${
+              className={`rounded-[1.1rem] border p-4 transition-all ${
                 isPublished
-                  ? 'border-green-300 bg-green-50'
-                  : 'border-gray-300 bg-gray-50'
+                  ? 'border-orange-200/80 bg-orange-50/80 dark:border-orange-900/40 dark:bg-orange-950/15'
+                  : 'border-border bg-muted/40'
               }`}
             >
               <div className="flex items-center justify-between mb-3">
@@ -58,12 +58,12 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
                   <div className={`p-1.5 rounded ${config.color}`}>
                     <PlatformIcon className="h-5 w-5 text-white" />
                   </div>
-                  <h4 className="font-semibold text-gray-800">{config.label}</h4>
+                  <h4 className="font-semibold text-foreground">{config.label}</h4>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                <span className={`rounded-full px-2 py-1 text-xs font-medium ${
                   isPublished
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-yellow-100 text-yellow-700'
+                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300'
+                    : 'bg-muted text-muted-foreground'
                 }`}>
                   {isPublished ? 'Published' : 'Uploading...'}
                 </span>
@@ -75,7 +75,7 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline break-all"
+                    className="flex items-center break-all text-xs text-orange-600 hover:text-orange-700 hover:underline dark:text-orange-300 dark:hover:text-orange-200"
                   >
                     <ExternalLink className="h-3 w-3 mr-1 inline flex-shrink-0" />
                     {url}
@@ -83,7 +83,7 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
                   <div className="flex gap-2">
                     <button
                       onClick={() => navigator.clipboard.writeText(url)}
-                      className="flex-1 text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center"
+                      className="flex flex-1 items-center justify-center rounded bg-orange-500 px-3 py-1 text-xs text-white transition-colors hover:bg-orange-600"
                     >
                       <Copy className="h-3 w-3 mr-1 inline" />
                       Copy URL
@@ -92,7 +92,7 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 text-center text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center justify-center"
+                      className="flex flex-1 items-center justify-center rounded border border-orange-200/80 bg-background px-3 py-1 text-center text-xs text-foreground transition-colors hover:bg-accent dark:border-orange-900/40"
                     >
                       <Eye className="h-3 w-3 mr-1 inline" />
                       View Post
@@ -101,11 +101,11 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-gray-600" viewBox="0 0 24 24">
+                  <svg className="h-4 w-4 animate-spin text-orange-500" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span className="text-xs text-gray-600">Publishing to {config.label}...</span>
+                  <span className="text-xs text-muted-foreground">Publishing to {config.label}...</span>
                 </div>
               )}
             </div>
@@ -114,24 +114,24 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
       </div>
 
       {/* Summary */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+      <div className="mt-6 rounded-[1.1rem] border border-orange-200/80 bg-orange-50/80 p-4 dark:border-orange-900/40 dark:bg-orange-950/15">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-gray-800">Publishing Progress</p>
-            <p className="text-xs text-gray-600 mt-1">
+            <p className="text-sm font-semibold text-foreground">Publishing Progress</p>
+            <p className="mt-1 text-xs text-muted-foreground">
               {Object.keys(publishedUrls).length} of {platforms.length} platforms complete
             </p>
           </div>
           <div>
             {Object.keys(publishedUrls).length === platforms.length
-              ? <CheckCircle2 className="h-6 w-6 text-green-500" />
-              : <Clock className="h-6 w-6 text-gray-400" />
+              ? <CheckCircle2 className="h-6 w-6 text-orange-500" />
+              : <Clock className="h-6 w-6 text-muted-foreground" />
             }
           </div>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-3 overflow-hidden">
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-orange-100 dark:bg-white/10">
           <div
-            className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+            className="h-2 rounded-full bg-orange-500 transition-all duration-500"
             style={{ width: `${(Object.keys(publishedUrls).length / platforms.length) * 100}%` }}
           />
         </div>
@@ -139,8 +139,8 @@ export default function PublishingQueue({ publishedUrls, platforms }: Publishing
 
       {/* All Published Message */}
       {Object.keys(publishedUrls).length === platforms.length && (
-        <div className="text-center p-4 bg-green-100 rounded-lg border-2 border-green-300">
-          <p className="text-green-700 font-semibold">
+        <div className="rounded-[1.1rem] border border-orange-200/80 bg-orange-50/80 p-4 text-center dark:border-orange-900/40 dark:bg-orange-950/15">
+          <p className="font-semibold text-orange-700 dark:text-orange-300">
             Campaign successfully published to all platforms!
           </p>
         </div>

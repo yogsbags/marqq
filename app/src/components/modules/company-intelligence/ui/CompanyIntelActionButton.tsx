@@ -5,7 +5,7 @@ import { AgentAvatar } from '@/components/agents/AgentAvatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { addAiTasks } from '@/lib/taskStore'
+
 import { fetchJson } from '../api'
 
 type PlannedTask = {
@@ -128,13 +128,6 @@ export function CompanyIntelActionButton({
             },
           }),
         }))
-
-      addAiTasks(
-        (Array.isArray(activePlan.tasks) ? activePlan.tasks : []).map((task) => ({
-          label: `[${titleCase(agentName)} • ${taskPrefix}] ${task.label}`,
-          horizon: task.horizon || 'week',
-        })),
-      )
 
       if (deploymentMode === 'scheduled') {
         await fetchJson('/api/agents/deployments', {

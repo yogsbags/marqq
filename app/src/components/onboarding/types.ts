@@ -8,8 +8,11 @@ export interface FormData {
   industry: string;
   icp: string;
   competitors: string;
+  monthlyMarketingBudget: string;
   primaryGoal: string;  // one of PrimaryGoal — drives guided path
   goals: string;        // optional free-text "anything else?"
+  kpis: string;         // optional: primary KPIs to track e.g. CAC, LTV, ROAS
+  channels: string;     // optional: active marketing channels
   [key: string]: string;
 }
 
@@ -27,7 +30,8 @@ export interface StepField {
   key: keyof FormData;
   label: string;
   placeholder: string;
-  type: 'input' | 'textarea' | 'goal-picker';
+  type: 'input' | 'textarea' | 'goal-picker' | 'choice';
+  options?: string[];
   optional?: boolean;
 }
 

@@ -16,7 +16,11 @@ function truncate(str: string, n = 22) {
   return str.length > n ? str.slice(0, n) + '…' : str;
 }
 
-export function WorkspaceSwitcher() {
+interface WorkspaceSwitcherProps {
+  onModuleSelect?: (moduleId: string) => void;
+}
+
+export function WorkspaceSwitcher({ onModuleSelect }: WorkspaceSwitcherProps) {
   const { workspaces, activeWorkspace, switchWorkspace, isLoading } = useWorkspace();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -70,7 +74,11 @@ export function WorkspaceSwitcher() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <CreateWorkspaceModal open={modalOpen} onOpenChange={setModalOpen} />
+      <CreateWorkspaceModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onCreated={(_ws, url) => url && onModuleSelect?.('company-intelligence')}
+      />
     </>
   );
 }

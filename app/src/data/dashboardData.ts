@@ -258,5 +258,110 @@ export const dashboardData: DashboardData = {
         { label: 'Declares', value: 'Winners at 95% CI' },
       ],
     },
+    {
+      id: 'marketing-audit',
+      name: 'Marketing Audit',
+      color: '#F59E0B',
+      metrics: [
+        { label: 'Score', value: '0-100' },
+        { label: 'Dimensions', value: '6 categories' },
+        { label: 'Output', value: 'Audit + Roadmap' },
+      ],
+    },
+    // ── Context ──────────────────────────────────
+    {
+      id: 'setup',
+      name: 'Setup — Company Context',
+      color: '#6366F1',
+      metrics: [
+        { label: 'Agent', value: 'veena + neel' },
+        { label: 'Output', value: 'Knowledge graph' },
+        { label: 'Populates', value: '9 MKG fields' },
+      ],
+    },
+    // ── Plan ─────────────────────────────────────
+    {
+      id: 'launch-strategy',
+      name: 'Launch Strategy',
+      color: '#0EA5E9',
+      metrics: [
+        { label: 'Agents', value: 'neel + sam' },
+        { label: 'Output', value: 'GTM plan + launch copy' },
+        { label: 'Covers', value: 'Pre · Launch · Post' },
+      ],
+    },
+    {
+      id: 'revenue-ops',
+      name: 'Revenue Operations',
+      color: '#14B8A6',
+      metrics: [
+        { label: 'Agents', value: 'dev + arjun' },
+        { label: 'Output', value: 'Lead lifecycle + pipeline' },
+        { label: 'Covers', value: 'Scoring · SLAs · Forecast' },
+      ],
+    },
+    // ── Collateral ───────────────────────────────
+    {
+      id: 'lead-magnets',
+      name: 'Lead Magnets',
+      color: '#F97316',
+      metrics: [
+        { label: 'Agents', value: 'sam + tara' },
+        { label: 'Output', value: 'Magnet + opt-in CRO' },
+        { label: 'Covers', value: 'Content · Distribution' },
+      ],
+    },
+    {
+      id: 'sales-enablement',
+      name: 'Sales Enablement',
+      color: '#8B5CF6',
+      metrics: [
+        { label: 'Agents', value: 'sam + arjun' },
+        { label: 'Output', value: 'Deck · battle card · sequence' },
+        { label: 'Covers', value: 'Collateral · Outreach' },
+      ],
+    },
+    // ── Execution ────────────────────────────────
+    {
+      id: 'paid-ads',
+      name: 'Paid Ads',
+      color: '#EC4899',
+      metrics: [
+        { label: 'Agents', value: 'maya + sam' },
+        { label: 'Output', value: 'Strategy + ad copy' },
+        { label: 'Platforms', value: 'Meta · Google · LinkedIn' },
+      ],
+    },
+    {
+      id: 'referral-program',
+      name: 'Referral Program',
+      color: '#10B981',
+      metrics: [
+        { label: 'Agents', value: 'tara + sam' },
+        { label: 'Output', value: 'Mechanics + full copy set' },
+        { label: 'Target', value: 'K-factor > 1' },
+      ],
+    },
+    // ── Analytics ────────────────────────────────
+    {
+      id: 'cro',
+      name: 'CRO',
+      color: '#14B8A6',
+      metrics: [
+        { label: 'Agents', value: 'tara + sam' },
+        { label: 'Covers', value: 'Page · Signup · Forms · Paywall' },
+        { label: 'Output', value: 'Score + rewrites' },
+      ],
+    },
+    {
+      id: 'churn-prevention',
+      name: 'Churn Prevention',
+      color: '#EF4444',
+      metrics: [
+        { label: 'Agents', value: 'tara + sam' },
+        { label: 'Output', value: 'Analysis + retention copy' },
+        { label: 'Covers', value: 'Cancel · Win-back · Pause' },
+      ],
+    },
   ],
 };

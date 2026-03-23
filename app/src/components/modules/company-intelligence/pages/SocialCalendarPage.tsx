@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import type { ArtifactRecord } from '../api'
 import { useGtmContext } from '@/lib/gtmContext'
 import { GtmContextBanner } from '@/components/ui/gtm-context-banner'
+import { ArtifactScoreCards, clampDisplayScore } from '../ui/ArtifactScoreCards'
 
 type Props = {
   artifact: ArtifactRecord | null
@@ -47,6 +48,16 @@ export function SocialCalendarPage({ artifact }: Props) {
       return true
     })
   }, [items, filterChannel, filterFormat])
+  const aiScores = asObj(data?.scores)
+  const channelCoverage = Number.isFinite(Number(aiScores?.channelCoverage))
+    ? clampDisplayScore(aiScores.channelCoverage)
+    : clampDisplayScore(channels.length * 18 + items.length * 3)
+  const cadenceReadiness = Number.isFinite(Number(aiScores?.cadenceReadiness))
+    ? clampDisplayScore(aiScores.cadenceReadiness)
+    : clampDisplayScore(Number(data?.cadence?.postsPerWeek || 0) * 15 + items.length * 2)
+  const campaignCohesion = Number.isFinite(Number(aiScores?.campaignCohesion))
+    ? clampDisplayScore(aiScores.campaignCohesion)
+    : clampDisplayScore((Array.isArray(data?.themes) ? data.themes.length : 0) * 14 + items.length * 2)
 
   function downloadCsv() {
     const header = [
@@ -85,7 +96,7 @@ export function SocialCalendarPage({ artifact }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">No calendar yet</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">No calendar yet</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">Generate to get a multi-week content calendar with hooks, CTAs, and asset notes.</CardContent>
       </Card>
@@ -95,10 +106,17 @@ export function SocialCalendarPage({ artifact }: Props) {
   return (
     <div className="space-y-4">
       {gtmCtx && <GtmContextBanner context={gtmCtx} onDismiss={dismissGtm} />}
+      <ArtifactScoreCards
+        items={[
+          { label: 'Channel Coverage', value: channelCoverage, description: 'How well the calendar spans the right channels and funnel roles.' },
+          { label: 'Cadence Readiness', value: cadenceReadiness, description: 'How executable the publishing cadence is as written.' },
+          { label: 'Campaign Cohesion', value: campaignCohesion, description: 'How tightly the themes, hooks, and CTAs hang together.' },
+        ]}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <CardTitle className="text-base">Calendar Items</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Calendar Items</CardTitle>
             <Button variant="outline" size="sm" onClick={downloadCsv}>
               Export CSV
             </Button>
@@ -171,7 +189,7 @@ export function SocialCalendarPage({ artifact }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Calendar Summary</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Calendar Summary</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div>Timezone: {String(data.timezone || '—')}</div>

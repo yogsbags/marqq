@@ -280,7 +280,7 @@ export function AdsIntelPage({ companyId }: Props) {
             <Card>
               <CardContent className="pt-4 space-y-3 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground text-sm">No ads yet</p>
-                <p>Click <strong>Analyze</strong> above to generate AI-powered competitive ad intelligence from your MKG data — no manual setup needed.</p>
+                <p>Click <strong>Analyze</strong> above to generate AI-powered competitive ad intelligence from your company data — no manual setup needed.</p>
                 <Button size="sm" variant="outline" className="w-full gap-1.5"
                   onClick={runAnalysis} disabled={analyzing}>
                   <Sparkles className="h-3.5 w-3.5" />

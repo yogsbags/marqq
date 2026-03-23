@@ -1,29 +1,57 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useWorkspace, type Workspace } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
 
 interface CreateWorkspaceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (workspace: Workspace, websiteUrl: string) => void;
 }
 
-export function CreateWorkspaceModal({ open, onOpenChange }: CreateWorkspaceModalProps) {
-  const { createWorkspace } = useWorkspace();
+function normalizeUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  try {
+    return new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
+      .toString()
+      .replace(/\/$/, '');
+  } catch {
+    return trimmed;
+  }
+}
+
+export function CreateWorkspaceModal({ open, onOpenChange, onCreated }: CreateWorkspaceModalProps) {
+  const { createWorkspace, updateWebsiteUrl } = useWorkspace();
   const [name, setName] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
     setLoading(true);
     try {
-      await createWorkspace(name.trim());
-      toast.success(`Workspace "${name.trim()}" created`);
+      const workspace = await createWorkspace(name.trim());
+      const url = normalizeUrl(websiteUrl);
+      if (url) {
+        await updateWebsiteUrl(url);
+        try {
+          sessionStorage.setItem('marqq_company_intel_autorun', JSON.stringify({
+            companyName: name.trim(),
+            websiteUrl: url,
+          }));
+        } catch {
+          // non-blocking
+        }
+      }
+      toast.success(`Workspace "${name.trim()}" created${url ? ' — opening Company Intelligence' : ''}`);
       setName('');
+      setWebsiteUrl('');
       onOpenChange(false);
+      if (url) onCreated?.(workspace, url);
     } catch (err: unknown) {
       toast.error(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -36,17 +64,34 @@ export function CreateWorkspaceModal({ open, onOpenChange }: CreateWorkspaceModa
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create a workspace</DialogTitle>
+          <DialogDescription>
+            Create a workspace and optionally add the company website to start background company intelligence.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <Label htmlFor="ws-name">Workspace name</Label>
-          <Input
-            id="ws-name"
-            placeholder="e.g. Client A, Acme Corp"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreate()}
-            autoFocus
-          />
+          <div className="space-y-1.5">
+            <Label htmlFor="ws-name">Workspace name</Label>
+            <Input
+              id="ws-name"
+              placeholder="e.g. Acme Corp, Client A"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ws-url">
+              Company website <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="ws-url"
+              placeholder="https://example.com"
+              value={websiteUrl}
+              onChange={e => setWebsiteUrl(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

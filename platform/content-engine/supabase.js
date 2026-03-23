@@ -78,6 +78,22 @@ export function getPipelineWriteClient() {
   return pipelineSupabase
 }
 
+export function getSupabaseReadClient() {
+  return supabaseAdmin || supabase
+}
+
+export function getSupabaseWriteClient() {
+  return supabaseAdmin || pipelineSupabase || supabase
+}
+
+function getReadClient() {
+  return getSupabaseReadClient()
+}
+
+function getWriteClient() {
+  return getSupabaseWriteClient()
+}
+
 function normalizeWebsiteUrl(url) {
   if (!url) return null
   try {
@@ -94,7 +110,8 @@ function normalizeWebsiteUrl(url) {
  * Ensures a company exists in Supabase.
  */
 export async function saveCompany(company, workspaceId = null) {
-  if (!supabase) return company
+  const client = getWriteClient()
+  if (!client) return company
   try {
     const row = {
       id: company.id,
@@ -104,7 +121,7 @@ export async function saveCompany(company, workspaceId = null) {
     }
     if (workspaceId) row.workspace_id = workspaceId
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('companies')
       .upsert(row, { onConflict: 'id' })
       .select()
@@ -122,9 +139,10 @@ export async function saveCompany(company, workspaceId = null) {
  * Ensures an artifact is saved in Supabase.
  */
 export async function saveArtifact(companyId, artifact) {
-  if (!supabase) return artifact
+  const client = getWriteClient()
+  if (!client) return artifact
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('company_artifacts')
       .upsert({
         company_id: companyId,
@@ -140,9 +158,10 @@ export async function saveArtifact(companyId, artifact) {
 }
 
 export async function clearArtifactsForCompany(companyId) {
-  if (!supabase || !companyId) return
+  const client = getWriteClient()
+  if (!client || !companyId) return
   try {
-    const { error } = await supabase
+    const { error } = await client
       .from('company_artifacts')
       .delete()
       .eq('company_id', companyId)
@@ -159,9 +178,10 @@ export async function clearArtifactsForCompany(companyId) {
  * Fetch company and artifacts from Supabase (or null if fail)
  */
 export async function loadCompanyWithArtifacts(companyId) {
-  if (!supabase) return null
+  const client = getReadClient()
+  if (!client) return null
   try {
-    const { data: companyRow, error: cErr } = await supabase
+    const { data: companyRow, error: cErr } = await client
       .from('companies')
       .select('*')
       .eq('id', companyId)
@@ -169,7 +189,7 @@ export async function loadCompanyWithArtifacts(companyId) {
 
     if (cErr || !companyRow) return null
 
-    const { data: artifactRows, error: aErr } = await supabase
+    const { data: artifactRows, error: aErr } = await client
       .from('company_artifacts')
       .select('*')
       .eq('company_id', companyId)
@@ -202,9 +222,10 @@ export async function loadCompanyWithArtifacts(companyId) {
 }
 
 export async function loadCompanies(workspaceId = null) {
-  if (!supabase) return []
+  const client = getReadClient()
+  if (!client) return []
   try {
-    let query = supabase
+    let query = client
       .from('companies')
       .select('*')
       .order('updated_at', { ascending: false })
@@ -239,7 +260,7 @@ export async function loadCompanies(workspaceId = null) {
 }
 
 export async function loadCompanyByWebsiteUrl(websiteUrl, workspaceId = null) {
-  if (!supabase || !websiteUrl) return null
+  if (!getReadClient() || !websiteUrl) return null
   try {
     const normalizedTarget = normalizeWebsiteUrl(websiteUrl)
     const companies = await loadCompanies(workspaceId)
@@ -250,10 +271,11 @@ export async function loadCompanyByWebsiteUrl(websiteUrl, workspaceId = null) {
 }
 
 export async function deleteDuplicateCompaniesByWebsiteUrl(websiteUrl, keepCompanyId) {
-  if (!supabase || !websiteUrl || !keepCompanyId) return
+  const client = getWriteClient()
+  if (!client || !websiteUrl || !keepCompanyId) return
   try {
     const normalizedTarget = normalizeWebsiteUrl(websiteUrl)
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('companies')
       .select('id, website_url')
       .eq('website_url', normalizedTarget)
@@ -266,7 +288,7 @@ export async function deleteDuplicateCompaniesByWebsiteUrl(websiteUrl, keepCompa
 
     if (!duplicateIds.length) return
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await client
       .from('companies')
       .delete()
       .in('id', duplicateIds)
@@ -280,17 +302,18 @@ export async function deleteDuplicateCompaniesByWebsiteUrl(websiteUrl, keepCompa
 }
 
 export async function deletePlaceholderCompanies() {
-  if (!supabase) return
+  const client = getWriteClient()
+  if (!client) return
   try {
     const placeholderUrls = ['https://example.com', 'http://example.com']
     const placeholderNames = ['Example Domain']
 
     const [{ data: byUrl }, { data: byName }] = await Promise.all([
-      supabase
+      client
         .from('companies')
         .select('id')
         .in('website_url', placeholderUrls),
-      supabase
+      client
         .from('companies')
         .select('id')
         .in('company_name', placeholderNames)
@@ -299,7 +322,7 @@ export async function deletePlaceholderCompanies() {
     const ids = Array.from(new Set([...(byUrl || []), ...(byName || [])].map((row) => row.id).filter(Boolean)))
     if (!ids.length) return
 
-    const { error } = await supabase
+    const { error } = await client
       .from('companies')
       .delete()
       .in('id', ids)

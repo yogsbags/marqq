@@ -9,6 +9,10 @@ function asObj(data: unknown): any {
   return data && typeof data === 'object' ? (data as any) : null
 }
 
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)))
+}
+
 export function PartnerProfilingPage({ artifact }: Props) {
   const data = asObj(artifact?.data)
 
@@ -16,7 +20,7 @@ export function PartnerProfilingPage({ artifact }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">No partner profiling yet</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">No partner profiling yet</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">Generate to see partner types, value exchange, and activation playbooks.</CardContent>
       </Card>
@@ -25,12 +29,78 @@ export function PartnerProfilingPage({ artifact }: Props) {
 
   const partnerTypes: any[] = Array.isArray(data.partnerTypes) ? data.partnerTypes : []
   const insights: string[] = Array.isArray(data.insights) ? data.insights : []
+  const aiScores = asObj(data.scores)
+  const partnerCoverageScore = Number.isFinite(Number(aiScores?.partnerCoverage))
+    ? clampScore(Number(aiScores.partnerCoverage))
+    : clampScore(
+    Math.min(partnerTypes.length * 20, 60) +
+      Math.min(
+        partnerTypes.filter((partner) => String(partner?.valueExchange || '').trim()).length * 12,
+        24
+      ) +
+      Math.min(insights.length * 4, 16)
+  )
+  const valueExchangeClarityScore = Number.isFinite(Number(aiScores?.valueExchangeClarity))
+    ? clampScore(Number(aiScores.valueExchangeClarity))
+    : clampScore(
+    Math.min(
+      partnerTypes.filter((partner) => String(partner?.valueExchange || '').trim()).length * 20,
+      60
+    ) +
+      Math.min(
+        partnerTypes.filter(
+          (partner) => Array.isArray(partner?.selectionCriteria) && partner.selectionCriteria.length > 0
+        ).length * 10,
+        20
+      ) +
+      Math.min(
+        partnerTypes.filter(
+          (partner) => Array.isArray(partner?.activationPlaybook) && partner.activationPlaybook.length > 0
+        ).length * 10,
+        20
+      )
+  )
+  const activationReadinessScore = Number.isFinite(Number(aiScores?.activationReadiness))
+    ? clampScore(Number(aiScores.activationReadiness))
+    : clampScore(
+    Math.min(
+      partnerTypes.filter(
+        (partner) => Array.isArray(partner?.activationPlaybook) && partner.activationPlaybook.length > 0
+      ).length * 18,
+      54
+    ) +
+      Math.min(
+        partnerTypes.filter(
+          (partner) => Array.isArray(partner?.selectionCriteria) && partner.selectionCriteria.length > 0
+        ).length * 12,
+        36
+      ) +
+      Math.min(insights.length * 2, 10)
+  )
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Partner Coverage</div>
+          <div className="text-2xl font-bold">{partnerCoverageScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How complete the partner landscape and archetypes are.</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Value Exchange Clarity</div>
+          <div className="text-2xl font-bold">{valueExchangeClarityScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How clearly mutual partner value and qualification logic are defined.</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Activation Readiness</div>
+          <div className="text-2xl font-bold">{activationReadinessScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How ready these partner profiles are for outbound activation.</div>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Partner Types</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Partner Types</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {partnerTypes.length ? (
@@ -63,7 +133,7 @@ export function PartnerProfilingPage({ artifact }: Props) {
       {insights.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Insights</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Insights</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {insights.map((n, idx) => (

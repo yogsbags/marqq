@@ -447,23 +447,36 @@ export function EnhancedBulkGenerator() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 px-8 pb-8 pt-2">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-8 space-y-2 text-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
-            SEO/LLMO
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Build, optimize, and automate SEO and LLMO content workflows in one place.
-          </p>
+        <div className="mb-8 rounded-[30px] border border-border/70 bg-gradient-to-br from-orange-500/[0.08] via-background to-amber-500/[0.05] px-6 py-6 shadow-sm">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-500">
+            Content Engine
+          </div>
+          <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl space-y-1">
+              <h1 className="font-brand-syne text-3xl font-semibold tracking-tight text-foreground md:text-[2.4rem]">
+                Build SEO and LLM visibility content without living inside the pipeline.
+              </h1>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Start with the workflow mode, set the topic direction, then review stages only when you need approval or edits.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Mode</div>
+              <div className="mt-1 font-medium text-foreground">
+                {executionMode === "full" ? "Full workflow" : "Stage-by-stage review"}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Main Control */}
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-8 mb-8">
-          <h2 className="text-2xl font-semibold text-foreground mb-4">
-            Workflow Control
+        <div className="rounded-[28px] border bg-card text-card-foreground shadow-sm p-8 mb-8">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground mb-4">
+            Workflow setup
           </h2>
 
           {/* Execution Mode Toggle */}
-          <div className="mb-6 rounded-lg border-2 border-border bg-muted/50 p-4">
+          <div className="mb-6 rounded-[22px] border border-border bg-muted/40 p-4">
             <label className="mb-3 block text-sm font-medium text-foreground">
               Execution Mode:
             </label>
@@ -479,7 +492,7 @@ export function EnhancedBulkGenerator() {
               >
                 <div className="flex items-center justify-center gap-2">
                   <Zap className="w-4 h-4" />
-                  <span>Full Workflow</span>
+                  <span>Full workflow</span>
                 </div>
                 <p className="text-xs mt-1 opacity-80">
                   Execute all 8 stages automatically
@@ -496,7 +509,7 @@ export function EnhancedBulkGenerator() {
               >
                 <div className="flex items-center justify-center gap-2">
                   <Target className="w-4 h-4" />
-                  <span>Stage-by-Stage</span>
+                  <span>Stage-by-stage review</span>
                 </div>
                 <p className="text-xs mt-1 opacity-80">
                   Review output and approve each stage
@@ -716,10 +729,10 @@ Key takeaways`}
             {executionMode === "staged" && (
               <div className="rounded-lg border-2 border-purple-200 bg-purple-50 px-4 py-3 text-sm dark:border-purple-800/70 dark:bg-purple-950/20">
                 <p className="font-semibold text-purple-700 dark:text-purple-400">
-                  Stage-by-Stage Mode Active
+                  Review mode active
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Execute and review each stage individually below
+                  Run one stage at a time and only open details when you need them.
                 </p>
               </div>
             )}
@@ -1400,11 +1413,23 @@ Key takeaways`}
         )}
 
         {/* Live Logs */}
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-8">
-          <h2 className="mb-4 text-2xl font-semibold text-foreground">
-            Live Logs
-          </h2>
-          <div className="h-96 overflow-y-auto rounded-lg bg-slate-950 p-4 font-mono text-sm text-green-400">
+        <details className="rounded-[28px] border bg-card text-card-foreground shadow-sm p-6">
+          <summary className="cursor-pointer list-none">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                  Workflow log
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Expand only if you need the raw execution trace.
+                </p>
+              </div>
+              <div className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                {logs.length} entries
+              </div>
+            </div>
+          </summary>
+          <div className="mt-4 h-96 overflow-y-auto rounded-2xl bg-slate-950 p-4 font-mono text-sm text-green-400">
             {logs.length === 0 ? (
               <p className="italic text-slate-400">
                 Waiting for workflow execution...
@@ -1420,7 +1445,7 @@ Key takeaways`}
               ))
             )}
           </div>
-        </div>
+        </details>
 
         {/* Footer */}
         <div className="mt-8 text-center text-muted-foreground">

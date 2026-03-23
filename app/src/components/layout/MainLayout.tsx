@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { Taskboard } from '@/components/taskboard/Taskboard';
+import { ChatDrawer } from '@/components/chat/ChatDrawer';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import type { Conversation } from '@/types/chat';
 
 interface MainLayoutProps {
@@ -12,6 +12,10 @@ interface MainLayoutProps {
   conversations: Conversation[];
   activeConversationId: string | null;
   onConversationSelect: (id: string) => void;
+  onConversationsChange: () => void;
+  chatOpen: boolean;
+  onChatOpenChange: (open: boolean) => void;
+  firstSessionBanner?: React.ReactNode;
 }
 
 export function MainLayout({
@@ -21,6 +25,10 @@ export function MainLayout({
   conversations,
   activeConversationId,
   onConversationSelect,
+  onConversationsChange,
+  chatOpen,
+  onChatOpenChange,
+  firstSessionBanner,
 }: MainLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -39,27 +47,39 @@ export function MainLayout({
         onConversationSelect={onConversationSelect}
       />
 
-      {/* Center: Main content (chat home or module view) */}
+      {/* Center: Main content — margin tracks sidebar width only */}
       <div className={cn(
-        "flex-1 flex flex-col overflow-hidden transition-all duration-300",
+        "flex-1 flex flex-col overflow-hidden transition-[margin-left] duration-300 ease-in-out",
         sidebarCollapsed ? "ml-16" : "ml-72"
       )}>
-        <DashboardHeader selectedModule={selectedModule} onModuleSelect={onModuleSelect} />
+        <DashboardHeader
+          selectedModule={selectedModule}
+          onModuleSelect={onModuleSelect}
+          onOpenChat={() => onChatOpenChange(true)}
+        />
 
-        <main className={cn(
-          "flex-1 overflow-auto transition-all duration-300",
-          isHomeView
-            ? "bg-white dark:bg-gray-900"
-            : "bg-gradient-to-br from-orange-50/30 via-white to-orange-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 pt-4"
-        )}>
-          <div className={cn("h-full", !isHomeView && "w-full px-6 pb-8")}>
+        <main className="flex-1 overflow-auto pt-4">
+          {firstSessionBanner}
+          {/* key forces remount on route change → triggers enter animation */}
+          <div
+            key={selectedModule ?? 'home'}
+            className={cn(
+              "h-full page-enter page-enter-soft",
+              !isHomeView && "w-full px-6 pb-8"
+            )}
+          >
             {children}
           </div>
         </main>
       </div>
 
-      {/* Right: Taskboard (always visible) */}
-      <Taskboard />
+      {/* Right: Chat Drawer (persistent, mounted always) */}
+      <ChatDrawer
+        open={chatOpen}
+        onOpenChange={onChatOpenChange}
+        onModuleSelect={onModuleSelect}
+        onConversationsChange={onConversationsChange}
+      />
     </div>
   );
 }

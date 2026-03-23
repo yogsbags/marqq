@@ -1,72 +1,66 @@
 {
-  "updated_at": "2026-03-11T11:34:07.317Z",
+  "updated_at": "2026-03-23T06:02:38.479Z",
   "agents": {
     "veena": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:33:22.925Z",
-      "duration_ms": 4943
+      "status": "idle",
+      "last_run": null,
+      "duration_ms": null
     },
     "isha": {
       "status": "completed",
-      "last_run": "2026-03-11T11:33:27.640Z",
-      "duration_ms": 4668
+      "last_run": "2026-03-20T17:40:28.306Z",
+      "duration_ms": 5202
     },
     "neel": {
       "status": "completed",
-      "last_run": "2026-03-11T11:33:31.670Z",
-      "duration_ms": 3896
+      "last_run": "2026-03-23T06:02:38.479Z",
+      "duration_ms": 9033
     },
     "tara": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:34:03.333Z",
-      "duration_ms": 4037
+      "status": "idle",
+      "last_run": null,
+      "duration_ms": null
     },
     "zara": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:34:07.317Z",
-      "duration_ms": 3895
+      "status": "idle",
+      "last_run": null,
+      "duration_ms": null
     },
     "maya": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:33:41.506Z",
-      "duration_ms": 4887,
-      "next_run": "06:00 IST daily"
+      "status": "idle",
+      "last_run": null,
+      "duration_ms": null
     },
     "riya": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:33:36.514Z",
-      "duration_ms": 1666,
-      "next_run": "08:00 IST Mon/Wed/Fri"
+      "status": "idle",
+      "last_run": null,
+      "duration_ms": null
     },
     "arjun": {
       "status": "completed",
-      "last_run": "2026-03-11T11:33:44.429Z",
-      "duration_ms": 2809,
-      "next_run": "07:00 IST daily"
+      "last_run": "2026-03-19T15:00:02.273Z",
+      "duration_ms": 12668
     },
     "dev": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:33:58.846Z",
-      "duration_ms": 4098,
-      "next_run": "09:00 IST Monday"
+      "status": "idle",
+      "last_run": null,
+      "duration_ms": null
     },
     "priya": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:33:48.331Z",
-      "duration_ms": 3821,
-      "next_run": "08:00 IST daily"
+      "status": "error",
+      "last_run": "2026-03-19T05:02:09.768Z",
+      "duration_ms": 11679,
+      "error": "Error: Groq model \"llama-3.3-70b-versatile\" returned insufficient user-facing prose"
     },
     "kiran": {
-      "status": "completed",
-      "last_run": "2026-03-11T11:33:54.623Z",
-      "duration_ms": 6189,
-      "next_run": "07:30 IST daily"
+      "status": "idle",
+      "last_run": null,
+      "duration_ms": null
     },
     "sam": {
       "status": "completed",
-      "last_run": "2026-03-11T11:33:34.695Z",
-      "duration_ms": 2936,
-      "next_run": "08:30 IST Tue/Thu"
+      "last_run": "2026-03-22T10:36:27.598Z",
+      "duration_ms": 1956
     }
   }
 }

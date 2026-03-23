@@ -1,9 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ArtifactRecord } from '../api'
 import { Badge } from '@/components/ui/badge'
+import { CompanyIntelActionButton } from '../ui/CompanyIntelActionButton'
 
 type Props = {
   artifact: ArtifactRecord | null
+  companyId?: string
+  companyName?: string
+  websiteUrl?: string | null
 }
 
 function asObj(data: unknown): any {
@@ -26,14 +30,14 @@ function priorityBadge(priority: string) {
   return 'bg-muted text-foreground'
 }
 
-export function WebsiteAuditPage({ artifact }: Props) {
+export function WebsiteAuditPage({ artifact, companyId, companyName, websiteUrl }: Props) {
   const data = asObj(artifact?.data)
 
   if (!artifact || !data) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">No website audit yet</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">No website audit yet</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           Generate to critique the homepage and get conversion-focused recommendations.
@@ -56,21 +60,29 @@ export function WebsiteAuditPage({ artifact }: Props) {
   const trustScore = Number(first.trustScore ?? NaN)
   const hierarchyScore = Number(first.visualHierarchyScore ?? NaN)
 
+  function routePriorityAgent(task: string, ownerHint: string) {
+    const text = `${task} ${ownerHint}`.toLowerCase()
+    if (text.includes('copy') || text.includes('headline') || text.includes('cta')) return 'riya'
+    if (text.includes('measure') || text.includes('track') || text.includes('analytics')) return 'maya'
+    if (text.includes('position') || text.includes('message') || text.includes('structure')) return 'neel'
+    return 'zara'
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Clarity</div>
+          <div className="text-xs text-orange-600 dark:text-orange-400">Clarity</div>
           <div className="text-2xl font-bold">{Number.isFinite(clarityScore) ? Math.round(clarityScore) : '—'}/100</div>
           <div className="text-xs text-muted-foreground mt-1">Can users understand “what you do” fast?</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Trust</div>
+          <div className="text-xs text-orange-600 dark:text-orange-400">Trust</div>
           <div className="text-2xl font-bold">{Number.isFinite(trustScore) ? Math.round(trustScore) : '—'}/100</div>
           <div className="text-xs text-muted-foreground mt-1">Signals: compliance, proof, credibility.</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Visual Hierarchy</div>
+          <div className="text-xs text-orange-600 dark:text-orange-400">Visual Hierarchy</div>
           <div className="text-2xl font-bold">{Number.isFinite(hierarchyScore) ? Math.round(hierarchyScore) : '—'}/100</div>
           <div className="text-xs text-muted-foreground mt-1">Is attention guided to the CTA?</div>
         </Card>
@@ -78,7 +90,7 @@ export function WebsiteAuditPage({ artifact }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Summary</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Summary</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-foreground">{summary || '—'}</CardContent>
       </Card>
@@ -86,7 +98,7 @@ export function WebsiteAuditPage({ artifact }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Conversion Funnel</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Conversion Funnel</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div>
@@ -110,7 +122,7 @@ export function WebsiteAuditPage({ artifact }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Copy Recommendations</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Copy Recommendations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
@@ -135,7 +147,7 @@ export function WebsiteAuditPage({ artifact }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Homepage Section Notes</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Homepage Section Notes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {sections.length ? (
@@ -162,6 +174,28 @@ export function WebsiteAuditPage({ artifact }: Props) {
                     ))}
                   </div>
                 </div>
+                <div className="mt-3">
+                  <CompanyIntelActionButton
+                    label="Create Fix Tasks"
+                    agentName="veena"
+                    companyId={companyId}
+                    companyName={companyName}
+                    websiteUrl={websiteUrl}
+                    taskPrefix={`Website Audit • ${String(s.section || `Section ${idx + 1}`)}`}
+                    taskRequest={[
+                      `Turn the website-audit findings for section ${String(s.section || `Section ${idx + 1}`)} into prioritized execution tasks.`,
+                      `What works: ${asStringArray(s.whatWorks).join(' | ') || 'none'}.`,
+                      `Issues: ${asStringArray(s.issues).join(' | ') || 'none'}.`,
+                      `Recommendations: ${asStringArray(s.recommendations).join(' | ') || 'none'}.`,
+                      'Create taskboard items for the fixes and start the highest-priority fix analysis.'
+                    ].join(' ')}
+                    marketingContext={{ module: 'website_audit', homepageSection: s, websiteAudit: data }}
+                    successMessage={`Fix tasks created for ${String(s.section || `Section ${idx + 1}`)}.`}
+                    dialogTitle="Deploy Website Fix Plan"
+                    dialogDescription="This will turn the selected website section issues into prioritized taskboard fixes and start the first-pass analysis."
+                    className="border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-900/40 dark:text-orange-300"
+                  />
+                </div>
               </div>
             ))
           ) : (
@@ -173,7 +207,7 @@ export function WebsiteAuditPage({ artifact }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">UX Recommendations</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">UX Recommendations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
@@ -189,7 +223,7 @@ export function WebsiteAuditPage({ artifact }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Priority Plan</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Priority Plan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {plan.length ? (
@@ -203,6 +237,29 @@ export function WebsiteAuditPage({ artifact }: Props) {
                   <div className="text-xs text-muted-foreground mt-2">
                     Effort: {String(p.effort || '—')} • Owner: {String(p.ownerHint || '—')}
                   </div>
+                  <div className="mt-3">
+                    <CompanyIntelActionButton
+                      label="Deploy Fix"
+                      agentName={routePriorityAgent(String(p.task || ''), String(p.ownerHint || ''))}
+                      companyId={companyId}
+                      companyName={companyName}
+                      websiteUrl={websiteUrl}
+                      taskPrefix={`Website Priority • ${String(p.task || `Task ${idx + 1}`)}`}
+                      taskRequest={[
+                        `Deploy this website fix: ${String(p.task || `Task ${idx + 1}`)}.`,
+                        `Why: ${String(p.why || '')}.`,
+                        `Priority: ${String(p.priority || 'medium')}.`,
+                        `Effort: ${String(p.effort || 'unknown')}.`,
+                        `Owner hint: ${String(p.ownerHint || 'unknown')}.`,
+                        'Create the execution tasks and start the first step.'
+                      ].join(' ')}
+                      marketingContext={{ module: 'website_audit', priorityPlanItem: p, websiteAudit: data }}
+                      successMessage={`Fix deployment started for ${String(p.task || `Task ${idx + 1}`)}.`}
+                      dialogTitle="Deploy Website Fix"
+                      dialogDescription="This will create execution tasks for the selected website fix and start the first step."
+                      className="border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-900/40 dark:text-orange-300"
+                    />
+                  </div>
                 </div>
               ))
             ) : (
@@ -215,7 +272,7 @@ export function WebsiteAuditPage({ artifact }: Props) {
       {experiments.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Experiments</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Experiments</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {experiments.slice(0, 10).map((e, idx) => (
@@ -228,6 +285,28 @@ export function WebsiteAuditPage({ artifact }: Props) {
                     <div key={i}>• {x}</div>
                   ))}
                 </div>
+                <div className="mt-3">
+                  <CompanyIntelActionButton
+                    label="Run Experiment"
+                    agentName="maya"
+                    companyId={companyId}
+                    companyName={companyName}
+                    websiteUrl={websiteUrl}
+                    taskPrefix={`Website Experiment • ${String(e.name || `Experiment ${idx + 1}`)}`}
+                    taskRequest={[
+                      `Prepare and run this website experiment: ${String(e.name || `Experiment ${idx + 1}`)}.`,
+                      `Hypothesis: ${String(e.hypothesis || '')}.`,
+                      `Success metric: ${String(e.successMetric || '')}.`,
+                      `Implementation steps: ${asStringArray(e.implementation).join(' | ') || 'none'}.`,
+                      'Create setup, launch, and review tasks for the taskboard and start the experiment workflow.'
+                    ].join(' ')}
+                    marketingContext={{ module: 'website_audit', experiment: e, websiteAudit: data }}
+                    successMessage={`Experiment workflow started for ${String(e.name || `Experiment ${idx + 1}`)}.`}
+                    dialogTitle="Run Website Experiment"
+                    dialogDescription="This will create setup, launch, and review tasks for the selected experiment and start the workflow."
+                    className="border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-900/40 dark:text-orange-300"
+                  />
+                </div>
               </div>
             ))}
           </CardContent>
@@ -236,4 +315,3 @@ export function WebsiteAuditPage({ artifact }: Props) {
     </div>
   )
 }
-

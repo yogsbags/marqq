@@ -1,0 +1,79 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}{\f1 Arial;}}
+\fs24
+\pard\qc\b\f0 Marqq AI \endash  Business Overview\par
+\pard\qc\b0\f0 Unified B2B Marketing Intelligence + Automation Platform\par
+\pard\qc\b0\f0 \line
+\pard\qj\f0\b 1) Executive Summary\par\b0
+Marqq AI is a unified B2B marketing intelligence and automation platform that combines autonomous multi-agent workflows with a modular marketing suite. The product is designed to help growth teams move faster across lead intelligence, content creation, social campaigns, video generation, SEO optimization, customer insights, and budget optimization \emdash all inside one workspace-driven platform.\par
+\par
+\pard\qj\f0\b 2) The Problem\par\b0
+B2B marketing and growth teams face fragmented tools, slow execution cycles, limited analyst bandwidth, and difficulty proving ROI across channels. They need faster insight-to-action loops for:\par
+\pard\qj\f0\bullet\tx720 Lead and account intelligence (ICP match, enrichment, segmentation)\par
+\pard\qj\f0\bullet\tx720 Content and campaign execution at scale\par
+\pard\qj\f0\bullet\tx720 Attribution-aware budget shifts and performance diagnosis\par
+\pard\qj\f0\bullet\tx720 Multi-channel operational consistency (workflows, logs, repeatability)\par
+\par
+\pard\qj\f0\b 3) What Marqq Does\par\b0
+Marqq AI provides a single dashboard with core modules that can be executed by users and autonomous agents. It uses multiple AI providers (Groq as primary, with Gemini/OpenAI fallback) and integrates with services for voice/video/media to deliver end-to-end marketing automation.\par
+\par
+\pard\qj\f0\b 4) Core Modules (Current Product Surface)\par\b0
+\pard\qj\f0\b 4.1 Enhanced Bulk Generator (SEO + Publishing)\par\b0
+Automated content creation pipeline designed for SEO dominance. Workflow: SEO research \u8594 topic generation \u8594 deep research \u8594 content creation \u8594 validation \u8594 SEO optimization \u8594 multi-platform publishing.\par
+\par
+\pard\qj\f0\b 4.2 Lead Intelligence Flow\par\b0
+Lead scoring, enrichment, and segmentation aligned to ICP. Intended to support deduplication, data quality checks, and lookalike modeling with data sourcing via scrapers/providers.\par
+\par
+\pard\qj\f0\b 4.3 Social Media Flow\par\b0
+Multi-platform campaign automation (planning + calendar + publishing), including AI-generated assets and video support.\par
+\par
+\pard\qj\f0\b 4.4 Video Generation Flow\par\b0
+AI-powered video production with provider fallback (e.g., Veo, HeyGen, Fal, Replicate, Shotstack). Enables generation from short clips to longer sequences through composition workflows.\par
+\par
+\pard\qj\f0\b 4.5 AI Voice Bot Flow\par\b0
+Real-time voice interaction for lead qualification, support, and demos, leveraging real-time streaming and STT/TTS integrations.\par
+\par
+\pard\qj\f0\b 4.6 Company Intelligence Flow\par\b0
+Firmographic enrichment and decision-maker mapping including profile and tech stack signals (sources vary by integration strategy).\par
+\par
+\pard\qj\f0\b 4.7 Unified Customer View\par\b0
+Aggregates cross-channel customer context into a 360\u176 profile for better targeting and lifecycle decisions.\par
+\par
+\pard\qj\f0\b 4.8 Budget Optimization Flow\par\b0
+Explains performance drivers and recommends budget shifts. Today the analysis is primarily LLM-driven using user-provided data with planned connector expansion.\par
+\par
+\pard\qj\f0\b 4.9 Performance Scorecard\par\b0
+KPI dashboarding and reporting with anomaly detection and recurring insights.\par
+\par
+\pard\qj\f0\b 5) Target Customers (ICP)\par\b0
+\pard\qj\f0\bullet\tx720 B2B SaaS and B2B services teams that manage multi-channel acquisition and need faster execution.\par
+\pard\qj\f0\bullet\tx720 Growth marketing teams, founders, and RevOps leaders who need unified insights and repeatable workflows.\par
+\pard\qj\f0\bullet\tx720 Agencies managing multiple client workspaces (with shared templates and automations).\par
+\par
+\pard\qj\f0\b 6) Differentiation\par\b0
+\pard\qj\f0\bullet\tx720 \b Unified platform\b0 : multiple modules in one product rather than point solutions.\par
+\pard\qj\f0\bullet\tx720 \b Autonomous agents\b0 : task execution and orchestration reduces manual overhead.\par
+\pard\qj\f0\bullet\tx720 \b Workflow-first design\b0 : repeatable, auditable pipelines (content, campaigns, intelligence).\par
+\pard\qj\f0\bullet\tx720 \b Multi-provider AI\b0 : resilience via fallback across Groq/Gemini/OpenAI and media providers.\par
+\par
+\pard\qj\f0\b 7) Business Model (Suggested)\par\b0
+\pard\qj\f0\b Subscription + usage-based credits\par\b0
+\pard\qj\f0\bullet\tx720 Seat + workspace pricing (teams and agencies)\par
+\pard\qj\f0\bullet\tx720 Usage credits for AI-heavy workloads (LLM tokens, video minutes, voice minutes)\par
+\pard\qj\f0\bullet\tx720 Add-ons for premium connectors (Ads platforms, CRM, data warehouses)\par
+\par
+\pard\qj\f0\b 8) Go-To-Market (Suggested)\par\b0
+\pard\qj\f0\bullet\tx720 Start with one wedge: \b Budget optimization + reporting\b0 or \b content automation for SEO\b0.\par
+\pard\qj\f0\bullet\tx720 Land-and-expand: begin with one module, expand into Lead/Company intelligence and multi-channel execution.\par
+\pard\qj\f0\bullet\tx720 Case studies: publish before/after metrics (ROAS shifts, pipeline influenced, content velocity).\par
+\pard\qj\f0\bullet\tx720 Agencies: enable multi-workspace templates, automations, and white-label reports.\par
+\par
+\pard\qj\f0\b 9) Implementation Notes (High-Level)\par\b0
+Marqq is implemented as a single-page application with modular boundaries and a backend orchestration layer. It uses Supabase for auth and persistence and supports multiple AI and media integrations.\par
+\par
+\pard\qj\f0\b 10) Next Milestones (Suggested)\par\b0
+\pard\qj\f0\bullet\tx720 Formalize billing entity (client/organization) and enforce credits at org-level across workspaces.\par
+\pard\qj\f0\bullet\tx720 Expand connectors (Meta Ads, Google Ads, GA4) and enable safe automation actions with per-tenant quotas.\par
+\pard\qj\f0\bullet\tx720 Add a workflow marketplace/registry for ready-made automations (n8n + native).\par
+\pard\qj\f0\bullet\tx720 Improve observability: tracing, cost attribution, per-workspace reporting.\par
+}

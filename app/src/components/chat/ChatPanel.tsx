@@ -24,71 +24,19 @@ import { CSVAnalysisPanel } from '@/components/ui/csv-analysis-panel';
 
 // Slash command definitions
 const SLASH_COMMANDS = [
-  {
-    command: '/agents',
-    description: 'Open AI Agents Dashboard',
-    action: 'agents'
-  },
-  {
-    command: '/workflows',
-    description: 'Open Workflow Builder',
-    action: 'workflows'
-  },
-  {
-    command: '/lead-intelligence',
-    description: 'Deploy Lead Intelligence & AI Agents workflow',
-    action: 'lead-intelligence'
-  },
-  {
-    command: '/voice-bot',
-    description: 'Deploy AI Voice Bot automation workflow',
-    action: 'voice-bot'
-  },
-  {
-    command: '/video-bot',
-    description: 'Deploy AI Video Bot & Digital Avatar workflow',
-    action: 'video-bot'
-  },
-  {
-    command: '/user-engagement',
-    description: 'Deploy User Engagement & Lifecycle workflow',
-    action: 'user-engagement'
-  },
-  {
-    command: '/budget-optimization',
-    description: 'Deploy Campaign Budget Optimization workflow',
-    action: 'budget-optimization'
-  },
-  {
-    command: '/performance-scorecard',
-    description: 'Deploy Performance Scorecard workflow',
-    action: 'performance-scorecard'
-  },
-  {
-    command: '/ai-content',
-    description: 'Deploy AI Content Generation workflow',
-    action: 'ai-content'
-  },
-  {
-    command: '/customer-view',
-    description: 'Deploy Unified Customer View workflow',
-    action: 'customer-view'
-  },
-  {
-    command: '/seo-llmo',
-    description: 'Deploy SEO/LLMO Optimization workflow',
-    action: 'seo-llmo'
-  },
-  {
-    command: '/company-intel',
-    description: 'Open Company Intelligence (strategy, calendar, ICPs, competitors)',
-    action: 'company-intel'
-  },
-  {
-    command: '/help',
-    description: 'Show available slash commands',
-    action: 'help'
-  }
+  { command: '/agents',               description: 'Open the AI team',                               action: 'agents' },
+  { command: '/workflows',            description: 'Open workflow builder',                          action: 'workflows' },
+  { command: '/lead-intelligence',    description: 'Find and score leads, build your ICP',           action: 'lead-intelligence' },
+  { command: '/voice-bot',            description: 'Run outbound voice campaigns',                   action: 'voice-bot' },
+  { command: '/video-bot',            description: 'Create AI video and avatar content',             action: 'video-bot' },
+  { command: '/user-engagement',      description: 'Map customer journeys and lifecycle flows',      action: 'user-engagement' },
+  { command: '/budget-optimization',  description: 'Analyse and reallocate campaign spend',          action: 'budget-optimization' },
+  { command: '/performance-scorecard',description: 'Check performance across channels',              action: 'performance-scorecard' },
+  { command: '/ai-content',           description: 'Create content — blog, email, social, ads',      action: 'ai-content' },
+  { command: '/customer-view',        description: 'See a unified view of your customers',           action: 'customer-view' },
+  { command: '/seo-llmo',             description: 'Optimise for search and AI answer engines',      action: 'seo-llmo' },
+  { command: '/company-intel',        description: 'Build strategy, ICPs, competitive snapshot',     action: 'company-intel' },
+  { command: '/help',                 description: 'How to talk to me',                              action: 'help' },
 ];
 
 function detectGuidedGoal(input: string): GuidedGoal | null {
@@ -323,311 +271,58 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
       switch (cmd.action) {
         case 'agents':
-          responseContent = `**AI Agents Dashboard - Navigating to Module**
-
-**Module Loading:** AI Agents Dashboard [Done]
-**Available Agents:** 4 specialized marketing agents ready
-
-**Your AI Marketing Team:**
-• **Lead Analyst** - Lead Intelligence & Scoring specialist
-• **Content Creator** - AI Content Generation specialist
-• **Campaign Optimizer** - Budget & Performance optimization specialist
-• **Customer Insights** - Customer Analytics & Segmentation specialist
-
-**Agent Capabilities:**
-• Autonomous task execution
-• Real-time chat and consultation
-• Tool integration and automation
-• Memory and learning from interactions
-• Collaborative workflow orchestration
-
-**Next:** Check the AI Agents Dashboard to interact with your marketing AI team!`;
+          responseContent = `I've opened the AI team for you. Assign work there, or tell me what you want done and I'll route it to the right person.`;
           break;
 
         case 'workflows':
-          responseContent = `**Workflow Builder - Navigating to Module**
-
-**Module Loading:** Agent Workflow Builder [Done]
-**Workflow Orchestration:** Multi-agent collaboration system
-
-**Build Custom Workflows:**
-• Chain multiple AI agents together
-• Create complex marketing automation
-• Define sequential or parallel task execution
-• Monitor workflow performance and results
-
-**Pre-built Templates:**
-• Complete Lead Analysis Pipeline
-• Content Marketing Pipeline
-• Campaign Optimization Suite
-• Customer Journey Mapping
-
-**Features:**
-• Visual workflow designer
-• Agent task configuration
-• Real-time execution monitoring
-• Result aggregation and analysis
-
-**Next:** Check the Workflow Builder to create powerful multi-agent marketing workflows!`;
+          responseContent = `I've opened the workflow builder. Use it to chain agents or build a multi-step automation. Let me know if you want help designing it.`;
           break;
 
         case 'lead-intelligence':
-          responseContent = `**Lead Intelligence & AI Agents - Navigating to Module**
-
-**Module Loading:** Lead Intelligence & Scoring [Done]
-**Auto-Deployment:** Starting AI Agent workflow...
-
-• **Step 1:** Upload Customer Data [Done]
-• **Step 2:** Enrich Leads with AI [Pending]
-• **Step 3:** Find Ideal Customer Profile [Pending]
-• **Step 4:** Build Lookalike Audience [Pending]
-• **Step 5:** Deploy AI Outreach [Pending]
-• **Step 6:** Monitor Results [Pending]
-
-**Status:** Module loaded! AI Agent deployment will start automatically...
-
-**Expected Results:**
-• 12,847 total prospects identified
-• 89% match score with your ICP
-• 2,156 high-intent leads ready for outreach
-
-**Next:** Check the Lead Intelligence module - the AI workflow is starting!`;
+          responseContent = `I've opened Lead Intelligence. Add your data or question there. Tell me what you're trying to find and I can help shape it first.`;
           break;
 
         case 'voice-bot':
-          responseContent = `**AI Voice Bot Automation - Navigating to Module**
-
-**Module Loading:** AI Voice Bot Automation [Done]
-**Auto-Deployment:** Starting Voice Bot workflow...
-
-• **Step 1:** Upload Contact List [Done]
-• **Step 2:** Generate Voice Script [Pending]
-• **Step 3:** Configure Voice Bot [Pending]
-• **Step 4:** Run Test Call [Pending]
-• **Step 5:** Start Campaign [Pending]
-• **Step 6:** Monitor Results [Pending]
-
-**Status:** Module loaded! Voice Bot deployment will start automatically...
-
-**Expected Results:**
-• 2,847 contacts ready for calling
-• 15% expected connect rate
-• 427 projected conversations
-• 89.2% success rate target
-
-**Next:** Check the AI Voice Bot module - the workflow is starting!`;
+          responseContent = `I've opened Voice Campaigns. Set the brief there, or keep talking here if you want help figuring out the campaign first.`;
           break;
 
         case 'video-bot':
-          responseContent = `**AI Video Bot & Digital Avatar - Navigating to Module**
-
-**Module Loading:** AI Video Bot & Digital Avatar [Done]
-**Auto-Deployment:** Starting Video Bot workflow...
-
-• **Step 1:** Upload Content Data [Done]
-• **Step 2:** Create Digital Avatar [Pending]
-• **Step 3:** Generate Video Scripts [Pending]
-• **Step 4:** Video Production [Pending]
-• **Step 5:** Deploy Videos [Pending]
-• **Step 6:** Video Analytics [Pending]
-
-**Status:** Module loaded! Video Bot deployment will start automatically...
-
-**Expected Results:**
-• 2,400+ videos ready for production
-• 78.9% engagement rate target
-• 15.2% conversion rate improvement
-• Multi-channel video deployment
-
-**Next:** Check the AI Video Bot module - the workflow is starting!`;
+          responseContent = `I've opened the video workspace. Build the workflow there, or tell me more about what you want to create.`;
           break;
 
         case 'user-engagement':
-          responseContent = `**User Engagement & Lifecycle - Navigating to Module**
-
-**Module Loading:** User Engagement & Lifecycle [Done]
-**Auto-Deployment:** Starting Engagement workflow...
-
-• **Step 1:** Upload Customer Data [Done]
-• **Step 2:** Customer Segmentation [Pending]
-• **Step 3:** Design Journey Maps [Pending]
-• **Step 4:** Generate Content [Pending]
-• **Step 5:** Launch Campaigns [Pending]
-• **Step 6:** Track Engagement [Pending]
-
-**Status:** Module loaded! Engagement workflow will start automatically...
-
-**Expected Results:**
-• 5 customer segments identified
-• 12 journey templates created
-• 85% engagement rate target
-• Multi-channel campaign deployment
-
-**Next:** Check the User Engagement module - the workflow is starting!`;
+          responseContent = `I've opened User Engagement. Configure the flow there, or let me know the goal and I'll help scope it.`;
           break;
 
         case 'budget-optimization':
-          responseContent = `**Campaign Budget Optimization - Navigating to Module**
-
-**Module Loading:** Campaign Budget Optimization [Done]
-**Auto-Deployment:** Starting Budget workflow...
-
-• **Step 1:** Upload Campaign Data [Done]
-• **Step 2:** AI Budget Analysis [Pending]
-• **Step 3:** Generate Recommendations [Pending]
-• **Step 4:** Scenario Modeling [Pending]
-• **Step 5:** Deploy Optimization [Pending]
-• **Step 6:** Performance Tracking [Pending]
-
-**Status:** Module loaded! Budget optimization will start automatically...
-
-**Expected Results:**
-• +18% ROAS improvement
-• +₹2.1L additional revenue
-• Optimized allocation across 8 campaigns
-• Real-time budget adjustments
-
-**Next:** Check the Budget Optimization module - the workflow is starting!`;
+          responseContent = `I've opened Budget Optimization. Add your question, timeframe, and campaign data there to run the analysis.`;
           break;
 
         case 'performance-scorecard':
-          responseContent = `**Performance Scorecard - Navigating to Module**
-
-**Module Loading:** Performance Scorecard [Done]
-**Auto-Deployment:** Starting Scorecard workflow...
-
-• **Step 1:** Upload Performance Data [Done]
-• **Step 2:** AI Performance Analysis [Pending]
-• **Step 3:** Generate Scorecard [Pending]
-• **Step 4:** Industry Benchmarking [Pending]
-• **Step 5:** Predictive Forecasting [Pending]
-• **Step 6:** Live Dashboard [Pending]
-
-**Status:** Module loaded! Scorecard generation will start automatically...
-
-**Expected Results:**
-• Overall score: 92/100 (Excellent)
-• Top 10% industry ranking
-• ₹52.7L revenue tracked
-• Real-time performance monitoring
-
-**Next:** Check the Performance Scorecard module - the workflow is starting!`;
+          responseContent = `I've opened the Performance Scorecard. Use it to understand what's happening and decide where to act next.`;
           break;
 
         case 'ai-content':
-          responseContent = `**AI Content Generation - Navigating to Module**
-
-**Module Loading:** AI Content Generation [Done]
-**Auto-Deployment:** Starting Content workflow...
-
-• **Step 1:** Upload Brand Assets [Done]
-• **Step 2:** AI Content Analysis [Pending]
-• **Step 3:** Generate Content [Pending]
-• **Step 4:** Content Review [Pending]
-• **Step 5:** Publish Content [Pending]
-• **Step 6:** Performance Tracking [Pending]
-
-**Status:** Module loaded! Content generation will start automatically...
-
-**Expected Results:**
-• 1,200+ content pieces generated
-• 24.7% engagement rate target
-• Multi-channel content deployment
-• 120 hours of time saved
-
-**Next:** Check the AI Content module - the workflow is starting!`;
+          responseContent = `I've opened the content workspace. Choose your format and brief there, or keep chatting and I'll help you shape it first.`;
           break;
 
         case 'customer-view':
-          responseContent = `**Unified Customer View - Navigating to Module**
-
-**Module Loading:** Unified Customer View [Done]
-**Auto-Deployment:** Starting Customer View workflow...
-
-• **Step 1:** Upload Customer Data [Done]
-• **Step 2:** Data Integration [Pending]
-• **Step 3:** Build Unified Profiles [Pending]
-• **Step 4:** Smart Segmentation [Pending]
-• **Step 5:** Generate Insights [Pending]
-• **Step 6:** Deploy Dashboard [Pending]
-
-**Status:** Module loaded! Customer View deployment will start automatically...
-
-**Expected Results:**
-• 45,000 profiles unified
-• 91.3% targeting accuracy
-• 360-degree customer view
-• Real-time insights dashboard
-
-**Next:** Check the Unified Customer View module - the workflow is starting!`;
+          responseContent = `I've opened the Customer View. Explore context and signals there, or tell me what you're looking for.`;
           break;
 
         case 'seo-llmo':
-          responseContent = `**SEO & LLMO Optimization - Navigating to Module**
-
-**Module Loading:** SEO & LLMO Optimization [Done]
-**Auto-Deployment:** Starting SEO/LLMO workflow...
-
-• **Step 1:** Upload Website Data [Done]
-• **Step 2:** SEO Analysis [Pending]
-• **Step 3:** Keyword Research [Pending]
-• **Step 4:** Content Optimization [Pending]
-• **Step 5:** Deploy Changes [Pending]
-• **Step 6:** Performance Monitoring [Pending]
-
-**Status:** Module loaded! SEO/LLMO optimization will start automatically...
-
-**Expected Results:**
-• 3,200+ keywords optimized
-• Top 3 average search ranking
-• +67% organic traffic growth
-• 89% LLMO readiness score
-
-**Next:** Check the SEO/LLMO module - the workflow is starting!`;
+          responseContent = `I've opened SEO / LLMO. Use it for structured work, or describe what you want to improve and we can scope it together.`;
           break;
 
         case 'help':
-          responseContent = `**Available Slash Commands**
-
-**Agentic AI Commands:**
-• \`/agents\` - Open AI Agents Dashboard - interact with your marketing AI team
-• \`/workflows\` - Open Workflow Builder - create multi-agent workflows
-
-**Agentic AI Commands:**
-• \`/ai-agents\` - Deploy AI Agents Hub - manage all autonomous agents
-• \`/agent-workflows\` - Deploy Agent Workflows - create multi-step AI workflows
-• \`/autonomous-campaigns\` - Deploy Autonomous Campaigns - self-optimizing campaigns
-• \`/agent-orchestration\` - Deploy Multi-Agent Orchestration - coordinate multiple AI agents
-• \`/agent-marketplace\` - Access Agent Marketplace - browse and deploy pre-built agents
-• \`/predictive-intelligence\` - Deploy Predictive Intelligence - AI forecasting and predictions
-• \`/real-time-personalization\` - Deploy Real-time Personalization - dynamic content adaptation
-
-**Workflow Deployments:**
-• \`/lead-intelligence\` - Deploy Lead Intelligence & AI Agents
-• \`/voice-bot\` - Deploy AI Voice Bot Automation
-• \`/video-bot\` - Deploy AI Video Bot & Digital Avatar
-• \`/user-engagement\` - Deploy User Engagement & Lifecycle
-• \`/budget-optimization\` - Deploy Campaign Budget Optimization
-• \`/performance-scorecard\` - Deploy Performance Scorecard
-• \`/ai-content\` - Deploy AI Content Generation
-• \`/customer-view\` - Deploy Unified Customer View
-• \`/seo-llmo\` - Deploy SEO/LLMO Optimization
-
-**Utility Commands:**
-• \`/help\` - Show this help message
-
-**How to use:**
-Simply type any slash command and press Enter to instantly trigger the corresponding workflow deployment. The AI will bypass normal chat processing and execute the action directly!
-
-**Pro Tip:** Start typing "/" to see command suggestions with auto-complete!`;
+          responseContent = `Just tell me what you're working on in plain language — I'll figure out where to take it.\n\nIf you want to jump straight to an area, type \`/\` and the name. Or use \`@name\` to send work directly to a specialist.\n\n**Specialists:** @maya (SEO), @arjun (leads), @riya (content), @zara (campaigns), @dev (performance), @priya (brand), @kiran (social), @sam (email)`;
           break;
 
         default:
           return false;
       }
 
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 250));
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -638,9 +333,8 @@ Simply type any slash command and press Enter to instantly trigger the correspon
 
       onMessagesChange([...messages, userMessage, aiMessage]);
 
-      // Show success toast
       if (cmd.action !== 'help') {
-        toast.success(`${cmd.description} started successfully!`);
+        toast.success(`Opened ${cmd.command.slice(1)}`);
       }
 
       return true;
@@ -796,7 +490,7 @@ Simply type any slash command and press Enter to instantly trigger the correspon
   const handleClearChat = () => {
     const welcomeMessage: Message = {
       id: '1',
-      content: 'Hello! I\'m your AI assistant. How can I help you with your marketing campaigns today?',
+      content: "Hi, I'm Veena. What are you working on?",
       sender: 'ai',
       timestamp: new Date(),
     };
@@ -891,7 +585,7 @@ Simply type any slash command and press Enter to instantly trigger the correspon
               <Bot className="h-5 w-5" style={{ display: 'block', color: '#ffffff' }} />
             </div>
             <div>
-              <h3 className="font-semibold">AI Assistant</h3>
+              <h3 className="font-semibold">Veena</h3>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -1096,7 +790,7 @@ Simply type any slash command and press Enter to instantly trigger the correspon
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={selectedFile ? "Add a message (optional)..." : "Ask me anything or use /commands..."}
+              placeholder={selectedFile ? "Add a message (optional)..." : "What are you working on?"}
               className="flex-1"
               disabled={isTyping}
             />
@@ -1109,7 +803,7 @@ Simply type any slash command and press Enter to instantly trigger the correspon
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            AI can make mistakes. Use /help for slash commands. Upload CSV, PDF, or images.
+            Plain language works best. Type `/` to jump somewhere or `@name` to reach a specialist.
           </p>
         </div>
       </div>

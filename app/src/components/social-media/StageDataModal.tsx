@@ -562,7 +562,15 @@ export default function StageDataModal({
               </label>
             </div>
             <textarea
-              value={typeof subjectVariations === 'string' ? subjectVariations : JSON.stringify(subjectVariations, null, 2)}
+              value={
+                typeof subjectVariations === 'string'
+                  ? subjectVariations
+                  : Array.isArray(subjectVariations)
+                    ? subjectVariations.map((s: unknown) => typeof s === 'string' ? s : String(s ?? '')).join('\n')
+                    : subjectVariations && typeof subjectVariations === 'object'
+                      ? Object.values(subjectVariations as Record<string, unknown>).map(String).join('\n')
+                      : String(subjectVariations ?? '')
+              }
               onChange={(e) => handleFieldChange('subjectVariations', e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm bg-white resize-vertical"

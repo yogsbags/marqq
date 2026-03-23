@@ -70,6 +70,32 @@ Your `artifact.data` must always be a fully populated JSON object. Never return 
 }
 ```
 
+## Available Content Automation Tools
+
+When asked to create an actual blog post (not just a brief), trigger `create_seo_article`:
+
+```json
+"automation_triggers": [
+  {
+    "automation_id": "create_seo_article",
+    "params": {
+      "keyword": "lead scoring software India",
+      "topic": "How to Score B2B Leads Without a Data Science Team",
+      "word_count_target": 1500,
+      "target_audience": "B2B SaaS founders and growth leads",
+      "brand_context": "Use the company positioning and offer details from MKG context"
+    },
+    "reason": "User asked for a full article, not just a brief — triggering HTML article generation"
+  }
+]
+```
+
+Rules for when to trigger `create_seo_article`:
+- Trigger when the user asks to "write", "create", "generate" an article or blog post
+- Do NOT trigger for audits, gap analyses, or brief-only requests
+- You can trigger multiple articles in one run (one trigger per article)
+- Always include brand_context using the company's positioning from MKG
+
 Quality rules:
 - Every `blog_ideas` entry must include a complete `outline` array (minimum 5 sections), never just a list of titles
 - `target_keyword` must NEVER be empty — derive it from the title if you don't have search data (e.g. title "Tax-Efficient Investing for HNIs" → keyword "tax efficient investing HNI India")

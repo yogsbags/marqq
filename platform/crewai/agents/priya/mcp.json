@@ -1,5 +1,5 @@
 {
-  "connectors": ["semrush", "ahrefs", "linkedin", "google_sheets"],
+  "connectors": ["semrush", "ahrefs", "linkedin", "reddit", "google_sheets"],
   "permissions": "read",
   "description": "Priya tracks competitor moves, narrative shifts, and market pressure signals.",
   "recipes": {}

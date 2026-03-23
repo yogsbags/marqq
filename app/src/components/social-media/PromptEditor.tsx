@@ -40,14 +40,14 @@ export default function PromptEditor({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border border-orange-200/70 bg-background shadow-[0_28px_80px_-36px_rgba(15,23,42,0.45)] dark:border-orange-900/40 dark:bg-zinc-950">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+        <div className="border-b border-orange-200/70 bg-[linear-gradient(135deg,rgba(255,247,237,0.96),rgba(255,237,213,0.9))] px-6 py-5 text-foreground dark:border-orange-900/40 dark:bg-[linear-gradient(135deg,rgba(40,24,12,0.92),rgba(24,24,27,0.9))]">
+          <h2 className="flex items-center gap-2 text-2xl font-bold">
             <Pencil className="h-5 w-5 mr-2" /> Edit Generation Prompt
           </h2>
-          <p className="text-sm opacity-90 mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             {stageName} - Stage {stageNumber}
           </p>
         </div>
@@ -55,36 +55,36 @@ export default function PromptEditor({
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-foreground">
               AI Generation Prompt:
             </label>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="mb-3 text-xs text-muted-foreground">
               This prompt will be used by Gemini 3 Pro to generate images/videos.
               You can edit it to fine-tune the output based on your requirements.
             </p>
             <textarea
               value={editedPrompt}
               onChange={(e) => handleTextChange(e.target.value)}
-              className="w-full h-64 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-mono text-sm resize-none"
+              className="h-64 w-full resize-none rounded-2xl border border-orange-200/70 bg-white/90 px-4 py-3 font-mono text-sm text-foreground outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-orange-900/40 dark:bg-white/5"
               placeholder="Enter your custom prompt..."
             />
             <div className="flex justify-between items-center mt-2">
-              <p className="text-xs text-gray-500">
-                <Lightbulb className="h-3 w-3 mr-1 inline text-gray-400" />
+              <p className="text-xs text-muted-foreground">
+                <Lightbulb className="mr-1 inline h-3 w-3 text-orange-500" />
                 Tip: Be specific about style, composition, colors, and mood
               </p>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 {characterCount} characters
               </p>
             </div>
           </div>
 
           {/* Prompt Guidelines */}
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
-            <h3 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 mr-2 text-blue-600" /> Prompt Writing Tips
+          <div className="mb-4 rounded-2xl border border-orange-200/70 bg-orange-50/80 p-4 dark:border-orange-900/40 dark:bg-orange-950/20">
+            <h3 className="mb-2 flex items-center gap-2 font-semibold text-orange-800 dark:text-orange-200">
+              <Lightbulb className="mr-2 h-4 w-4 text-orange-600 dark:text-orange-300" /> Prompt Writing Tips
             </h3>
-            <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+            <ul className="list-inside list-disc space-y-1 text-sm text-orange-700 dark:text-orange-100/85">
               <li>Start with the main subject and composition</li>
               <li>Specify style (e.g., "professional photography", "modern corporate")</li>
               <li>Include color palette and lighting requirements</li>
@@ -95,21 +95,21 @@ export default function PromptEditor({
           </div>
 
           {/* Preview of Key Parameters */}
-          <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 mr-2 text-gray-600" /> Context from Previous Stages
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <h3 className="mb-3 flex items-center gap-2 font-semibold text-foreground">
+              <ClipboardList className="mr-2 h-4 w-4 text-orange-500" /> Context from Previous Stages
             </h3>
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-white p-2 rounded border border-gray-200">
-                <span className="font-semibold text-gray-600">Stage:</span>
-                <span className="ml-2 text-gray-800">{stageName}</span>
+              <div className="rounded-xl border border-border bg-background/85 p-2 dark:bg-background/40">
+                <span className="font-semibold text-muted-foreground">Stage:</span>
+                <span className="ml-2 text-foreground">{stageName}</span>
               </div>
-              <div className="bg-white p-2 rounded border border-gray-200">
-                <span className="font-semibold text-gray-600">Processing:</span>
-                <span className="ml-2 text-gray-800">Gemini 3 Pro Image Preview</span>
+              <div className="rounded-xl border border-border bg-background/85 p-2 dark:bg-background/40">
+                <span className="font-semibold text-muted-foreground">Processing:</span>
+                <span className="ml-2 text-foreground">Gemini 3 Pro Image Preview</span>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="mt-2 text-xs text-muted-foreground">
               The prompt will be enhanced with context from campaign configuration,
               target audience, and uploaded reference materials.
             </p>
@@ -117,23 +117,23 @@ export default function PromptEditor({
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t-2 border-gray-200 px-6 py-4 bg-gray-50 flex justify-between items-center">
+        <div className="flex items-center justify-between border-t border-orange-200/70 bg-muted/40 px-6 py-4 dark:border-orange-900/30">
           <button
             onClick={onCancel}
-            className="px-6 py-2 rounded-lg font-semibold text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-100 transition-all"
+            className="rounded-xl border border-border bg-background px-6 py-2 font-semibold text-foreground transition-all hover:bg-accent"
           >
             Cancel
           </button>
           <div className="flex gap-3">
             <button
               onClick={() => handleTextChange(prompt)}
-              className="px-6 py-2 rounded-lg font-semibold text-purple-700 bg-purple-100 border-2 border-purple-300 hover:bg-purple-200 transition-all"
+              className="rounded-xl border border-orange-200/80 bg-orange-50 px-6 py-2 font-semibold text-orange-700 transition-all hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300 dark:hover:bg-orange-950/35"
             >
               Reset to Original
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 shadow-md hover:shadow-lg transition-all flex items-center"
+              className="flex items-center rounded-xl bg-orange-500 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-orange-600 hover:shadow-lg"
             >
               <Save className="h-4 w-4 mr-2 inline" />
               Save & Continue

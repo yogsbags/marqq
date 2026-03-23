@@ -17,32 +17,33 @@ import {
   HiPaperAirplane as Send,
   HiChat as Bot,
   HiUser as User,
-  HiTrash as Trash2,
   HiDocumentText as FileText,
   HiPhotograph as Image,
   HiTable as FileSpreadsheet,
   HiX as X
 } from 'react-icons/hi';
 import { cn } from '@/lib/utils';
-import { GroqService, ChatMessage } from '@/services/groqService';
-import { executeGuidedWorkflow, type GuidedGoal, type GuidedWorkflowResponse } from '@/services/guidedWorkflowService';
+import { askVeena, GroqService, ChatMessage, type VeenaResponse } from '@/services/groqService';
 import { toast } from 'sonner';
 import { CSVAnalysisPanel } from '@/components/ui/csv-analysis-panel';
 import type { Message, Conversation } from '@/types/chat';
-import { addAiTask, addAiTasks, clearTasks, extractActionItems } from '@/lib/taskStore';
+
 import { markdownToRichText } from '@/lib/markdown';
-import { GTMWizard } from '@/components/gtm/GTMWizard';
-import { GettingStartedChecklist } from '@/components/dashboard/GettingStartedChecklist';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Map, DollarSign, PenLine, Target, Paperclip } from 'lucide-react';
+import { buildAgentHeaders, buildAgentPlanPayload, buildAgentRunPayload, getActiveAgentContext } from '@/lib/agentContext';
 
 // -- localStorage helpers
 
-const CONV_KEY = 'marqq_conversations';
+const CONV_KEY_PREFIX = 'marqq_conversations';
 
-function loadConversations(): Conversation[] {
+function getConvKey(workspaceId: string | undefined): string {
+  return workspaceId ? `${CONV_KEY_PREFIX}_${workspaceId}` : CONV_KEY_PREFIX;
+}
+
+function loadConversations(workspaceId?: string): Conversation[] {
   try {
-    const raw = localStorage.getItem(CONV_KEY);
+    const raw = localStorage.getItem(getConvKey(workspaceId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return parsed.map((c: any) => ({
@@ -54,8 +55,8 @@ function loadConversations(): Conversation[] {
   } catch { return []; }
 }
 
-function saveConversations(convs: Conversation[]) {
-  localStorage.setItem(CONV_KEY, JSON.stringify(convs));
+function saveConversations(convs: Conversation[], workspaceId?: string) {
+  localStorage.setItem(getConvKey(workspaceId), JSON.stringify(convs));
 }
 
 function generateName(firstUserMessage: string): string {
@@ -65,28 +66,28 @@ function generateName(firstUserMessage: string): string {
 // -- Slash commands
 
 const SLASH_COMMANDS = [
-  { command: '/agents', description: 'Open AI Agents Dashboard', action: 'agents' },
-  { command: '/workflows', description: 'Open Workflow Builder', action: 'workflows' },
-  { command: '/lead-intelligence', description: 'Deploy Lead Intelligence & AI Agents workflow', action: 'lead-intelligence' },
-  { command: '/voice-bot', description: 'Deploy AI Voice Bot automation workflow', action: 'voice-bot' },
-  { command: '/video-bot', description: 'Deploy AI Video Bot & Digital Avatar workflow', action: 'video-bot' },
-  { command: '/user-engagement', description: 'Deploy User Engagement & Lifecycle workflow', action: 'user-engagement' },
-  { command: '/budget-optimization', description: 'Deploy Campaign Budget Optimization workflow', action: 'budget-optimization' },
-  { command: '/performance-scorecard', description: 'Deploy Performance Scorecard workflow', action: 'performance-scorecard' },
-  { command: '/ai-content', description: 'Deploy AI Content Generation workflow', action: 'ai-content' },
-  { command: '/customer-view', description: 'Deploy Unified Customer View workflow', action: 'customer-view' },
-  { command: '/seo-llmo', description: 'Deploy SEO/LLMO Optimization workflow', action: 'seo-llmo' },
-  { command: '/company-intel', description: 'Open Company Intelligence (strategy, calendar, ICPs, competitors)', action: 'company-intel' },
-  // Digital employee direct-chat commands
-  { command: '/seo',         description: 'Ask Maya (SEO Monitor) for today\'s ranking update',          action: 'agent-maya'  },
-  { command: '/leads',       description: 'Ask Arjun (Lead Intelligence) for today\'s lead insights',    action: 'agent-arjun' },
-  { command: '/content',     description: 'Ask Riya (Content Producer) for content ideas this week',     action: 'agent-riya'  },
-  { command: '/campaign',    description: 'Ask Zara (Campaign Strategist) for campaign recommendations', action: 'agent-zara'  },
-  { command: '/competitors', description: 'Ask Dev (Performance Analyst) for competitor analysis',       action: 'agent-dev'   },
-  { command: '/brief',       description: 'Ask Priya (Brand Intelligence) for a brand brief',            action: 'agent-priya' },
-  { command: '/social',      description: 'Ask Kiran (Social Intelligence) for organic social performance', action: 'agent-kiran' },
-  { command: '/email',       description: 'Ask Sam (Email Monitor) for email channel health',              action: 'agent-sam'   },
-  { command: '/help', description: 'Show available slash commands', action: 'help' },
+  { command: '/agents', description: 'Open the AI team', action: 'agents' },
+  { command: '/workflows', description: 'Open workflow builder', action: 'workflows' },
+  { command: '/lead-intelligence', description: 'Find and score leads, build your ICP', action: 'lead-intelligence' },
+  { command: '/voice-bot', description: 'Run outbound voice campaigns', action: 'voice-bot' },
+  { command: '/video-bot', description: 'Create AI video and avatar content', action: 'video-bot' },
+  { command: '/user-engagement', description: 'Map customer journeys and lifecycle flows', action: 'user-engagement' },
+  { command: '/budget-optimization', description: 'Analyse and reallocate campaign spend', action: 'budget-optimization' },
+  { command: '/performance-scorecard', description: 'Check performance across channels', action: 'performance-scorecard' },
+  { command: '/ai-content', description: 'Create content — blog, email, social, ads', action: 'ai-content' },
+  { command: '/customer-view', description: 'See a unified view of your customers', action: 'customer-view' },
+  { command: '/seo-llmo', description: 'Optimise for search and AI answer engines', action: 'seo-llmo' },
+  { command: '/company-intel', description: 'Build strategy, ICPs, competitive snapshot', action: 'company-intel' },
+  // Specialist agent shortcuts
+  { command: '/seo',         description: 'Get today\'s ranking update from Maya',          action: 'agent-maya'  },
+  { command: '/leads',       description: 'Get today\'s lead insights from Arjun',          action: 'agent-arjun' },
+  { command: '/content',     description: 'Get content ideas this week from Riya',          action: 'agent-riya'  },
+  { command: '/campaign',    description: 'Get campaign recommendations from Zara',         action: 'agent-zara'  },
+  { command: '/competitors', description: 'Get a competitor summary from Dev',              action: 'agent-dev'   },
+  { command: '/brief',       description: 'Get a brand brief from Priya',                   action: 'agent-priya' },
+  { command: '/social',      description: 'Get organic social performance from Kiran',      action: 'agent-kiran' },
+  { command: '/email',       description: 'Get email channel health from Sam',              action: 'agent-sam'   },
+  { command: '/help', description: 'How to talk to me', action: 'help' },
 ];
 
 // Map slash commands to autonomous agents
@@ -99,6 +100,9 @@ const SLASH_AGENTS: Record<string, { name: string; label: string; defaultQuery: 
   '/brief':       { name: 'priya', label: 'Priya · Brand Intelligence',    defaultQuery: 'Provide a brand intelligence brief covering sentiment and messaging alignment.' },
   '/social':      { name: 'kiran', label: 'Kiran · Social Intelligence',   defaultQuery: 'Give me our organic social performance this week — reach, engagement, and top post.' },
   '/email':       { name: 'sam',   label: 'Sam · Email Marketing Monitor', defaultQuery: 'What is our email channel health this week — sessions, engagement rate, and any anomalies?' },
+  '/icp':         { name: 'isha',  label: 'Isha · Market Research',        defaultQuery: 'Give me our current ICP profile and top 3 audience segments to target.' },
+  '/strategy':    { name: 'neel',  label: 'Neel · Strategy',               defaultQuery: 'Give me our current positioning brief and top strategic priorities this quarter.' },
+  '/cro':         { name: 'tara',  label: 'Tara · CRO & Offers',           defaultQuery: 'Audit our main offer and funnel — what is the biggest conversion friction to fix?' },
 };
 
 const DIRECT_AGENTS = [
@@ -128,44 +132,341 @@ const EMPLOYEE_PROFILES: Record<EmployeeName, { title: string }> = {
   priya: { title: 'Brand Intelligence' },
 };
 
-// -- Guided goal detection
+const MODULE_NAV_RESPONSES: Record<string, string> = {
+  agents: `I've opened the AI team for you. Assign work there, or tell me what you want done and I'll route it to the right person.`,
+  workflows: `I've opened the workflow builder. Use it to chain agents or build a multi-step automation. Let me know if you want help designing it.`,
+  'lead-intelligence': `I've opened Lead Intelligence. Add your data or question there. Tell me what you're trying to find and I can help shape it first.`,
+  'voice-bot': `I've opened Voice Campaigns. Set the brief there, or keep talking here if you want help figuring out the campaign first.`,
+  'video-bot': `I've opened the video workspace. Build the workflow there, or tell me more about what you want to create.`,
+  'user-engagement': `I've opened User Engagement. Configure the flow there, or let me know the goal and I'll help scope it.`,
+  'budget-optimization': `I've opened Budget Optimization. Add your question, timeframe, and campaign data there to run the analysis.`,
+  'performance-scorecard': `I've opened the Performance Scorecard. Use it to understand what's happening and decide where to act next.`,
+  'ai-content': `I've opened the content workspace. Choose your format and brief there, or keep chatting and I'll help you shape it first.`,
+  'customer-view': `I've opened the Customer View. Explore context and signals there, or tell me what you're looking for.`,
+  'seo-llmo': `I've opened SEO / LLMO. Use it for structured work, or describe what you want to improve and we can scope it together.`,
+  'company-intel': `I've opened Company Intelligence. Use it to build a strategy brief, competitive snapshot, or company view.`,
+};
 
-function detectGuidedGoal(input: string): GuidedGoal | null {
-  const text = input.toLowerCase();
-  const roiSignals = ['roi', 'roas', 'budget', 'reduce cpa', 'improve cpa', 'campaign efficiency'];
-  if (roiSignals.some((signal) => text.includes(signal))) return 'roi';
-  const contentSignals = ['content plan', 'content strategy', 'content calendar', 'social calendar', 'monthly content'];
-  if (contentSignals.some((signal) => text.includes(signal))) return 'content';
-  const leadsSignals = ['more leads', 'lead generation', 'qualified leads', 'pipeline growth', 'lead flow'];
-  if (leadsSignals.some((signal) => text.includes(signal))) return 'leads';
+
+function sanitizeAgentStreamText(content: string): string {
+  if (!content.trim()) return '';
+
+  let cleaned = content;
+
+  const contractMarkerIndex = cleaned.indexOf('---CONTRACT---');
+  if (contractMarkerIndex >= 0) {
+    cleaned = cleaned.slice(0, contractMarkerIndex);
+  }
+
+  cleaned = cleaned.replace(/```json[\s\S]*?```/gi, '');
+  cleaned = cleaned.replace(/```[\s\S]*?```/g, (block) => {
+    const inner = block.replace(/^```[^\n]*\n?/, '').replace(/```$/, '').trim();
+    if (!inner) return '';
+    try {
+      JSON.parse(inner);
+      return '';
+    } catch {
+      return block;
+    }
+  });
+
+  const trimmed = cleaned.trim();
+  if (!trimmed) return '';
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === 'object') {
+      if (typeof parsed.message === 'string' && parsed.message.trim()) return parsed.message.trim();
+      if (typeof parsed.summary === 'string' && parsed.summary.trim()) return parsed.summary.trim();
+      return '';
+    }
+  } catch {
+    // not raw JSON, keep prose
+  }
+
+  return trimmed.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+type ParsedAgentPresentation = {
+  title: string | null;
+  summary: string;
+  highlights: string[];
+  sections: Array<{ heading: string; items: string[] }>;
+  moduleShortcut: { label: string; moduleId: string } | null;
+};
+
+function stripInlineMarkdown(value: string): string {
+  return value
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[*_`~]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function inferModuleShortcut(title: string | null, content: string): ParsedAgentPresentation['moduleShortcut'] {
+  const haystack = `${title || ''} ${content}`.toLowerCase();
+  if (haystack.includes('budget') || haystack.includes('roas') || haystack.includes('cpa')) {
+    return { label: 'Open Budget Analysis', moduleId: 'budget-optimization' };
+  }
+  if (haystack.includes('lead') || haystack.includes('pipeline') || haystack.includes('outreach')) {
+    return { label: 'Open Lead Intelligence', moduleId: 'lead-intelligence' };
+  }
+  if (haystack.includes('content') || haystack.includes('calendar') || haystack.includes('seo')) {
+    return { label: 'Open Content Workspace', moduleId: 'ai-content' };
+  }
+  if (haystack.includes('campaign') || haystack.includes('social') || haystack.includes('creative')) {
+    return { label: 'Open Campaign Workspace', moduleId: 'social-media' };
+  }
+  if (haystack.includes('company') || haystack.includes('competitor') || haystack.includes('snapshot')) {
+    return { label: 'Open Company Intel', moduleId: 'company-intel' };
+  }
   return null;
 }
 
-function toActionPlanMessage(response: GuidedWorkflowResponse): string {
-  const lines = response.actionPlan.what_to_do_this_week.map((item) => `- ${item}`).join('\n');
-  return [
-    `## Guided Workflow Ready`,
-    response.assistantMessage,
-    ``,
-    `## This Week Action Plan`,
-    lines,
-    ``,
-    `**Owner:** ${response.actionPlan.owner}`,
-    `**Expected Impact:** ${response.actionPlan.expected_impact}`,
-    ``,
-    `I am opening the recommended workflow now.`,
-  ].join('\n');
+function parseAgentPresentation(content: string): ParsedAgentPresentation {
+  const normalized = content.trim();
+  const titleMatch = normalized.match(/^\*\*(.+?)\*\*\s*/);
+  const title = titleMatch ? stripInlineMarkdown(titleMatch[1]) : null;
+  const body = titleMatch ? normalized.slice(titleMatch[0].length).trim() : normalized;
+
+  const lines = body.split('\n').map((line) => line.trim()).filter(Boolean);
+  const highlights: string[] = [];
+  const sections: Array<{ heading: string; items: string[] }> = [];
+  const summaryParts: string[] = [];
+  let currentSection: { heading: string; items: string[] } | null = null;
+
+  for (const line of lines) {
+    const headingMatch = line.match(/^#{1,3}\s+(.+)$/);
+    if (headingMatch) {
+      currentSection = { heading: stripInlineMarkdown(headingMatch[1]), items: [] };
+      sections.push(currentSection);
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+    if (bulletMatch) {
+      const item = stripInlineMarkdown(bulletMatch[1]);
+      if (currentSection) currentSection.items.push(item);
+      else if (highlights.length < 4) highlights.push(item);
+      continue;
+    }
+
+    if (currentSection) {
+      currentSection.items.push(stripInlineMarkdown(line));
+    } else {
+      summaryParts.push(stripInlineMarkdown(line));
+    }
+  }
+
+  return {
+    title,
+    summary: summaryParts.join(' ').trim(),
+    highlights,
+    sections: sections.filter((section) => section.items.length > 0).slice(0, 3),
+    moduleShortcut: inferModuleShortcut(title, body),
+  };
 }
 
-function FormattedMessage({ content, isAI }: { content: string; isAI: boolean }) {
-  if (!isAI) return <p className="text-sm whitespace-pre-wrap">{content}</p>;
-  const richTextHtml = markdownToRichText(content);
+function AgentResponseBlocks({
+  content,
+  onModuleSelect,
+}: {
+  content: string;
+  onModuleSelect?: (moduleId: string) => void;
+}) {
+  const parsed = parseAgentPresentation(content);
+  const shouldRenderBlocks = Boolean(parsed.title || parsed.highlights.length || parsed.sections.length);
+
+  if (!shouldRenderBlocks) {
+    const richTextHtml = markdownToRichText(content);
+    return (
+      <div
+        className="text-sm prose prose-sm dark:prose-invert max-w-none"
+        dangerouslySetInnerHTML={{ __html: richTextHtml }}
+      />
+    );
+  }
+
   return (
-    <div
-      className="text-sm prose prose-sm dark:prose-invert max-w-none"
-      dangerouslySetInnerHTML={{ __html: richTextHtml }}
-    />
+    <div className="space-y-3">
+      {parsed.title ? (
+        <div className="rounded-2xl border border-orange-200/70 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-4 dark:border-orange-900/30 dark:from-orange-950/30 dark:via-gray-950 dark:to-amber-950/20">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500">Veena Brief</div>
+          <div className="mt-1 text-base font-semibold text-foreground">{parsed.title}</div>
+          {parsed.summary ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{parsed.summary}</p> : null}
+          {parsed.moduleShortcut && onModuleSelect ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 rounded-full border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/30"
+              onClick={() => onModuleSelect(parsed.moduleShortcut!.moduleId)}
+            >
+              {parsed.moduleShortcut.label}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {parsed.highlights.length ? (
+        <div className="grid gap-2 md:grid-cols-2">
+          {parsed.highlights.map((item, index) => (
+            <div
+              key={`${item}-${index}`}
+              className="rounded-xl border border-border/70 bg-background/80 p-3 text-sm leading-6 shadow-sm"
+            >
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Insight {index + 1}</div>
+              <div className="mt-1 text-foreground">{item}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {parsed.sections.map((section) => (
+        <div key={section.heading} className="rounded-xl border border-border/70 bg-background/80 p-3 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{section.heading}</div>
+          <div className="mt-2 space-y-2">
+            {section.items.slice(0, 4).map((item, index) => (
+              <div key={`${section.heading}-${index}`} className="flex items-start gap-2 text-sm">
+                <div className="mt-1 h-2 w-2 rounded-full bg-orange-500" />
+                <div className="leading-6 text-foreground">{item}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+    </div>
   );
+}
+
+function ThinkingBlock({ reasoning, isStreaming }: { reasoning: string; isStreaming?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-2">
+      <style>{`
+        @keyframes shimmer-ltr {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(300%); }
+        }
+        .thinking-shimmer { animation: shimmer-ltr 1.8s ease-in-out infinite; }
+      `}</style>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span
+          className={cn(
+            'inline-block transition-transform duration-200',
+            open ? 'rotate-90' : 'rotate-0'
+          )}
+        >
+          ▶
+        </span>
+        <span className="relative overflow-hidden rounded px-0.5">
+          <span className={cn('relative z-10', isStreaming ? 'text-muted-foreground' : '')}>
+            Thinking
+          </span>
+          {isStreaming && (
+            <span
+              className="thinking-shimmer pointer-events-none absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
+              aria-hidden
+            />
+          )}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-1.5 max-h-52 overflow-y-auto rounded-xl border border-border/50 bg-muted/30 p-3 text-[11px] leading-5 text-muted-foreground whitespace-pre-wrap">
+          {reasoning || <span className="italic opacity-50">Still thinking...</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, '')           // headings
+    .replace(/\*\*(.+?)\*\*/g, '$1')        // bold
+    .replace(/\*(.+?)\*/g, '$1')            // italic
+    .replace(/__(.+?)__/g, '$1')            // bold alt
+    .replace(/_(.+?)_/g, '$1')              // italic alt
+    .replace(/~~(.+?)~~/g, '$1')            // strikethrough
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')      // inline code / code blocks
+    .replace(/^\|.*\|$/gm, '')              // table rows
+    .replace(/^\s*[-|:]+[-|:\s]*$/gm, '')   // table dividers
+    .replace(/^[-*+]\s+/gm, '')             // unordered bullets
+    .replace(/^\d+\.\s+/gm, '')             // ordered bullets
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')// links → label only
+    .replace(/\n{3,}/g, '\n\n')             // collapse excess blank lines
+    .trim();
+}
+
+function FormattedMessage({
+  content,
+  reasoning,
+  isReasoningStreaming,
+  isAI,
+  onModuleSelect: _onModuleSelect,
+}: {
+  content: string;
+  reasoning?: string;
+  isReasoningStreaming?: boolean;
+  isAI: boolean;
+  onModuleSelect?: (moduleId: string) => void;
+}) {
+  if (!isAI) return <p className="text-sm whitespace-pre-wrap">{content}</p>;
+  const plain = stripMarkdown(content);
+  return (
+    <>
+      {(reasoning || isReasoningStreaming) && (
+        <ThinkingBlock reasoning={reasoning ?? ''} isStreaming={isReasoningStreaming} />
+      )}
+      <p className="text-sm whitespace-pre-wrap leading-6">{plain}</p>
+    </>
+  );
+}
+
+// -- MKG helpers
+
+function formatMkgAsContext(mkg: Record<string, unknown>): string {
+  const FIELD_LABELS: Record<string, string> = {
+    positioning: 'Positioning',
+    icp: 'Ideal customer profile',
+    competitors: 'Competitors',
+    offers: 'Offers / products',
+    messaging: 'Key messaging',
+    channels: 'Marketing channels',
+    funnel: 'Funnel',
+    content_pillars: 'Content pillars',
+    campaigns: 'Active campaigns',
+    insights: 'Recent insights',
+  };
+
+  const lines: string[] = [];
+  for (const [key, label] of Object.entries(FIELD_LABELS)) {
+    const field = mkg[key] as { value?: unknown } | undefined;
+    if (!field?.value) continue;
+    const val = typeof field.value === 'string'
+      ? field.value.slice(0, 400)
+      : JSON.stringify(field.value).slice(0, 400);
+    if (val && val !== 'null' && val !== '{}' && val !== '[]') {
+      lines.push(`**${label}:** ${val}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+// -- Module ID → MODULE_NAV_RESPONSES key map
+const MODULE_NAV_KEY: Record<string, string> = {
+  'company-intelligence': 'company-intel',
+  'ai-voice-bot': 'voice-bot',
+  'ai-video-bot': 'video-bot',
+  'unified-customer-view': 'customer-view',
+};
+function navResponseKey(moduleId: string): string {
+  return MODULE_NAV_KEY[moduleId] ?? moduleId;
 }
 
 // -- Initial messages
@@ -173,7 +474,7 @@ function FormattedMessage({ content, isAI }: { content: string; isAI: boolean })
 const initialMessages: Message[] = [
   {
     id: '1',
-    content: "Hello! I'm your AI assistant. How can I help you with your marketing campaigns today?",
+    content: "Hi, I'm Veena. What are you working on today?",
     sender: 'ai',
     timestamp: new Date(),
   },
@@ -182,6 +483,7 @@ const initialMessages: Message[] = [
 // -- Props
 
 interface ChatHomeProps {
+  onClose?: () => void;
   onModuleSelect?: (moduleId: string | null) => void;
   activeConversationId?: string | null;
   onConversationsChange?: () => void;
@@ -189,8 +491,8 @@ interface ChatHomeProps {
 
 // -- Component
 
-export function ChatHome({ onModuleSelect, activeConversationId, onConversationsChange }: ChatHomeProps) {
-  const { clearWebsiteUrl } = useWorkspace();
+export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConversationsChange }: ChatHomeProps) {
+  const { activeWorkspace, clearWebsiteUrl } = useWorkspace();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
@@ -198,7 +500,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredCommands, setFilteredCommands] = useState(SLASH_COMMANDS);
   const [showAgentSuggestions, setShowAgentSuggestions] = useState(false);
-  const [filteredAgentMentions, setFilteredAgentMentions] = useState(DIRECT_AGENTS);
+  const [filteredAgentMentions, setFilteredAgentMentions] = useState<Array<typeof DIRECT_AGENTS[number]>>(Array.from(DIRECT_AGENTS));
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -206,11 +508,101 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const currentConvIdRef = useRef<string | null>(null);
   const [showCSVAnalysis, setShowCSVAnalysis] = useState(false);
   const [csvFile, setCSVFile] = useState<File | null>(null);
-  const [gtmActive, setGtmActive] = useState(false);
   const [taskAgent, setTaskAgent] = useState<EmployeeName | null>(null);
   const [taskDraft, setTaskDraft] = useState('');
   const [isPlanningTask, setIsPlanningTask] = useState(false);
   const [planPreview, setPlanPreview] = useState<AgentExecutionPlan | null>(null);
+  const [mkgContext, setMkgContext] = useState<string>('');
+  const [reasoningStreamingId, setReasoningStreamingId] = useState<string | null>(null);
+
+  const sendQuickMessage = (text: string) => {
+    setInputValue(text);
+    // Use a microtask so the input state is committed before send fires
+    setTimeout(() => {
+      setInputValue('');
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        content: text,
+        sender: 'user',
+        timestamp: new Date(),
+      };
+      onMessagesChange(prev => [...prev, userMessage]);
+      setIsTyping(true);
+      const history: ChatMessage[] = [
+        ...messages.map(m => ({
+          role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+          content: m.content,
+        })),
+        { role: 'user' as const, content: text },
+      ];
+      const placeholderId = (Date.now() + 1).toString();
+      onMessagesChange(prev => [...prev, { id: placeholderId, content: '', sender: 'ai' as const, timestamp: new Date() }]);
+      let streamedContent = '';
+      let streamedReasoning = '';
+      setReasoningStreamingId(placeholderId);
+      askVeena(
+        history,
+        mkgContext,
+        (token) => {
+          streamedContent += token;
+          if (streamedContent.length <= token.length) setIsTyping(false);
+          setMessages(prev => prev.map(m => m.id === placeholderId ? { ...m, content: streamedContent } : m));
+        },
+        (token) => {
+          streamedReasoning += token;
+          setMessages(prev => prev.map(m => m.id === placeholderId ? { ...m, reasoning: streamedReasoning } : m));
+        },
+      ).then(veena => {
+        setReasoningStreamingId(null);
+        if (veena.route === 'agent') {
+          setMessages(prev => prev.filter(m => m.id !== placeholderId));
+          const ackMsg: Message = { id: (Date.now() + 2).toString(), content: `On it — routing this to ${veena.label}.`, sender: 'ai', timestamp: new Date() };
+          onMessagesChange(prev => [...prev, ackMsg]);
+          setIsTyping(false);
+          return runAgentSlashCommand({ name: veena.agentName, label: veena.label, defaultQuery: veena.query }, veena.query);
+        }
+        if (veena.route === 'module') {
+          setMessages(prev => prev.filter(m => m.id !== placeholderId));
+          if (onModuleSelect) onModuleSelect(veena.moduleId);
+          const navKey = navResponseKey(veena.moduleId);
+          const msg: Message = { id: (Date.now() + 2).toString(), content: MODULE_NAV_RESPONSES[navKey] ?? `I've opened ${veena.label} for you.`, sender: 'ai', timestamp: new Date() };
+          onMessagesChange(prev => [...prev, msg]);
+          setIsTyping(false);
+          return;
+        }
+        // answer — persist final streamed content + reasoning
+        onMessagesChange(prev => prev.map(m =>
+          m.id === placeholderId
+            ? { ...m, content: streamedContent, reasoning: streamedReasoning || undefined }
+            : m
+        ));
+      }).catch(() => {
+        setReasoningStreamingId(null);
+        setMessages(prev => prev.filter(m => m.id !== placeholderId));
+        const msg: Message = { id: (Date.now() + 2).toString(), content: "Sorry, I'm having trouble connecting right now.", sender: 'ai', timestamp: new Date() };
+        onMessagesChange(prev => [...prev, msg]);
+      }).finally(() => setIsTyping(false));
+    }, 0);
+  };
+
+  // -- Fetch MKG when company context changes
+  useEffect(() => {
+    const ctx = getActiveAgentContext();
+    const companyId = ctx.companyId;
+    if (!companyId) return;
+    fetch(`/api/mkg/${companyId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.mkg) return;
+        const lines: string[] = [];
+        if (ctx.companyName) lines.push(`**Company:** ${ctx.companyName}`);
+        if (ctx.websiteUrl) lines.push(`**Website:** ${ctx.websiteUrl}`);
+        const fieldContext = formatMkgAsContext(data.mkg);
+        if (fieldContext) lines.push(fieldContext);
+        setMkgContext(lines.join('\n'));
+      })
+      .catch(() => { /* non-blocking */ });
+  }, [activeWorkspace?.id]);
 
   // -- Helpers
 
@@ -236,7 +628,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   // -- Conversation persistence
 
   const persistMessages = (updatedMessages: Message[], convId: string | null): string => {
-    const conversations = loadConversations();
+    const conversations = loadConversations(activeWorkspace?.id);
     const id = convId ?? `conv-${Date.now()}`;
     const firstUserMsg = updatedMessages.find(m => m.sender === 'user');
     const name = firstUserMsg ? generateName(firstUserMsg.content) : 'New conversation';
@@ -248,7 +640,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     } else {
       conversations.push({ id, name, createdAt: now, lastMessageAt: now, messages: updatedMessages });
     }
-    saveConversations(conversations);
+    saveConversations(conversations, activeWorkspace?.id);
     currentConvIdRef.current = id;
     if (!convId) setCurrentConvId(id);
     onConversationsChange?.();
@@ -267,7 +659,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
 
   useEffect(() => {
     if (!activeConversationId) return;
-    const conversations = loadConversations();
+    const conversations = loadConversations(activeWorkspace?.id);
     const conv = conversations.find(c => c.id === activeConversationId);
     if (conv) {
       setMessages(conv.messages);
@@ -301,8 +693,8 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
   const handleDeleteConversation = async () => {
     try {
       if (currentConvId) {
-        const conversations = loadConversations().filter((conversation) => conversation.id !== currentConvId);
-        saveConversations(conversations);
+        const conversations = loadConversations(activeWorkspace?.id).filter((conversation) => conversation.id !== currentConvId);
+        saveConversations(conversations, activeWorkspace?.id);
       }
 
       try {
@@ -312,7 +704,6 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       }
 
       await clearWebsiteUrl();
-      clearTasks();
       setMessages(initialMessages);
       setCurrentConvId(null);
       currentConvIdRef.current = null;
@@ -373,23 +764,6 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     setShowAgentSuggestions(false);
   };
 
-  // -- Slash command → follow-up task mapping
-
-  const SLASH_FOLLOWUP_TASKS: Record<string, string> = {
-    'lead-intelligence': 'Review and approve scored leads',
-    'voice-bot': 'Monitor voice bot call results',
-    'video-bot': 'Review generated avatar videos',
-    'user-engagement': 'Review engagement campaign segments',
-    'budget-optimization': 'Review budget optimization recommendations',
-    'performance-scorecard': 'Review performance scorecard report',
-    'ai-content': 'Review and publish AI-generated content',
-    'customer-view': 'Review unified customer profiles',
-    'seo-llmo': 'Review SEO optimization recommendations',
-    'company-intel': 'Review company intelligence insights',
-    'agents': 'Check in with AI agents dashboard',
-    'workflows': 'Review and run pending workflows',
-  };
-
   // -- Slash command execution
 
   const executeSlashCommand = async (command: string) => {
@@ -437,46 +811,51 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
 
       switch (cmd.action) {
         case 'agents':
-          responseContent = `\u{1F916} **AI Agents Dashboard - Navigating to Module**\n\n**Module Loading:** AI Agents Dashboard \u2705\n**Available Agents:** 4 specialized marketing agents ready\n\n**Your AI Marketing Team:**\n\u2022 **Lead Analyst** - Lead Intelligence & Scoring specialist\n\u2022 **Content Creator** - AI Content Generation specialist\n\u2022 **Campaign Optimizer** - Budget & Performance optimization specialist\n\u2022 **Customer Insights** - Customer Analytics & Segmentation specialist\n\n**Agent Capabilities:**\n\u2022 Autonomous task execution\n\u2022 Real-time chat and consultation\n\u2022 Tool integration and automation\n\u2022 Memory and learning from interactions\n\u2022 Collaborative workflow orchestration\n\n**Next:** Check the AI Agents Dashboard to interact with your marketing AI team! \u{1F680}`;
+          responseContent = MODULE_NAV_RESPONSES.agents;
           break;
         case 'workflows':
-          responseContent = `\u26A1 **Workflow Builder - Navigating to Module**\n\n**Module Loading:** Agent Workflow Builder \u2705\n**Workflow Orchestration:** Multi-agent collaboration system\n\n**Build Custom Workflows:**\n\u2022 Chain multiple AI agents together\n\u2022 Create complex marketing automation\n\u2022 Define sequential or parallel task execution\n\u2022 Monitor workflow performance and results\n\n**Pre-built Templates:**\n\u2022 Complete Lead Analysis Pipeline\n\u2022 Content Marketing Pipeline\n\u2022 Campaign Optimization Suite\n\u2022 Customer Journey Mapping\n\n**Features:**\n\u2022 Visual workflow designer\n\u2022 Agent task configuration\n\u2022 Real-time execution monitoring\n\u2022 Result aggregation and analysis\n\n**Next:** Check the Workflow Builder to create powerful multi-agent marketing workflows! \u26A1`;
+          responseContent = MODULE_NAV_RESPONSES.workflows;
           break;
         case 'lead-intelligence':
-          responseContent = `\u{1F680} **Lead Intelligence & AI Agents - Navigating to Module**\n\n**Module Loading:** Lead Intelligence & Scoring \u2705\n**Auto-Deployment:** Starting AI Agent workflow...\n\n\u2022 **Step 1:** Upload Customer Data \u2705\n\u2022 **Step 2:** Enrich Leads with AI \u23F3\n\u2022 **Step 3:** Find Ideal Customer Profile \u23F3\n\u2022 **Step 4:** Build Lookalike Audience \u23F3\n\u2022 **Step 5:** Deploy AI Outreach \u23F3\n\u2022 **Step 6:** Monitor Results \u23F3\n\n**Status:** Module loaded! AI Agent deployment will start automatically...\n\n**Expected Results:**\n\u2022 12,847 total prospects identified\n\u2022 89% match score with your ICP\n\u2022 2,156 high-intent leads ready for outreach\n\n**Next:** Check the Lead Intelligence module - the AI workflow is starting! \u{1F3AF}`;
+          responseContent = MODULE_NAV_RESPONSES['lead-intelligence'];
           break;
         case 'voice-bot':
-          responseContent = `\u{1F399}\uFE0F **AI Voice Bot Automation - Navigating to Module**\n\n**Module Loading:** AI Voice Bot Automation \u2705\n**Auto-Deployment:** Starting Voice Bot workflow...\n\n\u2022 **Step 1:** Upload Contact List \u2705\n\u2022 **Step 2:** Generate Voice Script \u23F3\n\u2022 **Step 3:** Configure Voice Bot \u23F3\n\u2022 **Step 4:** Run Test Call \u23F3\n\u2022 **Step 5:** Start Campaign \u23F3\n\u2022 **Step 6:** Monitor Results \u23F3\n\n**Status:** Module loaded! Voice Bot deployment will start automatically...\n\n**Expected Results:**\n\u2022 2,847 contacts ready for calling\n\u2022 15% expected connect rate\n\u2022 427 projected conversations\n\u2022 89.2% success rate target\n\n**Next:** Check the AI Voice Bot module - the workflow is starting! \u{1F4DE}`;
+          responseContent = MODULE_NAV_RESPONSES['voice-bot'];
           break;
         case 'video-bot':
-          responseContent = `\u{1F3AC} **AI Video Bot & Digital Avatar - Navigating to Module**\n\n**Module Loading:** AI Video Bot & Digital Avatar \u2705\n**Auto-Deployment:** Starting Video Bot workflow...\n\n\u2022 **Step 1:** Upload Content Data \u2705\n\u2022 **Step 2:** Create Digital Avatar \u23F3\n\u2022 **Step 3:** Generate Video Scripts \u23F3\n\u2022 **Step 4:** Video Production \u23F3\n\u2022 **Step 5:** Deploy Videos \u23F3\n\u2022 **Step 6:** Video Analytics \u23F3\n\n**Status:** Module loaded! Video Bot deployment will start automatically...\n\n**Expected Results:**\n\u2022 2,400+ videos ready for production\n\u2022 78.9% engagement rate target\n\u2022 15.2% conversion rate improvement\n\u2022 Multi-channel video deployment\n\n**Next:** Check the AI Video Bot module - the workflow is starting! \u{1F3A5}`;
+          responseContent = MODULE_NAV_RESPONSES['video-bot'];
           break;
         case 'user-engagement':
-          responseContent = `\u{1F465} **User Engagement & Lifecycle - Navigating to Module**\n\n**Module Loading:** User Engagement & Lifecycle \u2705\n**Auto-Deployment:** Starting Engagement workflow...\n\n\u2022 **Step 1:** Upload Customer Data \u2705\n\u2022 **Step 2:** Customer Segmentation \u23F3\n\u2022 **Step 3:** Design Journey Maps \u23F3\n\u2022 **Step 4:** Generate Content \u23F3\n\u2022 **Step 5:** Launch Campaigns \u23F3\n\u2022 **Step 6:** Track Engagement \u23F3\n\n**Status:** Module loaded! Engagement workflow will start automatically...\n\n**Expected Results:**\n\u2022 5 customer segments identified\n\u2022 12 journey templates created\n\u2022 85% engagement rate target\n\u2022 Multi-channel campaign deployment\n\n**Next:** Check the User Engagement module - the workflow is starting! \u{1F3AF}`;
+          responseContent = MODULE_NAV_RESPONSES['user-engagement'];
           break;
         case 'budget-optimization':
-          responseContent = `\u{1F4B0} **Campaign Budget Optimization - Navigating to Module**\n\n**Module Loading:** Campaign Budget Optimization \u2705\n**Auto-Deployment:** Starting Budget workflow...\n\n\u2022 **Step 1:** Upload Campaign Data \u2705\n\u2022 **Step 2:** AI Budget Analysis \u23F3\n\u2022 **Step 3:** Generate Recommendations \u23F3\n\u2022 **Step 4:** Scenario Modeling \u23F3\n\u2022 **Step 5:** Deploy Optimization \u23F3\n\u2022 **Step 6:** Performance Tracking \u23F3\n\n**Status:** Module loaded! Budget optimization will start automatically...\n\n**Expected Results:**\n\u2022 +18% ROAS improvement\n\u2022 +\u20B92.1L additional revenue\n\u2022 Optimized allocation across 8 campaigns\n\u2022 Real-time budget adjustments\n\n**Next:** Check the Budget Optimization module - the workflow is starting! \u{1F4C8}`;
+          responseContent = MODULE_NAV_RESPONSES['budget-optimization'];
           break;
         case 'performance-scorecard':
-          responseContent = `\u{1F4CA} **Performance Scorecard - Navigating to Module**\n\n**Module Loading:** Performance Scorecard \u2705\n**Auto-Deployment:** Starting Scorecard workflow...\n\n\u2022 **Step 1:** Upload Performance Data \u2705\n\u2022 **Step 2:** AI Performance Analysis \u23F3\n\u2022 **Step 3:** Generate Scorecard \u23F3\n\u2022 **Step 4:** Industry Benchmarking \u23F3\n\u2022 **Step 5:** Predictive Forecasting \u23F3\n\u2022 **Step 6:** Live Dashboard \u23F3\n\n**Status:** Module loaded! Scorecard generation will start automatically...\n\n**Expected Results:**\n\u2022 Overall score: 92/100 (Excellent)\n\u2022 Top 10% industry ranking\n\u2022 \u20B952.7L revenue tracked\n\u2022 Real-time performance monitoring\n\n**Next:** Check the Performance Scorecard module - the workflow is starting! \u{1F3C6}`;
+          responseContent = MODULE_NAV_RESPONSES['performance-scorecard'];
           break;
         case 'ai-content':
-          responseContent = `\u{1F3A8} **AI Content Generation - Navigating to Module**\n\n**Module Loading:** AI Content Generation \u2705\n**Auto-Deployment:** Starting Content workflow...\n\n\u2022 **Step 1:** Upload Brand Assets \u2705\n\u2022 **Step 2:** AI Content Analysis \u23F3\n\u2022 **Step 3:** Generate Content \u23F3\n\u2022 **Step 4:** Content Review \u23F3\n\u2022 **Step 5:** Publish Content \u23F3\n\u2022 **Step 6:** Performance Tracking \u23F3\n\n**Status:** Module loaded! Content generation will start automatically...\n\n**Expected Results:**\n\u2022 1,200+ content pieces generated\n\u2022 24.7% engagement rate target\n\u2022 Multi-channel content deployment\n\u2022 120 hours of time saved\n\n**Next:** Check the AI Content module - the workflow is starting! \u270D\uFE0F`;
+          responseContent = MODULE_NAV_RESPONSES['ai-content'];
           break;
         case 'customer-view':
-          responseContent = `\u{1F441}\uFE0F **Unified Customer View - Navigating to Module**\n\n**Module Loading:** Unified Customer View \u2705\n**Auto-Deployment:** Starting Customer View workflow...\n\n\u2022 **Step 1:** Upload Customer Data \u2705\n\u2022 **Step 2:** Data Integration \u23F3\n\u2022 **Step 3:** Build Unified Profiles \u23F3\n\u2022 **Step 4:** Smart Segmentation \u23F3\n\u2022 **Step 5:** Generate Insights \u23F3\n\u2022 **Step 6:** Deploy Dashboard \u23F3\n\n**Status:** Module loaded! Customer View deployment will start automatically...\n\n**Expected Results:**\n\u2022 45,000 profiles unified\n\u2022 91.3% targeting accuracy\n\u2022 360-degree customer view\n\u2022 Real-time insights dashboard\n\n**Next:** Check the Unified Customer View module - the workflow is starting! \u{1F50D}`;
+          responseContent = MODULE_NAV_RESPONSES['customer-view'];
           break;
         case 'seo-llmo':
-          responseContent = `\u{1F50D} **SEO & LLMO Optimization - Navigating to Module**\n\n**Module Loading:** SEO & LLMO Optimization \u2705\n**Auto-Deployment:** Starting SEO/LLMO workflow...\n\n\u2022 **Step 1:** Upload Website Data \u2705\n\u2022 **Step 2:** SEO Analysis \u23F3\n\u2022 **Step 3:** Keyword Research \u23F3\n\u2022 **Step 4:** Content Optimization \u23F3\n\u2022 **Step 5:** Deploy Changes \u23F3\n\u2022 **Step 6:** Performance Monitoring \u23F3\n\n**Status:** Module loaded! SEO/LLMO optimization will start automatically...\n\n**Expected Results:**\n\u2022 3,200+ keywords optimized\n\u2022 Top 3 average search ranking\n\u2022 +67% organic traffic growth\n\u2022 89% LLMO readiness score\n\n**Next:** Check the SEO/LLMO module - the workflow is starting! \u{1F4C8}`;
+          responseContent = MODULE_NAV_RESPONSES['seo-llmo'];
+          break;
+        case 'company-intel':
+          responseContent = MODULE_NAV_RESPONSES['company-intel'];
           break;
         case 'help':
-          responseContent = `\u{1F916} **Available Slash Commands**\n\n**AI Team (live chat with autonomous agents):**\n\u2022 \`/seo\` - Ask Maya (SEO & LLMO Monitor) for today's ranking update\n\u2022 \`/leads\` - Ask Arjun (Lead Intelligence) for today's lead insights\n\u2022 \`/content\` - Ask Riya (Content Producer) for content ideas this week\n\u2022 \`/campaign\` - Ask Zara (Campaign Strategist) for campaign recommendations\n\u2022 \`/competitors\` - Ask Dev (Performance Analyst) for competitor analysis\n\u2022 \`/brief\` - Ask Priya (Brand Intelligence) for a brand brief\n\n**Agentic AI Commands:**\n\u2022 \`/agents\` - Open AI Agents Dashboard - interact with your marketing AI team\n\u2022 \`/workflows\` - Open Workflow Builder - create multi-agent workflows\n\n**Workflow Deployments:**\n\u2022 \`/lead-intelligence\` - Deploy Lead Intelligence & AI Agents\n\u2022 \`/voice-bot\` - Deploy AI Voice Bot Automation\n\u2022 \`/video-bot\` - Deploy AI Video Bot & Digital Avatar\n\u2022 \`/user-engagement\` - Deploy User Engagement & Lifecycle\n\u2022 \`/budget-optimization\` - Deploy Campaign Budget Optimization\n\u2022 \`/performance-scorecard\` - Deploy Performance Scorecard\n\u2022 \`/ai-content\` - Deploy AI Content Generation\n\u2022 \`/customer-view\` - Deploy Unified Customer View\n\u2022 \`/seo-llmo\` - Deploy SEO/LLMO Optimization\n\n**Utility Commands:**\n\u2022 \`/help\` - Show this help message\n\n**How to use:**\nSimply type any slash command and press Enter. For agent commands, you can add a question after the command: \`/seo what is our ranking for mutual funds?\`\n\n**Pro Tip:** Start typing "/" to see command suggestions with auto-complete! \u26A1`;
+          responseContent = `Just tell me what you're working on in plain language — I'll figure out where to take it.\n\nIf you want to jump straight to an area, type \`/\` and the name. Or use \`@name\` to send work directly to a specialist.\n\n**Specialists:** @maya (SEO), @arjun (leads), @riya (content), @zara (campaigns), @dev (performance), @priya (brand), @kiran (social), @sam (email)`;
           break;
         default:
           return false;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (cmd.action !== 'help') {
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -491,9 +870,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       });
 
       if (cmd.action !== 'help') {
-        toast.success(`${cmd.description} started successfully!`);
-        const followUp = SLASH_FOLLOWUP_TASKS[cmd.action];
-        if (followUp) addAiTask(followUp, 'day');
+        toast.success(`Opened ${cmd.command.slice(1)}`);
       }
       return true;
     } catch (error) {
@@ -525,12 +902,19 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     try {
       const res = await fetch(`/api/agents/${agentEntry.name}/run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        headers: buildAgentHeaders(),
+        body: JSON.stringify(buildAgentRunPayload({ query })),
       });
 
       if (!res.ok) {
-        throw new Error(`${agentEntry.label} is not available right now (backend offline?)`);
+        let errMsg = `${agentEntry.label} is not available right now.`;
+        try {
+          const errBody = await res.clone().json();
+          if (errBody.message) errMsg = errBody.message;
+          else if (errBody.error === 'insufficient_credits') errMsg = 'You have used all your agent run credits for this month.';
+          else if (errBody.error === 'module_locked') errMsg = `This module is not available on your current plan. ${errBody.message || ''}`.trim();
+        } catch { /* ignore parse error */ }
+        throw new Error(errMsg);
       }
 
       const reader = res.body?.getReader();
@@ -547,6 +931,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
             if (payload === '[DONE]') break outer;
             try {
               const parsed = JSON.parse(payload);
+              if (parsed.contract || parsed.contractError || parsed.details) continue;
               if (parsed.text) accumulated += parsed.text;
               if (parsed.error) throw new Error(parsed.error);
             } catch { /* ignore parse errors on partial chunks */ }
@@ -554,9 +939,11 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
         }
       }
 
+      const visibleResponse = sanitizeAgentStreamText(accumulated);
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: `**${agentEntry.label}**\n\n${accumulated || '_No output received._'}`,
+        content: `**${agentEntry.label}**\n\n${visibleResponse || 'Task completed. I have the result ready, but the agent did not return a user-facing summary.'}`,
         sender: 'ai',
         timestamp: new Date(),
       };
@@ -588,8 +975,8 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     try {
       const response = await fetch(`/api/agents/${taskAgent}/plan`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task: nextRequest }),
+        headers: buildAgentHeaders(),
+        body: JSON.stringify(buildAgentPlanPayload(nextRequest)),
       });
       if (!response.ok) throw new Error(await response.text());
       const plan = await response.json();
@@ -613,13 +1000,6 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     const agentConfig = DIRECT_AGENTS.find((agent) => agent.name === taskAgent);
     if (!agentConfig) return;
 
-    addAiTasks(
-      planPreview.tasks.map((task) => ({
-        label: `[${agentConfig.label} • ${agentConfig.role}] ${task.label}`,
-        horizon: task.horizon,
-      }))
-    );
-
     const userMessage: Message = {
       id: Date.now().toString(),
       content: `@${taskAgent} ${planPreview.request}`,
@@ -636,8 +1016,8 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     try {
       const res = await fetch(`/api/agents/${taskAgent}/run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: planPreview.executionPrompt }),
+        headers: buildAgentHeaders(),
+        body: JSON.stringify(buildAgentRunPayload({ query: planPreview.executionPrompt })),
       });
 
       if (!res.ok) {
@@ -658,6 +1038,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
             if (payload === '[DONE]') break outer;
             try {
               const parsed = JSON.parse(payload);
+              if (parsed.contract || parsed.contractError || parsed.details) continue;
               if (parsed.text) accumulated += parsed.text;
               if (parsed.error) throw new Error(parsed.error);
             } catch {
@@ -667,9 +1048,11 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
         }
       }
 
+      const visibleResponse = sanitizeAgentStreamText(accumulated);
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: `**${agentConfig.label} · ${agentConfig.role}**\n\n${accumulated || '_No output received._'}`,
+        content: `**${agentConfig.label} · ${agentConfig.role}**\n\n${visibleResponse || 'Task completed. I have the result ready, but the agent did not return a user-facing summary.'}`,
         sender: 'ai',
         timestamp: new Date(),
       };
@@ -741,45 +1124,6 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
     setIsTyping(true);
 
     try {
-      const guidedGoal = currentFile ? null : detectGuidedGoal(currentInput);
-      if (guidedGoal) {
-        try {
-          const guidedResponse = await executeGuidedWorkflow({
-            userRequest: currentInput,
-            goal: guidedGoal,
-            moduleHint: 'company-intelligence',
-            mode: 'guided',
-          });
-
-          sessionStorage.setItem(
-            `guided_action_plan_${guidedResponse.actionPlan.goal}`,
-            JSON.stringify(guidedResponse.actionPlan)
-          );
-
-          if (onModuleSelect) {
-            window.location.hash = guidedResponse.navigation.hash;
-            onModuleSelect(guidedResponse.navigation.moduleId);
-          }
-
-          const aiMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            content: toActionPlanMessage(guidedResponse),
-            sender: 'ai',
-            timestamp: new Date(),
-          };
-          onMessagesChange(prev => {
-            const alreadyHasUser = prev.some(m => m.id === userMessage.id);
-            return alreadyHasUser ? [...prev, aiMessage] : [...prev, userMessage, aiMessage];
-          });
-          // Auto-populate taskboard from the guided action plan
-          guidedResponse.actionPlan.what_to_do_this_week.forEach(item => addAiTask(item, 'week'));
-          toast.success('Guided workflow started');
-          return;
-        } catch (guidedError) {
-          console.error('Guided workflow execution failed:', guidedError);
-        }
-      }
-
       const chatMessages: ChatMessage[] = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.content,
@@ -791,21 +1135,66 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
       }
       chatMessages.push({ role: 'user', content: messageContent });
 
-      const aiResponse = await GroqService.getChatResponse(chatMessages);
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: aiResponse,
-        sender: 'ai',
-        timestamp: new Date(),
-      };
-
+      // Create streaming placeholder
+      const placeholderId = (Date.now() + 1).toString();
       onMessagesChange(prev => {
         const alreadyHasUser = prev.some(m => m.id === userMessage.id);
-        return alreadyHasUser ? [...prev, aiMessage] : [...prev, userMessage, aiMessage];
+        const base = alreadyHasUser ? prev : [...prev, userMessage];
+        return [...base, { id: placeholderId, content: '', sender: 'ai' as const, timestamp: new Date() }];
       });
-      // Auto-populate taskboard from any action items in the response
-      extractActionItems(aiResponse).forEach(item => addAiTask(item, 'week'));
+
+      let streamedContent = '';
+      let streamedReasoning = '';
+      setReasoningStreamingId(placeholderId);
+      const veena: VeenaResponse = await askVeena(
+        chatMessages,
+        mkgContext,
+        (token) => {
+          streamedContent += token;
+          if (streamedContent.length <= token.length) setIsTyping(false);
+          setMessages(prev => prev.map(m => m.id === placeholderId ? { ...m, content: streamedContent } : m));
+        },
+        (token) => {
+          streamedReasoning += token;
+          setMessages(prev => prev.map(m => m.id === placeholderId ? { ...m, reasoning: streamedReasoning } : m));
+        },
+      );
+      setReasoningStreamingId(null);
+
+      const addMessage = (content: string) => {
+        const msg: Message = { id: (Date.now() + 2).toString(), content, sender: 'ai', timestamp: new Date() };
+        onMessagesChange(prev => {
+          const alreadyHasUser = prev.some(m => m.id === userMessage.id);
+          return alreadyHasUser ? [...prev, msg] : [...prev, userMessage, msg];
+        });
+      };
+
+      if (veena.route === 'agent') {
+        setMessages(prev => prev.filter(m => m.id !== placeholderId));
+        addMessage(`On it — routing this to ${veena.label}.`);
+        setIsTyping(false);
+        await runAgentSlashCommand(
+          { name: veena.agentName, label: veena.label, defaultQuery: veena.query },
+          veena.query,
+        );
+        return;
+      }
+
+      if (veena.route === 'module') {
+        setMessages(prev => prev.filter(m => m.id !== placeholderId));
+        if (onModuleSelect) onModuleSelect(veena.moduleId);
+        const navKey = navResponseKey(veena.moduleId);
+        addMessage(MODULE_NAV_RESPONSES[navKey] ?? `I've opened ${veena.label} for you.`);
+        setIsTyping(false);
+        return;
+      }
+
+      // route === 'answer' — persist final streamed content + reasoning
+      onMessagesChange(prev => prev.map(m =>
+        m.id === placeholderId
+          ? { ...m, content: streamedContent, reasoning: streamedReasoning || undefined }
+          : m
+      ));
     } catch (error) {
       console.error('Chat error:', error);
       toast.error('Failed to get AI response. Please try again.');
@@ -893,43 +1282,33 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
 
   return (
     <>
-      {gtmActive && (
-        <GTMWizard
-          onClose={() => setGtmActive(false)}
-          onNavigate={(moduleId) => {
-            setGtmActive(false);
-            onModuleSelect?.(moduleId);
-          }}
-        />
-      )}
-      <div className={cn('flex flex-col h-full bg-white dark:bg-gray-900', gtmActive && 'hidden')}>
+      <div className="flex h-full flex-col bg-transparent">
         {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b">
-          <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">AI Assistant</h2>
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleNewConversation()}
-              className="text-xs h-7"
+        <div className="border-b border-border/70 px-4 py-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center rounded-full border border-orange-200/80 bg-orange-50/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300">
+                Veena
+              </div>
+              <div className="space-y-1">
+                <h2 className="font-brand-syne text-[1.35rem] tracking-tight text-foreground">Veena</h2>
+                <p className="max-w-[32rem] text-xs leading-5 text-muted-foreground">
+                  Tell me what you're working on and I'll take it from there.
+                </p>
+              </div>
+            </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-border/70 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-muted hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
+              aria-label="Close AI chat"
             >
-              New chat
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                void handleDeleteConversation();
-              }}
-              className="text-xs h-7 text-gray-400"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+              Close
+            </button>
+          )}
           </div>
         </div>
-
-        {/* Onboarding checklist */}
-        <GettingStartedChecklist onNavigate={(id) => onModuleSelect?.(id)} />
 
         {/* Messages */}
         <ScrollArea className="flex-1 px-4 py-4">
@@ -944,19 +1323,21 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
               >
                 <Avatar className="h-8 w-8">
                   {message.sender === 'ai' ? (
-                    <AvatarFallback className="bg-orange-100 text-orange-600">
+                    <AvatarFallback className="bg-orange-100 text-orange-600 dark:bg-orange-950/30 dark:text-orange-300">
                       <Bot className="h-4 w-4" />
                     </AvatarFallback>
                   ) : (
-                    <AvatarFallback className="bg-blue-100 text-blue-600">
+                    <AvatarFallback className="bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300">
                       <User className="h-4 w-4" />
                     </AvatarFallback>
                   )}
                 </Avatar>
                 <Card
                   className={cn(
-                    'p-3 max-w-[75%]',
-                    message.sender === 'user' ? 'bg-orange-500 text-white' : 'bg-muted text-left'
+                    'max-w-[78%] rounded-2xl border p-3',
+                    message.sender === 'user'
+                      ? 'border-orange-500/70 bg-orange-500 text-white'
+                      : 'border-border/70 bg-background/90 text-left'
                   )}
                 >
                   {message.file && (
@@ -996,7 +1377,13 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
                       )}
                     </div>
                   )}
-                  <FormattedMessage content={message.content} isAI={message.sender === 'ai'} />
+                  <FormattedMessage
+                    content={message.content}
+                    reasoning={message.reasoning}
+                    isReasoningStreaming={reasoningStreamingId === message.id}
+                    isAI={message.sender === 'ai'}
+                    onModuleSelect={onModuleSelect}
+                  />
                   <p
                     className={cn(
                       'text-xs mt-1 opacity-70',
@@ -1009,37 +1396,27 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
               </div>
             ))}
 
-            {/* Quick-action buttons — shown only on a fresh chat */}
+            {/* Quick-start prompts — shown only on a fresh chat */}
             {messages.length === 1 && (
-              <div className="mt-2 grid grid-cols-2 gap-2 px-1">
-                <button
-                  onClick={() => setGtmActive(true)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
-                >
-                  <Map className="h-4 w-4 flex-shrink-0" />
-                  <span>Create GTM Strategy</span>
-                </button>
-                <button
-                  onClick={() => setInputValue('/budget-optimization')}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
-                >
-                  <DollarSign className="h-4 w-4 flex-shrink-0" />
-                  <span>Budget Analysis</span>
-                </button>
-                <button
-                  onClick={() => setInputValue('/ai-content')}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
-                >
-                  <PenLine className="h-4 w-4 flex-shrink-0" />
-                  <span>Content Calendar</span>
-                </button>
-                <button
-                  onClick={() => setInputValue('/lead-intelligence')}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-700 transition-all duration-150 text-left"
-                >
-                  <Target className="h-4 w-4 flex-shrink-0" />
-                  <span>Lead Intelligence</span>
-                </button>
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Quick starts</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { icon: Map,          label: 'Build a GTM strategy',         prompt: 'I want to build a go-to-market strategy for my business.' },
+                    { icon: DollarSign,   label: 'Analyse my ad spend',          prompt: 'Help me analyse my marketing budget and ad spend performance.' },
+                    { icon: PenLine,      label: 'Plan my content calendar',     prompt: 'Help me plan a content calendar for the next month.' },
+                    { icon: Target,       label: 'Find and qualify leads',       prompt: 'I want to find and qualify leads for my business.' },
+                  ].map(({ icon: Icon, label, prompt }) => (
+                    <button
+                      key={label}
+                      onClick={() => sendQuickMessage(prompt)}
+                      className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:border-orange-300 hover:bg-orange-50/70 dark:hover:bg-orange-950/20"
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="min-w-0 break-words leading-5">{label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1051,7 +1428,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
-                <Card className="p-3 bg-muted text-left">
+                <Card className="rounded-2xl border border-border/70 bg-background/90 p-3 text-left">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
@@ -1066,7 +1443,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
 
         {/* Slash command suggestions */}
         {showSuggestions && filteredCommands.length > 0 && (
-          <div className="mx-4 mb-2 border rounded-lg bg-background shadow-lg max-h-48 overflow-y-auto">
+          <div className="mx-4 mb-2 max-h-48 overflow-y-auto rounded-2xl border border-border/70 bg-background/95 shadow-lg backdrop-blur">
             {filteredCommands.map((cmd) => (
               <div
                 key={cmd.command}
@@ -1088,7 +1465,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
         )}
 
         {showAgentSuggestions && filteredAgentMentions.length > 0 && (
-          <div className="mx-4 mb-2 border rounded-lg bg-background shadow-lg max-h-48 overflow-y-auto">
+          <div className="mx-4 mb-2 max-h-48 overflow-y-auto rounded-2xl border border-border/70 bg-background/95 shadow-lg backdrop-blur">
             {filteredAgentMentions.map((agent) => (
               <div
                 key={agent.name}
@@ -1110,10 +1487,10 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
         )}
 
         {/* Input bar */}
-        <div className="border-t px-4 py-3">
+        <div className="border-t border-border/70 px-4 py-3">
           {/* Selected file preview */}
           {selectedFile && (
-            <div className="mb-3 p-3 bg-background border rounded-lg">
+            <div className="mb-3 rounded-2xl border border-border/70 bg-background/90 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   {getFileIcon(selectedFile.type)}
@@ -1141,6 +1518,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
             </div>
           )}
 
+          <div className="rounded-[1.2rem] border border-border/70 bg-background/92 p-2">
           <div className="flex space-x-2">
             <Button
               variant="default"
@@ -1162,23 +1540,25 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
 
             <Input
               data-tour="chat-input"
+              data-chat-input
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder={selectedFile ? 'Add a message (optional)...' : 'Ask me anything or use /commands...'}
+              placeholder={selectedFile ? 'Add a message (optional)...' : 'What are you working on?'}
               className="flex-1"
               disabled={isTyping}
             />
             <Button
               onClick={handleSendMessage}
               disabled={(!inputValue.trim() && !selectedFile) || isTyping}
-              className="bg-orange-500 hover:bg-orange-600"
+              className="rounded-xl bg-orange-500 hover:bg-orange-600"
             >
               <Send className="h-4 w-4 text-white" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            AI can make mistakes. Use /help for slash commands. Upload CSV, PDF, or images.
+          </div>
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            Plain language works best. Type `/` to jump somewhere or `@name` to reach a specialist.
           </p>
         </div>
       </div>
@@ -1204,7 +1584,7 @@ export function ChatHome({ onModuleSelect, activeConversationId, onConversations
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {taskAgent ? `Give Task to ${DIRECT_AGENTS.find((agent) => agent.name === taskAgent)?.label}` : 'Give Task'}
+              {taskAgent ? `Veena routing work to ${DIRECT_AGENTS.find((agent) => agent.name === taskAgent)?.label}` : 'Veena task routing'}
             </DialogTitle>
             <DialogDescription>
               Describe what you want this agent to do.

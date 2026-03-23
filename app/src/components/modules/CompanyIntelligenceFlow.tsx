@@ -391,8 +391,6 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
       console.info('[CompanyIntel] Cleared visible company snapshot/artifacts for fresh regeneration.', {
         companyId: data.company.id
       })
-      setNewCompanyName('')
-      setNewWebsiteUrl('')
       setSelectedCompanyId(data.company.id)
       setActivePage('overview')
       setHashCi('overview')
@@ -476,7 +474,7 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
       ) : null}
 
       {chatActionPlan ? (
-        <Card className="border-emerald-200 bg-emerald-50">
+        <Card className="border-emerald-200/70 bg-emerald-50/80 dark:border-emerald-900/30 dark:bg-emerald-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-emerald-900">This Week Action Plan</CardTitle>
           </CardHeader>
@@ -497,16 +495,29 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
       ) : null}
 
       <div className="space-y-4">
-        <div className="space-y-2 text-center">
-          <div className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
-            {title}
+        <div className="rounded-[30px] border border-border/70 bg-gradient-to-br from-orange-500/[0.08] via-background to-amber-500/[0.05] px-5 py-5 shadow-sm">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-500">
+            Company Intelligence
           </div>
-          <div className="text-sm text-muted-foreground">
-            Research, generate, and review company intelligence in one place.
+          <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl space-y-1">
+              <h1 className="font-brand-syne text-2xl font-semibold tracking-tight text-foreground md:text-[2.05rem]">
+                {title}
+              </h1>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Review a company once, then move through the specific intelligence views only when you need them.
+              </p>
+            </div>
+            {currentCompany ? (
+              <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Active company</div>
+                <div className="mt-1 font-medium text-foreground">{currentCompany.companyName}</div>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className="flex flex-wrap gap-2">
           {visiblePages.map((page) => {
             const isActive = page.id === activePage
             return (
@@ -515,7 +526,7 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
                 type="button"
                 variant={isActive ? 'default' : 'outline'}
                 size="sm"
-                className={isActive ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+                className={isActive ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'rounded-full'}
                 onClick={() => navigate(page.id)}
               >
                 {page.title}

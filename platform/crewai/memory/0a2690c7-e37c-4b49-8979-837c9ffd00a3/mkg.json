@@ -1,6 +1,6 @@
 {
   "company_id": "0a2690c7-e37c-4b49-8979-837c9ffd00a3",
-  "updated_at": "2026-03-11T11:33:58.847Z",
+  "updated_at": "2026-03-12T08:57:25.989Z",
   "positioning": {
     "0": "P",
     "1": "e",
@@ -118,9 +118,9 @@
       ]
     },
     "confidence": 0.75,
-    "last_verified": "2026-03-11",
+    "last_verified": "2026-03-12",
     "source_agent": "isha",
-    "expires_at": "2026-04-10",
+    "expires_at": "2026-04-11",
     "demographics": {
       "age": "35-55",
       "income": "₹50 lakhs to ₹5 crores",
@@ -141,28 +141,19 @@
     },
     "segments": [
       {
-        "name": "Young Achievers",
-        "age": "35-45 years",
-        "income": "₹50 lakhs - ₹2 crores per annum",
-        "net_worth": "₹5 crores - ₹20 crores",
-        "psychographics": "Ambitious, driven, and eager to grow their wealth",
-        "buying_triggers": "Seeking investment advice, tax optimization, and retirement planning"
-      },
-      {
-        "name": "Established Entrepreneurs",
-        "age": "45-55 years",
-        "income": "₹2 crores - ₹5 crores per annum",
-        "net_worth": "₹20 crores - ₹50 crores",
-        "psychographics": "Confident, experienced, and looking to consolidate their wealth",
-        "buying_triggers": "Interested in wealth management, legacy planning, and philanthropy"
-      },
-      {
-        "name": "Seasoned Investors",
-        "age": "50-65 years",
-        "income": "₹5 crores - ₹10 crores per annum",
-        "net_worth": "₹50 crores - ₹100 crores",
-        "psychographics": "Sophisticated, risk-tolerant, and seeking alternative investments",
-        "buying_triggers": "Looking for exclusive investment opportunities, tax optimization, and wealth transfer planning"
+        "segment": "High Net Worth Individuals",
+        "demographics": "Age 38-55, net worth ₹5Cr-₹50Cr, business owners or founders",
+        "psychographics": "Values legacy and wealth preservation; risk-tolerant but wants expert guidance",
+        "pain_points": [
+          "No time to manage investments actively",
+          "Fear of wealth erosion during market downturns"
+        ],
+        "buying_triggers": [
+          "Business exit or IPO",
+          "Inheritance received",
+          "Child's education or marriage planning"
+        ],
+        "priority": "high"
       }
     ],
     "company_size": "Medium to large enterprises",
@@ -172,9 +163,9 @@
   },
   "competitors": {
     "0": {
-      "name": "Kotak Wealth Management",
-      "positioning": "Wealth management services",
-      "confidence": 0.5
+      "name": "HDFC Wealth",
+      "position": "Scale and trust via banking relationship",
+      "gap": "Lacks personalization for ultra-HNIs"
     },
     "1": {
       "name": "Kotak Wealth",
@@ -193,9 +184,21 @@
       }
     ],
     "confidence": 0.75,
-    "last_verified": "2026-03-11",
+    "last_verified": "2026-03-12",
     "source_agent": "isha",
-    "expires_at": "2026-04-10"
+    "expires_at": "2026-04-11",
+    "competitor_set": [
+      {
+        "name": "HDFC Wealth",
+        "position": "Traditional wealth management services",
+        "gap": "Lack of digital offerings"
+      },
+      {
+        "name": "Kotak Wealth",
+        "position": "Digital wealth management platform",
+        "gap": "Limited investment options"
+      }
+    ]
   },
   "offers": {
     "0": {
@@ -211,24 +214,17 @@
         "tier": null
       }
     ],
-    "confidence": 0.7,
-    "last_verified": "2026-03-11",
+    "confidence": 0.8,
+    "last_verified": "2026-03-12",
     "source_agent": "tara",
-    "expires_at": "2026-04-10"
+    "expires_at": "2026-04-11"
   },
   "messaging": {
-    "value": {
-      "headline": "Your Partner in Wealth Creation and Preservation",
-      "tagline": null,
-      "key_messages": [
-        "Transforming Wealth, Enriching Lives",
-        "Expert Wealth Management for Ambitious Investors"
-      ]
-    },
+    "value": "Expert Wealth Management for Ambitious Investors",
     "confidence": 0.85,
-    "last_verified": "2026-03-11",
+    "last_verified": "2026-03-12",
     "source_agent": "sam",
-    "expires_at": "2026-04-10",
+    "expires_at": "2026-04-11",
     "headline": "Transform Your Legacy: Personalized Wealth Solutions",
     "tagline": null,
     "key_messages": [
@@ -272,17 +268,11 @@
     "expires_at": "2026-04-11"
   },
   "funnel": {
-    "value": {
-      "entry_points": [
-        "Homepage",
-        "Services"
-      ],
-      "cta_primary": "Contact Us"
-    },
-    "confidence": 0.7,
-    "last_verified": null,
-    "source_agent": null,
-    "expires_at": null,
+    "value": "Updated with specific and actionable CTAs",
+    "confidence": 0.8,
+    "last_verified": "2026-03-12",
+    "source_agent": "sam",
+    "expires_at": "2026-04-11",
     "entry_points": [
       "Website",
       "Social Media"
@@ -386,15 +376,28 @@
     "expires_at": "2026-04-10"
   },
   "insights": {
-    "value": "The Indian HNI wealth management market is a growing and competitive space, with several key players operating in the market. The market can be segmented into three main categories: Entrepreneurial Families, Corporate Leaders, and Ultra HNIs. Each segment has unique demographics, psychographics, pain points, and buying triggers.",
+    "0": "Growing demand for digital wealth management",
+    "1": "Rising concerns about tax optimization",
+    "2": "Increasing focus on sustainable investing",
+    "value": "PL Capital's top ICP segments are entrepreneurial families, corporate leaders, and ultra HNIs. The company should develop a digital wealth management platform, launch a financial literacy program, and introduce a premium service for ultra HNIs to strengthen its position in the Indian wealth management and broking market.",
     "confidence": 0.75,
-    "last_verified": "2026-03-11",
+    "last_verified": "2026-03-12",
     "source_agent": "isha",
-    "expires_at": "2026-04-10",
+    "expires_at": "2026-04-11",
     "summary": "PL Capital is a wealth management firm that helps individuals and families manage their wealth.",
     "gaps": [
       "Lack of explicit pricing information",
       "Limited information on competitors"
+    ],
+    "demand_drivers": [
+      "Growing middle class",
+      "Increasing financial awareness",
+      "Digital adoption"
+    ],
+    "category_trends": [
+      "Digital Wealth Management",
+      "Sustainable Investing",
+      "Financial Literacy"
     ]
   }
 }

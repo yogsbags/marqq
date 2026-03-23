@@ -52,11 +52,11 @@ export function VideoPromptInput({ prompt, setPrompt, reelType, model, onOptimiz
   return (
     <div className="space-y-3 mb-8">
       <div className="flex justify-between items-center">
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Video Description</label>
+        <label className="text-sm font-medium text-foreground">Video Description</label>
         <button
           onClick={handleOptimize}
           disabled={isOptimizing || !prompt.trim()}
-          className="flex items-center gap-2 rounded-full bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200 disabled:opacity-50 dark:bg-purple-900/35 dark:text-purple-300 dark:hover:bg-purple-900/50"
+          className="flex items-center gap-2 rounded-full border border-orange-200/80 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-100 disabled:opacity-50 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300 dark:hover:bg-orange-950/35"
         >
           {isOptimizing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
           {model === 'ovi' ? 'Format for OVI' : `Magic Optimize for ${reelType.replace('_', ' ')}`}
@@ -69,7 +69,7 @@ export function VideoPromptInput({ prompt, setPrompt, reelType, model, onOptimiz
         placeholder={model === 'ovi'
           ? "Enter your script (e.g., 'Welcome to our channel. Today we discuss investments.')..."
           : "Describe your video idea (e.g., 'Nifty 50 hitting all time high with fireworks')..."}
-        className="h-32 w-full resize-none rounded-xl border border-slate-300 bg-white p-4 text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
+        className="h-32 w-full resize-none rounded-xl border border-orange-200/70 bg-white/90 p-4 text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-orange-900/40 dark:bg-white/5"
       />
     </div>
   );

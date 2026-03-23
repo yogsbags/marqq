@@ -2,8 +2,9 @@ import { AgentDashboard } from '@/components/agents/AgentDashboard';
 import { ProductTour } from '@/components/tour/ProductTour';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
-import { ChatHome } from '@/components/chat/ChatHome';
 import { HelpPanel } from '@/components/help/HelpPanel';
+import { HomeView } from '@/components/home/HomeView';
+import { LibraryView } from '@/components/library/LibraryView';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ModuleDetail } from '@/components/modules/ModuleDetail';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
@@ -12,7 +13,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { WorkspaceProvider } from '@/contexts/WorkspaceContext';
+import { WorkspaceProvider, useWorkspace } from '@/contexts/WorkspaceContext';
 import { dashboardData } from '@/data/dashboardData';
 import { BRAND } from '@/lib/brand';
 import type { Conversation } from '@/types/chat';
@@ -37,6 +38,10 @@ function updateDocumentTitle(selectedModule: string | null) {
   }
   if (selectedModule === 'dashboard') {
     document.title = `AI Team Dashboard - ${BRAND.titleSuffix}`;
+    return;
+  }
+  if (selectedModule === 'library') {
+    document.title = `Library - ${BRAND.titleSuffix}`;
     return;
   }
   if (selectedModule === 'settings' || selectedModule === 'settings-accounts') {
@@ -65,7 +70,7 @@ function AuthScreen() {
   const [isSignup, setIsSignup] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.1),transparent_22%),linear-gradient(180deg,rgba(255,251,245,0.98),rgba(255,255,255,0.94))] p-4 dark:bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.08),transparent_18%),linear-gradient(180deg,rgba(10,10,10,0.98),rgba(10,10,10,0.96))]">
       {isSignup ? (
         <SignupForm onToggleMode={() => setIsSignup(false)} />
       ) : (
@@ -76,11 +81,14 @@ function AuthScreen() {
 }
 
 function Dashboard() {
+  const { activeWorkspace } = useWorkspace();
+  const convKey = activeWorkspace?.id ? `marqq_conversations_${activeWorkspace.id}` : 'marqq_conversations';
+
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [autoStartModule, setAutoStartModule] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     try {
-      const raw = localStorage.getItem('marqq_conversations');
+      const raw = localStorage.getItem(convKey);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return parsed.map((c: { id: string; name: string; createdAt: string; lastMessageAt: string; messages: Array<{ id: string; content: string; sender: 'user' | 'ai'; timestamp: string }> }) => ({
@@ -95,7 +103,7 @@ function Dashboard() {
 
   const handleConversationsChange = () => {
     try {
-      const raw = localStorage.getItem('marqq_conversations');
+      const raw = localStorage.getItem(convKey);
       if (!raw) return;
       const parsed = JSON.parse(raw);
       setConversations(parsed.map((c: { id: string; name: string; createdAt: string; lastMessageAt: string; messages: Array<{ id: string; content: string; sender: 'user' | 'ai'; timestamp: string }> }) => ({
@@ -118,12 +126,29 @@ function Dashboard() {
     }
   };
 
+  // Reload conversations when workspace changes
+  useEffect(() => {
+    handleConversationsChange();
+    setActiveConversationId(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convKey]);
+
   // Reset auto-start after module change
   useEffect(() => {
     if (autoStartModule) {
       setTimeout(() => setAutoStartModule(false), 1000);
     }
   }, [selectedModule]);
+
+  // Listen for in-app navigation events dispatched by deep components (e.g. OfferSelector)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const moduleId = (e as CustomEvent<{ moduleId: string }>).detail?.moduleId
+      if (moduleId) handleModuleSelect(moduleId)
+    }
+    window.addEventListener('marqq:navigate', handler)
+    return () => window.removeEventListener('marqq:navigate', handler)
+  }, [])
 
   // Set initial document title
   useEffect(() => {
@@ -135,14 +160,15 @@ function Dashboard() {
     ? dashboardData.modules.find(m => m.id === selectedModule)
     : null;
 
+  const [chatOpen, setChatOpen] = useState(false);
+
   const renderContent = () => {
-    // Home and default both show ChatHome
+    // Home and default now show the goal-first HomeView
     if (!selectedModule || selectedModule === 'home') {
       return (
-        <ChatHome
+        <HomeView
           onModuleSelect={handleModuleSelect}
-          activeConversationId={activeConversationId}
-          onConversationsChange={handleConversationsChange}
+          onOpenChat={() => setChatOpen(true)}
         />
       );
     }
@@ -151,6 +177,7 @@ function Dashboard() {
     if (selectedModule === 'settings-accounts') return <SettingsPanel initialTab="accounts" />;
     if (selectedModule === 'help') return <HelpPanel />;
     if (selectedModule === 'dashboard') return <AgentDashboard />;
+    if (selectedModule === 'library') return <LibraryView />;
 
     if (currentModule) {
       return (
@@ -163,11 +190,10 @@ function Dashboard() {
       );
     }
 
-    // Fallback
     return (
-      <ChatHome
+      <HomeView
         onModuleSelect={handleModuleSelect}
-        onConversationsChange={handleConversationsChange}
+        onOpenChat={() => setChatOpen(true)}
       />
     );
   };
@@ -180,8 +206,11 @@ function Dashboard() {
       activeConversationId={activeConversationId}
       onConversationSelect={(id) => {
         setActiveConversationId(id);
-        setSelectedModule('home');
+        setChatOpen(true);
       }}
+      onConversationsChange={handleConversationsChange}
+      chatOpen={chatOpen}
+      onChatOpenChange={setChatOpen}
     >
       {renderContent()}
     </MainLayout>

@@ -1,0 +1,49 @@
+{
+  "streamSid": "MZ210d8d3bb4298682a821aacbe201689c",
+  "callSid": "CA644483ef91339ef1813b2d0a546f8bf0",
+  "companyId": null,
+  "companyName": "the company",
+  "campaignId": null,
+  "leadId": null,
+  "leadName": null,
+  "leadPhone": null,
+  "leadEmail": null,
+  "language": "en",
+  "openingLine": "Hello, this is the AI calling assistant from your marketing team.",
+  "turns": [
+    {
+      "role": "assistant",
+      "text": "Hello, this is the AI calling assistant from your marketing team.",
+      "createdAt": "2026-03-19T18:11:43.412Z",
+      "type": "opening_line"
+    }
+  ],
+  "scorecard": {
+    "callSid": "CA644483ef91339ef1813b2d0a546f8bf0",
+    "leadId": null,
+    "leadName": null,
+    "companyId": null,
+    "companyName": "the company",
+    "status": "disqualified",
+    "fitScore": 0,
+    "intentScore": 0,
+    "urgencyScore": 0,
+    "authorityScore": 0,
+    "budgetScore": 0,
+    "leadTemperature": "cold",
+    "detectedSignals": [],
+    "objections": [],
+    "nextAction": "None",
+    "humanCloserBrief": "Insufficient information to qualify the lead.",
+    "recommendedCrmUpdate": {
+      "lifecycleStage": "prospect",
+      "ownerQueue": "unassigned",
+      "disposition": "no_answer"
+    }
+  },
+  "googleSheetsSync": null,
+  "lastTranscript": "",
+  "lastAssistantText": "",
+  "endedAt": "2026-03-19T18:12:18.797Z",
+  "persistedAt": "2026-03-19T18:12:18.797Z"
+}

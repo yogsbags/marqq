@@ -15,12 +15,12 @@ export function markdownToRichText(markdown: string): string {
       .replace(/'/g, '&#039;');
 
   html = html.replace(/```([\s\S]*?)```/g, (_match, code) =>
-    `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto my-2"><code class="text-xs font-mono">${escapeHtml(code.trim())}</code></pre>`
+    `<pre class="my-2 overflow-x-auto rounded-lg border border-orange-200/70 bg-orange-50/80 p-3 dark:border-orange-900/40 dark:bg-white/5"><code class="text-xs font-mono text-foreground">${escapeHtml(code.trim())}</code></pre>`
   );
-  html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
-  html = html.replace(/^### (.*$)/gm, '<h3 class="text-base font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h3>');
-  html = html.replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h2>');
-  html = html.replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h1>');
+  html = html.replace(/`([^`]+)`/g, '<code class="rounded bg-orange-50/85 px-1.5 py-0.5 text-xs font-mono text-foreground dark:bg-white/10">$1</code>');
+  html = html.replace(/^### (.*$)/gm, '<h3 class="mt-4 mb-2 text-base font-semibold text-foreground">$1</h3>');
+  html = html.replace(/^## (.*$)/gm, '<h2 class="mt-4 mb-2 text-lg font-semibold text-foreground">$1</h2>');
+  html = html.replace(/^# (.*$)/gm, '<h1 class="mt-4 mb-2 text-xl font-bold text-foreground">$1</h1>');
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>');
   html = html.replace(/__(.*?)__/g, '<strong class="font-semibold">$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
@@ -32,7 +32,7 @@ export function markdownToRichText(markdown: string): string {
     if (match.includes('list-decimal')) return `<ol class="space-y-1 my-2">${match}</ol>`;
     return `<ul class="space-y-1 my-2">${match}</ul>`;
   });
-  html = html.replace(/^---$/gm, '<hr class="my-4 border-gray-300 dark:border-gray-700" />');
+  html = html.replace(/^---$/gm, '<hr class="my-4 border-orange-200/70 dark:border-orange-900/40" />');
   html = html.split('\n\n').map(paragraph => {
     if (paragraph.trim()) {
       if (/^<(h[1-6]|ul|ol|pre|hr)/.test(paragraph.trim())) return paragraph.trim();

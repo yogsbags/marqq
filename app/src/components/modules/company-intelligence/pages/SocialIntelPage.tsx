@@ -73,8 +73,8 @@ export function SocialIntelPage({ companyId }: Props) {
       if (data.error) throw new Error(data.error)
       setFetchResult({ new_posts: data.new_posts ?? 0, digest: data.digest })
       toast.success(`Fetched ${data.new_posts ?? 0} new posts`)
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch {
+      toast.error('Failed to fetch social posts. Please try again.')
     } finally {
       setFetching(false)
     }
@@ -421,9 +421,9 @@ export function SocialIntelPage({ companyId }: Props) {
                     )}
 
                     {/* Key messages */}
-                    {intel?.key_messages?.length > 0 && (
+                    {(intel?.key_messages?.length ?? 0) > 0 && (
                       <ul className="space-y-0.5">
-                        {intel.key_messages.map((msg, i) => (
+                        {intel!.key_messages!.map((msg, i) => (
                           <li key={i} className="text-xs text-muted-foreground flex gap-1.5">
                             <span className="mt-0.5 shrink-0">•</span>
                             <span>{msg}</span>
@@ -441,9 +441,9 @@ export function SocialIntelPage({ companyId }: Props) {
                       ))}
                     </div>
 
-                    {intel?.entities?.length > 0 && (
+                    {(intel?.entities?.length ?? 0) > 0 && (
                       <div className="text-xs text-muted-foreground">
-                        Mentions: {intel.entities.slice(0, 5).join(', ')}
+                        Mentions: {intel!.entities!.slice(0, 5).join(', ')}
                       </div>
                     )}
 

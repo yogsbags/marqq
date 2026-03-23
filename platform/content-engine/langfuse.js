@@ -33,6 +33,15 @@ if (hasLangfuse) {
 
 export { lf as langfuse }
 
+// Flush pending traces before the process exits so no events are lost
+if (hasLangfuse && lf) {
+  const flush = () => lf.flushAsync().catch(() => {})
+  process.on('beforeExit', flush)
+  process.on('SIGTERM', () => flush().finally(() => process.exit(0)))
+  process.on('SIGINT',  () => flush().finally(() => process.exit(0)))
+}
+
+
 /**
  * Wrap a streaming Groq response so we collect full text + usage,
  * then finalize the Langfuse generation when the stream ends.

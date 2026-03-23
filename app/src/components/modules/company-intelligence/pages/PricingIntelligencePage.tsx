@@ -11,6 +11,7 @@ import { GtmContextBanner } from '@/components/ui/gtm-context-banner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { savePricingIntelligence, loadPricingIntelligence, createAutoSave } from '@/lib/persistence';
 import type { ArtifactRecord } from '../api';
+import { ArtifactScoreCards, clampDisplayScore } from '../ui/ArtifactScoreCards'
 
 interface CompetitorPricing {
   id: string;
@@ -46,11 +47,14 @@ interface PriceElasticity {
 
 interface Props {
   artifact?: ArtifactRecord | null;
+  companyName?: string;
 }
 
-export function PricingIntelligencePage({ artifact }: Props = {}) {
+export function PricingIntelligencePage({ artifact, companyName }: Props = {}) {
   const { toast } = useToast();
   const { context: gtmCtx, dismiss: dismissGtm } = useGtmContext('company_intel_pricing');
+  const artifactData = (artifact?.data as any) || {};
+  const aiScores = artifactData?.scores || {};
 
   // Competitive Pricing Matrix
   const [competitors, setCompetitors] = useState<CompetitorPricing[]>([]);
@@ -86,6 +90,49 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
 
   // Load saved data on mount; fall back to AI artifact if no saved data
   useEffect(() => {
+    if (artifact?.data) {
+      const d = artifact.data as {
+        pricingModelSummary?: string;
+        publicPricingVisibility?: string;
+        competitorBenchmarks?: Array<{ name?: string; pricingModel?: string; startingPoint?: string; notes?: string }>;
+        packagingRecommendations?: Array<{ offer?: string; targetCustomer?: string; pricingApproach?: string; rationale?: string }>;
+        valueMetrics?: string[];
+        risks?: string[];
+        nextQuestions?: string[];
+      };
+      setCompetitors(
+        d.competitorBenchmarks?.map((b, i) => ({
+          id: `comp-${i}-${Date.now()}`,
+          competitor: b.name || '',
+          startingPrice: b.startingPoint || '',
+          tier1: '',
+          tier2: '',
+          tier3: '',
+          pricingModel: b.pricingModel || '',
+          notes: b.notes || '',
+        })) || []
+      );
+      setValueMetrics(d.valueMetrics || []);
+      setElasticityData([]);
+      setRecommendation(
+        d.pricingModelSummary || d.packagingRecommendations?.length
+          ? {
+              recommendedModel: d.pricingModelSummary || '',
+              rationale: d.publicPricingVisibility || '',
+              suggestedTiers: (d.packagingRecommendations || []).map((r) => ({
+                name: r.offer || '',
+                price: r.pricingApproach || '',
+                features: r.rationale ? [r.rationale] : [],
+                targetCustomer: r.targetCustomer || '',
+              })),
+              valueMetrics: d.valueMetrics || [],
+              implementationSteps: d.nextQuestions || [],
+            }
+          : undefined
+      );
+      return;
+    }
+
     loadPricingIntelligence()
       .then(data => {
         const hasSavedContent = !!(
@@ -98,46 +145,6 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
           setValueMetrics(data!.valueMetrics || []);
           setRecommendation(data!.recommendations || undefined);
           setElasticityData(data!.elasticityData || []);
-        } else if (artifact?.data) {
-          // No saved data — seed from AI-generated artifact
-          const d = artifact.data as {
-            pricingModelSummary?: string;
-            publicPricingVisibility?: string;
-            competitorBenchmarks?: Array<{ name?: string; pricingModel?: string; startingPoint?: string; notes?: string }>;
-            packagingRecommendations?: Array<{ offer?: string; targetCustomer?: string; pricingApproach?: string; rationale?: string }>;
-            valueMetrics?: string[];
-            risks?: string[];
-            nextQuestions?: string[];
-          };
-          if (d.competitorBenchmarks?.length) {
-            setCompetitors(
-              d.competitorBenchmarks.map((b, i) => ({
-                id: `comp-${i}-${Date.now()}`,
-                competitor: b.name || '',
-                startingPrice: b.startingPoint || '',
-                tier1: '',
-                tier2: '',
-                tier3: '',
-                pricingModel: b.pricingModel || '',
-                notes: b.notes || '',
-              }))
-            );
-          }
-          if (d.valueMetrics?.length) setValueMetrics(d.valueMetrics);
-          if (d.pricingModelSummary || d.packagingRecommendations?.length) {
-            setRecommendation({
-              recommendedModel: d.pricingModelSummary || '',
-              rationale: d.publicPricingVisibility || '',
-              suggestedTiers: (d.packagingRecommendations || []).map((r) => ({
-                name: r.offer || '',
-                price: r.pricingApproach || '',
-                features: r.rationale ? [r.rationale] : [],
-                targetCustomer: r.targetCustomer || '',
-              })),
-              valueMetrics: d.valueMetrics || [],
-              implementationSteps: d.nextQuestions || [],
-            });
-          }
         }
       })
       .catch(err => {
@@ -174,9 +181,7 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Marqq AI',
-            industry: 'B2B Marketing Technology',
-            targetMarket: 'SMB and Mid-Market',
+            companyName: companyName ?? 'your company',
             existingCompetitors: competitors.map(c => c.competitor),
             gtmInsights: gtmCtx?.bullets || [],
           },
@@ -218,9 +223,7 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Marqq AI',
-            productType: 'B2B SaaS Platform',
-            targetCustomers: ['SMB', 'Mid-Market', 'Enterprise'],
+            companyName: companyName ?? 'your company',
             competitorPricing: competitors,
             currentValueMetrics: valueMetrics,
             gtmInsights: gtmCtx?.bullets || [],
@@ -261,9 +264,8 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Marqq AI',
-            basePrice: recommendation?.suggestedTiers?.[1]?.price || '$500/month',
-            segments: ['SMB', 'Mid-Market', 'Enterprise'],
+            companyName: companyName ?? 'your company',
+            basePrice: recommendation?.suggestedTiers?.[1]?.price || undefined,
             competitorPricing: competitors,
             gtmInsights: gtmCtx?.bullets || [],
           },
@@ -303,15 +305,7 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Marqq AI',
-            productType: 'B2B Marketing Intelligence Platform',
-            keyFeatures: [
-              'Lead Intelligence',
-              'Content Automation',
-              'Social Media Campaigns',
-              'Video Generation',
-              'Budget Optimization',
-            ],
+            companyName: companyName ?? 'your company',
             gtmInsights: gtmCtx?.bullets || [],
           },
         }),
@@ -389,10 +383,27 @@ export function PricingIntelligencePage({ artifact }: Props = {}) {
     setValueMetrics(valueMetrics.filter((_, i) => i !== index));
   };
 
+  const pricingClarity = Number.isFinite(Number(aiScores?.pricingClarity))
+    ? clampDisplayScore(aiScores.pricingClarity)
+    : clampDisplayScore((recommendation?.recommendedModel ? 35 : 0) + valueMetrics.length * 8)
+  const marketCompetitiveness = Number.isFinite(Number(aiScores?.marketCompetitiveness))
+    ? clampDisplayScore(aiScores.marketCompetitiveness)
+    : clampDisplayScore(competitors.length * 12 + (recommendation?.suggestedTiers?.length || 0) * 8)
+  const packagingReadiness = Number.isFinite(Number(aiScores?.packagingReadiness))
+    ? clampDisplayScore(aiScores.packagingReadiness)
+    : clampDisplayScore((recommendation?.suggestedTiers?.length || 0) * 16 + (recommendation?.implementationSteps?.length || 0) * 6)
+
   return (
     <div className="space-y-6">
       {/* GTM Context Banner */}
       {gtmCtx && <GtmContextBanner context={gtmCtx} onDismiss={dismissGtm} />}
+      <ArtifactScoreCards
+        items={[
+          { label: 'Pricing Clarity', value: pricingClarity, description: 'How clearly the pricing model and value metrics are framed.' },
+          { label: 'Market Competitiveness', value: marketCompetitiveness, description: 'How strong the competitive pricing perspective is.' },
+          { label: 'Packaging Readiness', value: packagingReadiness, description: 'How ready the packaging and rollout guidance is.' },
+        ]}
+      />
 
       {/* Page Header */}
       <div className="flex items-center justify-between">

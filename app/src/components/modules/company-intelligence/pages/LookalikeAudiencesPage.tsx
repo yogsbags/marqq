@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ArtifactRecord } from '../api'
+import { ArtifactScoreCards, clampDisplayScore } from '../ui/ArtifactScoreCards'
 
 type Props = {
   artifact: ArtifactRecord | null
@@ -16,7 +17,7 @@ export function LookalikeAudiencesPage({ artifact }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">No lookalike plan yet</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">No lookalike plan yet</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">Generate to see seed audiences and per-platform lookalike targeting.</CardContent>
       </Card>
@@ -26,13 +27,30 @@ export function LookalikeAudiencesPage({ artifact }: Props) {
   const seedAudiences: string[] = Array.isArray(data.seedAudiences) ? data.seedAudiences : []
   const lookalikes: any[] = Array.isArray(data.lookalikes) ? data.lookalikes : []
   const measurement: string[] = Array.isArray(data.measurement) ? data.measurement : []
+  const aiScores = asObj(data.scores)
+  const seedQuality = Number.isFinite(Number(aiScores?.seedQuality))
+    ? clampDisplayScore(aiScores.seedQuality)
+    : clampDisplayScore(seedAudiences.length * 14)
+  const targetingDepth = Number.isFinite(Number(aiScores?.targetingDepth))
+    ? clampDisplayScore(aiScores.targetingDepth)
+    : clampDisplayScore(lookalikes.length * 18 + measurement.length * 4)
+  const launchReadiness = Number.isFinite(Number(aiScores?.launchReadiness))
+    ? clampDisplayScore(aiScores.launchReadiness)
+    : clampDisplayScore(measurement.length * 16 + lookalikes.filter((item) => Array.isArray(item?.creativeAngles) && item.creativeAngles.length > 0).length * 8)
 
   return (
     <div className="space-y-4">
+      <ArtifactScoreCards
+        items={[
+          { label: 'Seed Quality', value: seedQuality, description: 'How strong the first-party seed inputs are for lookalike creation.' },
+          { label: 'Targeting Depth', value: targetingDepth, description: 'How specific the platform targeting and exclusions are.' },
+          { label: 'Launch Readiness', value: launchReadiness, description: 'How ready these audiences are for paid activation.' },
+        ]}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Seed Audiences</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Seed Audiences</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {seedAudiences.length ? seedAudiences.map((s, idx) => <div key={idx}>• {s}</div>) : <div className="text-sm text-muted-foreground">—</div>}
@@ -41,7 +59,7 @@ export function LookalikeAudiencesPage({ artifact }: Props) {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Lookalikes</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Lookalikes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {lookalikes.length ? (
@@ -80,7 +98,7 @@ export function LookalikeAudiencesPage({ artifact }: Props) {
       {measurement.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Measurement</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Measurement</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {measurement.map((m, idx) => (

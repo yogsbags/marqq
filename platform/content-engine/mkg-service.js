@@ -16,7 +16,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { supabase } from "./supabase.js";
+import { getSupabaseReadClient, getSupabaseWriteClient } from "./supabase.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +50,8 @@ const FIELD_DEFAULTS = {
   expires_at: null,
 };
 
+const workspaceCompanyIdCache = new Map();
+
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
 function mkgPath(companyId) {
@@ -64,6 +66,50 @@ async function readMkg(companyId) {
   } catch {
     return null;
   }
+}
+
+async function resolveCompanyIdForRead(companyId) {
+  const client = getSupabaseReadClient();
+  if (!companyId || !client) return null;
+  if (workspaceCompanyIdCache.has(companyId)) {
+    return workspaceCompanyIdCache.get(companyId);
+  }
+
+  try {
+    const { data, error } = await client
+      .from("companies")
+      .select("id")
+      .eq("workspace_id", companyId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      workspaceCompanyIdCache.set(companyId, null);
+      return null;
+    }
+
+    const resolvedId = data?.id || null;
+    workspaceCompanyIdCache.set(companyId, resolvedId);
+    return resolvedId;
+  } catch {
+    workspaceCompanyIdCache.set(companyId, null);
+    return null;
+  }
+}
+
+async function readMkgWithWorkspaceFallback(companyId) {
+  const direct = await readMkg(companyId);
+  const normalizedDirect = direct ? normalizeMkgDocument(companyId, direct) : null;
+  if (normalizedDirect && hasMeaningfulMkgData(normalizedDirect)) return normalizedDirect;
+
+  const resolvedCompanyId = await resolveCompanyIdForRead(companyId);
+  if (!resolvedCompanyId || resolvedCompanyId === companyId) return normalizedDirect;
+
+  const resolved = await readMkg(resolvedCompanyId);
+  const normalizedResolved = resolved ? normalizeMkgDocument(resolvedCompanyId, resolved) : null;
+  if (normalizedResolved && hasMeaningfulMkgData(normalizedResolved)) return normalizedResolved;
+  return normalizedDirect || normalizedResolved;
 }
 
 /** Writes MKG to disk. Creates directory if needed. */
@@ -85,14 +131,126 @@ function createEmptyMkg(companyId) {
   return mkg;
 }
 
+function hasMeaningfulMkgData(mkg) {
+  if (!mkg || typeof mkg !== "object") return false;
+  return TOP_LEVEL_FIELDS.some((field) => {
+    const entry = mkg[field];
+    return entry && typeof entry === "object" && entry.value != null;
+  });
+}
+
+function isEnvelopeFieldKey(key) {
+  return ["value", "confidence", "last_verified", "source_agent", "expires_at"].includes(key);
+}
+
+function normalizeStructuredValue(value) {
+  if (value == null) return null;
+  if (Array.isArray(value)) return value.map((item) => normalizeStructuredValue(item));
+  if (typeof value !== "object") return value;
+
+  const entries = Object.entries(value);
+  const numericEntries = entries.filter(([key]) => /^\d+$/.test(key));
+  const namedEntries = entries.filter(([key]) => !/^\d+$/.test(key));
+
+  const normalizeNumericEntries = () => {
+    const sortedValues = numericEntries
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([, entryValue]) => normalizeStructuredValue(entryValue));
+    const allScalar = sortedValues.every((entryValue) => entryValue == null || typeof entryValue !== "object");
+    return allScalar ? sortedValues.join("") : sortedValues;
+  };
+
+  if (numericEntries.length && namedEntries.length) {
+    const collapsed = normalizeNumericEntries();
+    const namedObject = Object.fromEntries(
+      namedEntries.map(([key, entryValue]) => [key, normalizeStructuredValue(entryValue)])
+    );
+    if (typeof collapsed === "string" && collapsed.trim()) {
+      return { summary: collapsed, ...namedObject };
+    }
+    return { items: collapsed, ...namedObject };
+  }
+
+  if (numericEntries.length) {
+    return normalizeNumericEntries();
+  }
+
+  return Object.fromEntries(
+    namedEntries.map(([key, entryValue]) => [key, normalizeStructuredValue(entryValue)])
+  );
+}
+
+function normalizeFieldEnvelope(fieldData) {
+  if (fieldData == null) {
+    return { ...FIELD_DEFAULTS };
+  }
+
+  if (Array.isArray(fieldData)) {
+    return { ...FIELD_DEFAULTS, value: fieldData };
+  }
+
+  if (typeof fieldData !== "object") {
+    return { ...FIELD_DEFAULTS, value: fieldData };
+  }
+
+  const next = {
+    ...FIELD_DEFAULTS,
+    ...fieldData,
+  };
+
+  const extraEntries = Object.entries(fieldData).filter(([key]) => !isEnvelopeFieldKey(key));
+  if (next.value == null && extraEntries.length > 0) {
+    const numericOnly = extraEntries.every(([key]) => /^\d+$/.test(key));
+    if (numericOnly) {
+      const sortedValues = extraEntries
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .map(([, entryValue]) => normalizeStructuredValue(entryValue));
+      const allScalar = sortedValues.every((entryValue) => entryValue == null || typeof entryValue !== "object");
+      next.value = allScalar ? sortedValues.join("") : sortedValues;
+    } else {
+      next.value = Object.fromEntries(extraEntries);
+    }
+  }
+
+  next.confidence = Number.isFinite(Number(next.confidence))
+    ? Math.min(1, Math.max(0, Number(next.confidence)))
+    : 0;
+
+  return {
+    value: normalizeStructuredValue(next.value),
+    confidence: next.confidence,
+    last_verified: next.last_verified ?? null,
+    source_agent: next.source_agent ?? null,
+    expires_at: next.expires_at ?? null,
+  };
+}
+
+function normalizeMkgDocument(companyId, rawMkg) {
+  const base = createEmptyMkg(companyId);
+  if (!rawMkg || typeof rawMkg !== "object") return base;
+
+  const normalized = {
+    ...base,
+    company_id: typeof rawMkg.company_id === "string" ? rawMkg.company_id : companyId,
+    updated_at: typeof rawMkg.updated_at === "string" ? rawMkg.updated_at : base.updated_at,
+  };
+
+  for (const field of TOP_LEVEL_FIELDS) {
+    normalized[field] = normalizeFieldEnvelope(rawMkg[field]);
+  }
+
+  return normalized;
+}
+
 /**
  * Sync to Supabase after a disk write.
  * Fire-and-forget: logs errors but never throws — disk is source of truth.
  */
 async function syncToSupabase(companyId, mkg) {
-  if (!supabase) return;
+  const client = getSupabaseWriteClient();
+  if (!client) return;
   try {
-    const { error } = await supabase
+    const { error } = await client
       .from("company_mkg")
       .upsert(
         {
@@ -126,7 +284,10 @@ export const MKGService = {
    * @returns {Promise<Object>}
    */
   async read(companyId, field) {
-    const mkg = (await readMkg(companyId)) || createEmptyMkg(companyId);
+    const mkg = normalizeMkgDocument(
+      companyId,
+      (await readMkgWithWorkspaceFallback(companyId)) || createEmptyMkg(companyId)
+    );
     if (field === undefined) return mkg;
     return mkg[field] ?? { ...FIELD_DEFAULTS };
   },
@@ -145,7 +306,7 @@ export const MKGService = {
       throw new Error(`Invalid companyId: "${companyId}". Only alphanumeric, hyphens, and underscores allowed.`);
     }
 
-    const mkg = (await readMkg(companyId)) || createEmptyMkg(companyId);
+    const mkg = normalizeMkgDocument(companyId, (await readMkg(companyId)) || createEmptyMkg(companyId));
 
     for (const [field, fieldData] of Object.entries(patch)) {
       // Ignore unknown fields — only merge known TOP_LEVEL_FIELDS
@@ -153,7 +314,10 @@ export const MKGService = {
         console.warn(`MKGService.patch: ignoring unknown field "${field}"`);
         continue;
       }
-      mkg[field] = { ...(mkg[field] || { ...FIELD_DEFAULTS }), ...fieldData };
+      mkg[field] = normalizeFieldEnvelope({
+        ...(mkg[field] || { ...FIELD_DEFAULTS }),
+        ...normalizeFieldEnvelope(fieldData),
+      });
     }
 
     mkg.updated_at = new Date().toISOString();
@@ -204,7 +368,7 @@ export const MKGService = {
    * @returns {Promise<string[]>}
    */
   async getExpiredFields(companyId) {
-    const mkg = (await readMkg(companyId)) || createEmptyMkg(companyId);
+    const mkg = (await readMkgWithWorkspaceFallback(companyId)) || createEmptyMkg(companyId);
     return TOP_LEVEL_FIELDS.filter((f) => this.isStale(mkg[f]));
   },
 };

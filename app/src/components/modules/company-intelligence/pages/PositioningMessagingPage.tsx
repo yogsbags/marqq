@@ -13,6 +13,7 @@ import { Check, X as XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { savePositioning, loadPositioning, createAutoSave } from '@/lib/persistence';
 import type { ArtifactRecord } from '../api';
+import { ArtifactScoreCards, clampDisplayScore } from '../ui/ArtifactScoreCards'
 
 interface MessagingPillar {
   id: string;
@@ -35,10 +36,14 @@ interface ElevatorPitches {
 
 interface Props {
   artifact?: ArtifactRecord | null;
+  companyName?: string;
+  industry?: string;
 }
 
-export function PositioningMessagingPage({ artifact }: Props = {}) {
+export function PositioningMessagingPage({ artifact, companyName, industry }: Props = {}) {
   const { context: gtmContext, isFromGtm, dismiss: dismissGtmContext } = useGtmContext('company_intel_marketing_strategy');
+  const artifactData = (artifact?.data as any) || {};
+  const aiScores = artifactData?.scores || {};
 
   // Value Proposition
   const [valueProposition, setValueProposition] = useState('');
@@ -180,9 +185,8 @@ export function PositioningMessagingPage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Marqq AI',
-            industry: 'B2B Marketing Technology',
-            targetAudience: 'Marketing teams at B2B SaaS companies',
+            companyName: companyName ?? 'your company',
+            industry: industry ?? undefined,
             gtmInsights: gtmContext?.bullets || [],
           },
         }),
@@ -212,8 +216,9 @@ export function PositioningMessagingPage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
+            companyName: companyName ?? 'your company',
             valueProposition: valueProposition || undefined,
-            targetAudience: 'Marketing teams at B2B SaaS companies',
+            industry: industry ?? undefined,
             gtmInsights: gtmContext?.bullets || [],
           },
         }),
@@ -243,9 +248,9 @@ export function PositioningMessagingPage({ artifact }: Props = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: {
-            companyName: 'Marqq AI',
+            companyName: companyName ?? 'your company',
             valueProposition: valueProposition || undefined,
-            targetAudience: 'Marketing teams at B2B SaaS companies',
+            industry: industry ?? undefined,
             messagingPillars: messagingPillars.map(p => ({
               pillar: p.pillar,
               description: p.description,
@@ -334,11 +339,28 @@ export function PositioningMessagingPage({ artifact }: Props = {}) {
     setMessagingPillars(messagingPillars.filter(p => p.id !== id));
   };
 
+  const propositionClarity = Number.isFinite(Number(aiScores?.propositionClarity))
+    ? clampDisplayScore(aiScores.propositionClarity)
+    : clampDisplayScore((valueProposition.trim() ? 35 : 0) + messagingPillars.length * 10)
+  const differentiationStrength = Number.isFinite(Number(aiScores?.differentiationStrength))
+    ? clampDisplayScore(aiScores.differentiationStrength)
+    : clampDisplayScore(differentiators.length * 14 + messagingPillars.length * 6)
+  const messageConsistency = Number.isFinite(Number(aiScores?.messageConsistency))
+    ? clampDisplayScore(aiScores.messageConsistency)
+    : clampDisplayScore(brandVoice.tone.length * 14 + (elevatorPitches.short.trim() ? 16 : 0) + messagingPillars.length * 6)
+
   return (
     <div className="space-y-6">
       {isFromGtm && gtmContext && (
         <GtmContextBanner context={gtmContext} onDismiss={dismissGtmContext} />
       )}
+      <ArtifactScoreCards
+        items={[
+          { label: 'Proposition Clarity', value: propositionClarity, description: 'How clearly the value proposition and audience fit are defined.' },
+          { label: 'Differentiation Strength', value: differentiationStrength, description: 'How clearly the message separates the brand from alternatives.' },
+          { label: 'Message Consistency', value: messageConsistency, description: 'How consistent the pillars, voice, and pitches are.' },
+        ]}
+      />
 
       {/* Value Proposition Builder */}
       <Card>
@@ -465,7 +487,7 @@ export function PositioningMessagingPage({ artifact }: Props = {}) {
       {/* Differentiators */}
       <Card>
         <CardHeader>
-          <CardTitle>Key Differentiators</CardTitle>
+          <CardTitle className="text-orange-600 dark:text-orange-400">Key Differentiators</CardTitle>
           <CardDescription>
             What makes you uniquely different from competitors? Be specific and quantifiable.
           </CardDescription>
@@ -505,7 +527,7 @@ export function PositioningMessagingPage({ artifact }: Props = {}) {
       {/* Brand Voice */}
       <Card>
         <CardHeader>
-          <CardTitle>Brand Voice Guidelines</CardTitle>
+          <CardTitle className="text-orange-600 dark:text-orange-400">Brand Voice Guidelines</CardTitle>
           <CardDescription>
             Define your brand personality and communication style.
           </CardDescription>

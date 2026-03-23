@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ArtifactRecord } from '../api'
 import { useGtmContext } from '@/lib/gtmContext'
 import { GtmContextBanner } from '@/components/ui/gtm-context-banner'
+import { ArtifactScoreCards, clampDisplayScore } from '../ui/ArtifactScoreCards'
 
 type Props = {
   artifact: ArtifactRecord | null
@@ -19,7 +20,7 @@ export function LeadMagnetsPage({ artifact }: Props) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">No lead magnets yet</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">No lead magnets yet</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">Generate to see lead magnet ideas, landing page copy, and follow-up sequence.</CardContent>
       </Card>
@@ -28,13 +29,30 @@ export function LeadMagnetsPage({ artifact }: Props) {
 
   const leadMagnets: any[] = Array.isArray(data.leadMagnets) ? data.leadMagnets : []
   const notes: string[] = Array.isArray(data.notes) ? data.notes : []
+  const aiScores = asObj(data.scores)
+  const offerStrength = Number.isFinite(Number(aiScores?.offerStrength))
+    ? clampDisplayScore(aiScores.offerStrength)
+    : clampDisplayScore(leadMagnets.length * 18)
+  const conversionReadiness = Number.isFinite(Number(aiScores?.conversionReadiness))
+    ? clampDisplayScore(aiScores.conversionReadiness)
+    : clampDisplayScore(leadMagnets.filter((item) => item?.landingPageCopy?.headline).length * 20)
+  const nurtureReadiness = Number.isFinite(Number(aiScores?.nurtureReadiness))
+    ? clampDisplayScore(aiScores.nurtureReadiness)
+    : clampDisplayScore(leadMagnets.filter((item) => Array.isArray(item?.followUpSequence) && item.followUpSequence.length > 0).length * 20)
 
   return (
     <div className="space-y-4">
       {gtmCtx && <GtmContextBanner context={gtmCtx} onDismiss={dismissGtm} />}
+      <ArtifactScoreCards
+        items={[
+          { label: 'Offer Strength', value: offerStrength, description: 'How compelling and relevant the lead magnet offers are.' },
+          { label: 'Conversion Readiness', value: conversionReadiness, description: 'How strong the landing page and CTA structure is.' },
+          { label: 'Nurture Readiness', value: nurtureReadiness, description: 'How ready the follow-up sequence is to convert demand.' },
+        ]}
+      />
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Lead Magnets</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Lead Magnets</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {leadMagnets.length ? (
@@ -91,7 +109,7 @@ export function LeadMagnetsPage({ artifact }: Props) {
       {notes.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Notes</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Notes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {notes.map((n, idx) => (

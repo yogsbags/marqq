@@ -31,16 +31,20 @@ export const AUTH_CONFIG_MAP = {
   meta_ads:         process.env.COMPOSIO_META_ADS_AUTH_CONFIG_ID                || null,
   linkedin_ads:     process.env.COMPOSIO_LINKEDIN_ADS_AUTH_CONFIG_ID            || null,
   // CRM
+  apollo:           process.env.COMPOSIO_APOLLO_AUTH_CONFIG_ID                  || null,
   hubspot:          process.env.COMPOSIO_HUBSPOT_AUTH_CONFIG_ID                 || null,
   zoho_crm:         process.env.COMPOSIO_ZOHO_CRM_AUTH_CONFIG_ID                || null,
   salesforce:       process.env.COMPOSIO_SALESFORCE_AUTH_CONFIG_ID              || null,
   // Email & messaging
   gmail:            process.env.COMPOSIO_GMAIL_AUTH_CONFIG_ID                   || null,
   outlook:          process.env.COMPOSIO_OUTLOOK_AUTH_CONFIG_ID                 || null,
+  hunter:           process.env.COMPOSIO_HUNTER_AUTH_CONFIG_ID                  || null,
   mailchimp:        process.env.COMPOSIO_MAILCHIMP_AUTH_CONFIG_ID               || null,
   klaviyo:          process.env.COMPOSIO_KLAVIYO_AUTH_CONFIG_ID                 || null,
   sendgrid:         process.env.COMPOSIO_SENDGRID_AUTH_CONFIG_ID                || null,
   instantly:        process.env.COMPOSIO_INSTANTLY_AUTH_CONFIG_ID               || null,
+  heyreach:         process.env.COMPOSIO_HEYREACH_AUTH_CONFIG_ID                || null,
+  lemlist:          process.env.COMPOSIO_LEMLIST_AUTH_CONFIG_ID                 || null,
   whatsapp:         process.env.COMPOSIO_WHATSAPP_AUTH_CONFIG_ID                || null,
   slack:            process.env.COMPOSIO_SLACK_AUTH_CONFIG_ID                   || null,
   zoho_mail:        process.env.COMPOSIO_ZOHO_MAIL_AUTH_CONFIG_ID               || null,
@@ -63,6 +67,7 @@ export const AUTH_CONFIG_MAP = {
   // Social
   linkedin:         process.env.COMPOSIO_LINKEDIN_AUTH_CONFIG_ID                || null,
   facebook:         process.env.COMPOSIO_FACEBOOK_AUTH_CONFIG_ID                || null,
+  instagram:        process.env.COMPOSIO_INSTAGRAM_AUTH_CONFIG_ID               || null,
   reddit:           process.env.COMPOSIO_REDDIT_AUTH_CONFIG_ID                  || null,
   // Content & creative
   canva:            process.env.COMPOSIO_CANVA_AUTH_CONFIG_ID                   || null,
@@ -82,25 +87,29 @@ export const AUTH_CONFIG_MAP = {
 export const CONNECTOR_APP_MAP = {
   // Paid ads
   google_ads:       'googleads',
-  meta_ads:         'facebookads',
+  meta_ads:         'metaads',
   linkedin_ads:     'linkedinads',
   // CRM
+  apollo:           'apollo',
   hubspot:          'hubspot',
-  zoho_crm:         'zohocrm',
+  zoho_crm:         'zoho',
   salesforce:       'salesforce',
   // Email & messaging
   gmail:            'gmail',
   outlook:          'outlook',
+  hunter:           'hunter',
   mailchimp:        'mailchimp',
   klaviyo:          'klaviyo',
   sendgrid:         'sendgrid',
   instantly:        'instantly',
+  heyreach:         'heyreach',
+  lemlist:          'lemlist',
   whatsapp:         'whatsapp',
   slack:            'slack',
   zoho_mail:        'zohomail',
   // Google workspace
-  ga4:              'googleanalytics',
-  gsc:              'googlesearchconsole',
+  ga4:              'google_analytics',
+  gsc:              'google_search_console',
   google_sheets:    'googlesheets',
   google_docs:      'googledocs',
   google_drive:     'googledrive',
@@ -162,6 +171,27 @@ function getToolset(entityId = 'default') {
   })
 }
 
+function readGenericApiKey(detail) {
+  return detail?.data?.generic_api_key
+    || detail?.state?.val?.generic_api_key
+    || detail?.params?.generic_api_key
+    || detail?.data?.api_key
+    || detail?.state?.val?.api_key
+    || detail?.params?.api_key
+    || null
+}
+
+function accountMatchesUser(item, userId) {
+  return String(item?.user_id || '') === String(userId || '')
+}
+
+function normalizeToolkitSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
 // ─── Agent config ─────────────────────────────────────────────────────────────
 
 function loadAgentMcpConfig(agentName) {
@@ -173,6 +203,12 @@ function loadAgentMcpConfig(agentName) {
 
 export function getAgentConnectors(agentName) {
   return loadAgentMcpConfig(agentName).connectors || []
+}
+
+export function getAgentConnectorApps(agentName) {
+  return getAgentConnectors(agentName)
+    .map((id) => CONNECTOR_APP_MAP[id])
+    .filter(Boolean)
 }
 
 // ─── Rube Recipe execution ────────────────────────────────────────────────────
@@ -235,15 +271,20 @@ export async function getConnectors(userId) {
     const data = await res.json()
     const connected = new Map()
     for (const acct of (data.items || [])) {
+      if (!accountMatchesUser(acct, userId)) continue
       // v3 uses toolkit_slug instead of appName
       const toolkitSlug = acct.toolkit?.slug || acct.toolkit_slug || acct.appName || ''
       for (const [connId, appName] of Object.entries(CONNECTOR_APP_MAP)) {
-        if (toolkitSlug.toLowerCase() === appName.toLowerCase()) {
-          connected.set(connId, {
-            connected: acct.status === 'ACTIVE',
-            connectedAt: acct.created_at || acct.createdAt || null,
-            status: acct.status?.toLowerCase() || 'connected',
-          })
+        if (normalizeToolkitSlug(toolkitSlug) === normalizeToolkitSlug(appName)) {
+          const existing = connected.get(connId)
+          // Prefer ACTIVE over any other status — don't let an EXPIRED entry overwrite an ACTIVE one
+          if (!existing || acct.status === 'ACTIVE') {
+            connected.set(connId, {
+              connected: acct.status === 'ACTIVE',
+              connectedAt: acct.created_at || acct.createdAt || null,
+              status: acct.status?.toLowerCase() || 'connected',
+            })
+          }
         }
       }
     }
@@ -256,7 +297,7 @@ export async function getConnectors(userId) {
 
 // ─── Initiate OAuth (returns redirectUrl for popup) ───────────────────────────
 
-export async function initiateConnection(userId, connectorId) {
+export async function initiateConnection(userId, connectorId, extraFields = {}) {
   const apiKey       = process.env.COMPOSIO_API_KEY
   const appName      = CONNECTOR_APP_MAP[connectorId]
   const authConfigId = AUTH_CONFIG_MAP[connectorId] || null
@@ -266,6 +307,10 @@ export async function initiateConnection(userId, connectorId) {
 
   const appUrl = process.env.APP_URL || 'http://localhost:3007'
 
+  // Build connection data — some connectors need extra fields (e.g. Google Ads needs
+  // developer_token + customer_id which Composio stores as generic_token + generic_id)
+  const connectionData = Object.keys(extraFields).length ? extraFields : undefined
+
   try {
     const res = await fetch(`${COMPOSIO_V3}/connected_accounts/link`, {
       method: 'POST',
@@ -274,6 +319,7 @@ export async function initiateConnection(userId, connectorId) {
         auth_config_id: authConfigId,
         user_id: userId,
         callback_url: `${appUrl}/settings?tab=accounts&connected=${connectorId}`,
+        ...(connectionData && { data: connectionData }),
       }),
     })
     const data = await res.json()
@@ -303,7 +349,10 @@ export async function disconnectConnector(userId, connectorId) {
       { headers: { 'x-api-key': apiKey } }
     )
     const listData = await listRes.json()
-    const acct = listData.items?.[0]
+    const acct = (listData.items || []).find((item) =>
+      accountMatchesUser(item, userId) &&
+      normalizeToolkitSlug(item.toolkit?.slug || item.toolkit_slug || item.appName || '') === normalizeToolkitSlug(appName)
+    )
     if (!acct) return { error: 'No connected account found' }
 
     await fetch(`${COMPOSIO_V3}/connected_accounts/${acct.id}`, {
@@ -388,5 +437,243 @@ export async function executeTool(toolCall, userId) {
       role: 'tool',
       content: `Tool execution failed: ${err.message}`,
     }
+  }
+}
+
+// ─── Execute a named Composio action directly (no LLM in the loop) ──────────
+// actionSlug: e.g. 'METAADS_GET_INSIGHTS'
+// inputParams: plain object matching the action's parameters schema
+// userId: the companyId / entityId used when connecting the account
+//
+// Uses Composio v3 API: POST /api/v3/tools/execute/{tool_slug}
+// Resolves connected_account_id from userId + toolkit before executing.
+
+// ACTION_TOOLKIT_MAP — maps Composio action prefix to toolkit slug
+const ACTION_TOOLKIT_MAP = {
+  GOOGLEADS:           'googleads',
+  FACEBOOKADS:         'metaads',
+  METAADS:             'metaads',
+  LINKEDIN:            'linkedin',
+  HUBSPOT:             'hubspot',
+  SLACK:               'slack',
+  GMAIL:               'gmail',
+  GOOGLEDRIVE:         'googledrive',
+  GOOGLESHEETS:        'googlesheets',
+  GOOGLEDOCS:          'googledocs',
+  GOOGLECALENDAR:      'googlecalendar',
+  YOUTUBE:             'youtube',
+  GOOGLEANALYTICS:     'google_analytics',
+  GOOGLESEARCHCONSOLE: 'google_search_console',
+  SEMRUSH:             'semrush',
+  AHREFS:              'ahrefs',
+  MIXPANEL:            'mixpanel',
+  AMPLITUDE:           'amplitude',
+  SALESFORCE:          'salesforce',
+  ZOHOCRM:             'zoho',
+  INSTANTLY:           'instantly',
+  HEYREACH:            'heyreach',
+  LEMLIST:             'lemlist',
+  APOLLO:              'apollo',
+}
+
+function toolkitForAction(actionSlug) {
+  const prefix = actionSlug.split('_')[0].toUpperCase()
+  return ACTION_TOOLKIT_MAP[prefix] || prefix.toLowerCase()
+}
+
+// Cache: userId+toolkit → connected_account_id (in-process, lives as long as server)
+const _caIdCache = new Map()
+const _caDetailCache = new Map()
+
+async function resolveConnectedAccountId(toolkit, userId, apiKey) {
+  const cacheKey = `${userId}:${toolkit}`
+  if (_caIdCache.has(cacheKey)) return _caIdCache.get(cacheKey)
+
+  const res = await fetch(
+    `${COMPOSIO_V3}/connected_accounts?user_id=${encodeURIComponent(userId)}&toolkit_slug=${toolkit}&limit=10`,
+    { headers: { 'x-api-key': apiKey } }
+  )
+  if (!res.ok) throw new Error(`Composio connected_accounts lookup failed: ${res.status}`)
+  const data = await res.json()
+  const acct = (data.items || []).find(a =>
+    accountMatchesUser(a, userId) &&
+    normalizeToolkitSlug(a.toolkit?.slug || a.toolkit_slug || '') === normalizeToolkitSlug(toolkit)
+    && a.status === 'ACTIVE'
+  )
+  if (!acct) throw new Error(
+    `No active ${toolkit} connection for user ${userId}. Connect it in Settings → Accounts.`
+  )
+  _caIdCache.set(cacheKey, acct.id)
+  return acct.id
+}
+
+async function getConnectedAccountDetail(toolkit, userId, apiKey) {
+  const connectedAccountId = await resolveConnectedAccountId(toolkit, userId, apiKey)
+  if (_caDetailCache.has(connectedAccountId)) return _caDetailCache.get(connectedAccountId)
+
+  const res = await fetch(`${COMPOSIO_V3}/connected_accounts/${connectedAccountId}`, {
+    headers: { 'x-api-key': apiKey },
+  })
+  if (!res.ok) throw new Error(`Composio connected_account detail failed: ${res.status}`)
+  const data = await res.json()
+  _caDetailCache.set(connectedAccountId, data)
+  return data
+}
+
+function getGenericApiKey(detail) {
+  return detail?.data?.generic_api_key
+    || detail?.state?.val?.generic_api_key
+    || detail?.params?.generic_api_key
+    || detail?.data?.api_key
+    || detail?.state?.val?.api_key
+    || detail?.params?.api_key
+    || null
+}
+
+async function executeHunterDirect(actionSlug, inputParams, userId, apiKey) {
+  const detail = await getConnectedAccountDetail('hunter', userId, apiKey)
+  const hunterApiKey = getGenericApiKey(detail)
+  if (!hunterApiKey) {
+    return { error: 'No Hunter API key found in connected account details' }
+  }
+
+  let path = null
+  const params = new URLSearchParams()
+
+  if (actionSlug === 'HUNTER_DOMAIN_SEARCH') {
+    path = '/domain-search'
+    if (inputParams.domain) params.set('domain', String(inputParams.domain))
+    if (inputParams.company) params.set('company', String(inputParams.company))
+    if (inputParams.type) params.set('type', String(inputParams.type))
+    if (inputParams.limit != null) params.set('limit', String(inputParams.limit))
+    if (inputParams.offset != null) params.set('offset', String(inputParams.offset))
+    if (Array.isArray(inputParams.seniority) && inputParams.seniority.length) params.set('seniority', inputParams.seniority.join(','))
+    if (Array.isArray(inputParams.department) && inputParams.department.length) params.set('department', inputParams.department.join(','))
+    if (Array.isArray(inputParams.required_field) && inputParams.required_field.length) params.set('required_field', inputParams.required_field.join(','))
+  } else if (actionSlug === 'HUNTER_EMAIL_FINDER') {
+    path = '/email-finder'
+    if (inputParams.domain) params.set('domain', String(inputParams.domain))
+    if (inputParams.company) params.set('company', String(inputParams.company))
+    if (inputParams.full_name) params.set('full_name', String(inputParams.full_name))
+    if (inputParams.first_name) params.set('first_name', String(inputParams.first_name))
+    if (inputParams.last_name) params.set('last_name', String(inputParams.last_name))
+    if (inputParams.max_duration != null) params.set('max_duration', String(inputParams.max_duration))
+  } else {
+    return null
+  }
+
+  params.set('api_key', hunterApiKey)
+  const res = await fetch(`https://api.hunter.io/v2${path}?${params.toString()}`)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    return { error: data?.errors?.[0]?.details || data?.errors?.[0]?.id || data?.message || `Hunter API failed: ${res.status}` }
+  }
+  return { ok: true, result: data }
+}
+
+export async function executeComposioAction(actionSlug, inputParams = {}, userId = 'default') {
+  const apiKey = process.env.COMPOSIO_API_KEY
+  if (!apiKey) return { error: 'COMPOSIO_API_KEY not configured' }
+
+  const toolkit = toolkitForAction(actionSlug)
+
+  try {
+    if (toolkit === 'hunter' && ['HUNTER_DOMAIN_SEARCH', 'HUNTER_EMAIL_FINDER'].includes(actionSlug)) {
+      const hunterResult = await executeHunterDirect(actionSlug, inputParams, userId, apiKey)
+      if (hunterResult) return hunterResult
+    }
+
+    const connectedAccountId = await resolveConnectedAccountId(toolkit, userId, apiKey)
+
+    const res = await fetch(`${COMPOSIO_V3}/tools/execute/${actionSlug}`, {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connected_account_id: connectedAccountId, arguments: inputParams }),
+    })
+    const data = await res.json()
+    if (!res.ok) return { error: data?.error?.message || data?.message || JSON.stringify(data) }
+    if (data.successful === false) return { error: data?.error || data?.data?.message || 'Action failed', raw: data }
+    return { ok: true, result: data?.data ?? data }
+  } catch (err) {
+    return { error: err.message }
+  }
+}
+
+// ─── Get OAuth access token for a connected account ──────────────────────────
+// Returns the live access_token from Composio's stored credentials.
+// Composio handles refresh automatically — the token in data.access_token is
+// always valid at fetch time for ACTIVE connections.
+
+export async function getConnectedAccountToken(connectorId, userId) {
+  const apiKey = process.env.COMPOSIO_API_KEY
+  if (!apiKey) return { error: 'COMPOSIO_API_KEY not configured' }
+
+  const appName = CONNECTOR_APP_MAP[connectorId]
+  if (!appName) return { error: `Unknown connector: ${connectorId}` }
+
+  try {
+    const res = await fetch(
+      `${COMPOSIO_V3}/connected_accounts?user_id=${encodeURIComponent(userId)}&limit=20`,
+      { headers: { 'x-api-key': apiKey } }
+    )
+    if (!res.ok) return { error: `Composio list accounts failed: ${res.status}` }
+    const data = await res.json()
+
+    // Find the active account for this app
+    const acct = (data.items || []).find(a => {
+      const slug = a.toolkit?.slug || a.toolkit_slug || ''
+      return accountMatchesUser(a, userId) && normalizeToolkitSlug(slug) === normalizeToolkitSlug(appName) && a.status === 'ACTIVE'
+    })
+    if (!acct) return { error: `No active ${connectorId} connection for user ${userId}. Connect it in Settings → Accounts.` }
+
+    // Fetch full account with credentials
+    const detailRes = await fetch(`${COMPOSIO_V3}/connected_accounts/${acct.id}`, {
+      headers: { 'x-api-key': apiKey }
+    })
+    if (!detailRes.ok) return { error: `Failed to fetch account details: ${detailRes.status}` }
+    const detail = await detailRes.json()
+
+    const token = detail.data?.access_token || detail.params?.access_token
+    if (!token) return { error: `No access_token found for ${connectorId} — account may need reconnection` }
+
+    return { access_token: token, account_id: acct.id }
+  } catch (err) {
+    return { error: err.message }
+  }
+}
+
+export async function getConnectedAccountApiKey(connectorId, userId) {
+  const apiKey = process.env.COMPOSIO_API_KEY
+  if (!apiKey) return { error: 'COMPOSIO_API_KEY not configured' }
+
+  const appName = CONNECTOR_APP_MAP[connectorId]
+  if (!appName) return { error: `Unknown connector: ${connectorId}` }
+
+  try {
+    const res = await fetch(
+      `${COMPOSIO_V3}/connected_accounts?user_id=${encodeURIComponent(userId)}&limit=20`,
+      { headers: { 'x-api-key': apiKey } }
+    )
+    if (!res.ok) return { error: `Composio list accounts failed: ${res.status}` }
+    const data = await res.json()
+
+    const acct = (data.items || []).find(a => {
+      const slug = a.toolkit?.slug || a.toolkit_slug || ''
+      return accountMatchesUser(a, userId) && normalizeToolkitSlug(slug) === normalizeToolkitSlug(appName) && a.status === 'ACTIVE'
+    })
+    if (!acct) return { error: `No active ${connectorId} connection for user ${userId}. Connect it in Settings → Accounts.` }
+
+    const detailRes = await fetch(`${COMPOSIO_V3}/connected_accounts/${acct.id}`, {
+      headers: { 'x-api-key': apiKey }
+    })
+    if (!detailRes.ok) return { error: `Failed to fetch account details: ${detailRes.status}` }
+    const detail = await detailRes.json()
+
+    const genericApiKey = readGenericApiKey(detail)
+    if (!genericApiKey) return { error: `No API key found for ${connectorId} — account may need reconnection` }
+
+    return { api_key: genericApiKey, account_id: acct.id }
+  } catch (err) {
+    return { error: err.message }
   }
 }

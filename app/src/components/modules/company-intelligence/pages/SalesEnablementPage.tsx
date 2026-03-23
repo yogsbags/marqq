@@ -10,6 +10,7 @@ import { useGtmContext } from '@/lib/gtmContext';
 import { GtmContextBanner } from '@/components/ui/gtm-context-banner';
 import { saveSalesEnablement, loadSalesEnablement, createAutoSave } from '@/lib/persistence';
 import type { ArtifactRecord } from '../api';
+import { ArtifactScoreCards, clampDisplayScore } from '../ui/ArtifactScoreCards'
 
 interface Battlecard {
   id: string;
@@ -47,6 +48,8 @@ interface Props {
 export function SalesEnablementPage({ artifact }: Props = {}) {
   const { toast } = useToast();
   const { context: gtmCtx, dismiss: dismissGtm } = useGtmContext('company_intel_sales_enablement');
+  const artifactData = (artifact?.data as any) || {};
+  const aiScores = artifactData?.scores || {};
 
   // Battlecards state
   const [battlecards, setBattlecards] = useState<Battlecard[]>([]);
@@ -84,6 +87,46 @@ export function SalesEnablementPage({ artifact }: Props = {}) {
 
   // Load saved data on mount; fall back to AI artifact if no saved data
   useEffect(() => {
+    if (artifact?.data) {
+      const d = artifact.data as {
+        battlecards?: Array<{ competitor?: string; strengths?: string[]; weaknesses?: string[]; differentiators?: string[]; objectionHandlers?: Array<{ objection: string; response: string }> }>;
+        demoScripts?: { '5min'?: string; '15min'?: string; '30min'?: string };
+        objectionHandlers?: Array<{ category?: string; objection?: string; response?: string; supportingData?: string }>;
+        pricingGuidance?: { tierRecommendations?: string; discountStrategy?: string; valueJustification?: string; competitivePositioning?: string };
+      };
+      setBattlecards(
+        d.battlecards?.map((b, i) => ({
+          id: `battlecard-${i}-${Date.now()}`,
+          competitor: b.competitor || '',
+          strengths: b.strengths || [],
+          weaknesses: b.weaknesses || [],
+          differentiators: b.differentiators || [],
+          objectionHandlers: b.objectionHandlers || [],
+        })) || []
+      );
+      setDemoScripts({
+        '5min': d.demoScripts?.['5min'] || '',
+        '15min': d.demoScripts?.['15min'] || '',
+        '30min': d.demoScripts?.['30min'] || '',
+      });
+      setObjectionHandlers(
+        d.objectionHandlers?.map((o, i) => ({
+          id: `objection-${i}-${Date.now()}`,
+          category: o.category || '',
+          objection: o.objection || '',
+          response: o.response || '',
+          supportingData: o.supportingData || '',
+        })) || []
+      );
+      setPricingGuidance({
+        tierRecommendations: d.pricingGuidance?.tierRecommendations || '',
+        discountStrategy: d.pricingGuidance?.discountStrategy || '',
+        valueJustification: d.pricingGuidance?.valueJustification || '',
+        competitivePositioning: d.pricingGuidance?.competitivePositioning || '',
+      });
+      return;
+    }
+
     loadSalesEnablement()
       .then(data => {
         const hasSavedContent = !!(
@@ -104,52 +147,6 @@ export function SalesEnablementPage({ artifact }: Props = {}) {
             valueJustification: '',
             competitivePositioning: '',
           });
-        } else if (artifact?.data) {
-          // No saved data — seed from AI-generated artifact
-          const d = artifact.data as {
-            battlecards?: Array<{ competitor?: string; strengths?: string[]; weaknesses?: string[]; differentiators?: string[]; objectionHandlers?: Array<{ objection: string; response: string }> }>;
-            demoScripts?: { '5min'?: string; '15min'?: string; '30min'?: string };
-            objectionHandlers?: Array<{ category?: string; objection?: string; response?: string; supportingData?: string }>;
-            pricingGuidance?: { tierRecommendations?: string; discountStrategy?: string; valueJustification?: string; competitivePositioning?: string };
-          };
-          if (d.battlecards?.length) {
-            setBattlecards(
-              d.battlecards.map((b, i) => ({
-                id: `battlecard-${i}-${Date.now()}`,
-                competitor: b.competitor || '',
-                strengths: b.strengths || [],
-                weaknesses: b.weaknesses || [],
-                differentiators: b.differentiators || [],
-                objectionHandlers: b.objectionHandlers || [],
-              }))
-            );
-          }
-          if (d.demoScripts) {
-            setDemoScripts({
-              '5min': d.demoScripts['5min'] || '',
-              '15min': d.demoScripts['15min'] || '',
-              '30min': d.demoScripts['30min'] || '',
-            });
-          }
-          if (d.objectionHandlers?.length) {
-            setObjectionHandlers(
-              d.objectionHandlers.map((o, i) => ({
-                id: `objection-${i}-${Date.now()}`,
-                category: o.category || '',
-                objection: o.objection || '',
-                response: o.response || '',
-                supportingData: o.supportingData || '',
-              }))
-            );
-          }
-          if (d.pricingGuidance) {
-            setPricingGuidance({
-              tierRecommendations: d.pricingGuidance.tierRecommendations || '',
-              discountStrategy: d.pricingGuidance.discountStrategy || '',
-              valueJustification: d.pricingGuidance.valueJustification || '',
-              competitivePositioning: d.pricingGuidance.competitivePositioning || '',
-            });
-          }
         }
       })
       .catch(err => {
@@ -425,10 +422,27 @@ export function SalesEnablementPage({ artifact }: Props = {}) {
     });
   };
 
+  const competitiveReadiness = Number.isFinite(Number(aiScores?.competitiveReadiness))
+    ? clampDisplayScore(aiScores.competitiveReadiness)
+    : clampDisplayScore(battlecards.length * 18)
+  const objectionCoverageScore = Number.isFinite(Number(aiScores?.objectionCoverage))
+    ? clampDisplayScore(aiScores.objectionCoverage)
+    : clampDisplayScore(objectionHandlers.length * 10 + battlecards.reduce((sum, card) => sum + card.objectionHandlers.length, 0) * 4)
+  const pricingConfidence = Number.isFinite(Number(aiScores?.pricingConfidence))
+    ? clampDisplayScore(aiScores.pricingConfidence)
+    : clampDisplayScore((pricingGuidance.tierRecommendations.trim() ? 30 : 0) + (pricingGuidance.valueJustification.trim() ? 30 : 0) + (pricingGuidance.discountStrategy.trim() ? 20 : 0))
+
   return (
     <div className="space-y-6">
       {/* GTM Context Banner */}
       {gtmCtx && <GtmContextBanner context={gtmCtx} onDismiss={dismissGtm} />}
+      <ArtifactScoreCards
+        items={[
+          { label: 'Competitive Readiness', value: competitiveReadiness, description: 'How ready the team is with battlecards and competitive framing.' },
+          { label: 'Objection Coverage', value: objectionCoverageScore, description: 'How well buyer objections are covered with usable responses.' },
+          { label: 'Pricing Confidence', value: pricingConfidence, description: 'How strong the pricing guidance is for sales conversations.' },
+        ]}
+      />
 
       {/* Page Header */}
       <div className="flex items-center justify-between">

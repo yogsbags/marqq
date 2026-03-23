@@ -354,7 +354,7 @@ export function VideoGenFlow() {
       {/* Riya script briefing — generates video script before production */}
       <CompanySelector value={videoCompanyId} onChange={setVideoCompanyId} />
       <div className="space-y-2">
-        <Button size="sm" disabled={riyaRun.streaming}
+        <Button size="sm" disabled={riyaRun.streaming} className="h-auto min-h-9 whitespace-normal text-left leading-5"
           onClick={() => riyaRun.run('riya',
             'Write a video content brief and full script: hook (first 5 seconds), 3 key points with supporting visuals described, CTA, and recommended B-roll prompts. Format for direct use in video production.',
             'weekly_content_brief', videoCompanyId || undefined)}>

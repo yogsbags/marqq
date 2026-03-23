@@ -1,5 +1,5 @@
 {
-  "connectors": ["hubspot", "salesforce", "zoho_crm", "gmail", "outlook", "ga4"],
+  "connectors": ["apollo", "hunter", "hubspot", "salesforce", "zoho_crm", "gmail", "outlook", "ga4"],
   "permissions": "read-write",
   "description": "Arjun owns funnel and lead operations across CRM, inbox, and conversion signals.",
   "recipes": {}

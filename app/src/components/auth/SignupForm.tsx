@@ -52,7 +52,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
             {BRAND.name.toUpperCase()}
           </p>
           <p className="mt-2 text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground">
-            {BRAND.platformTagline}
+            Your AI Marketing Co-Pilot
           </p>
         </div>
       </div>

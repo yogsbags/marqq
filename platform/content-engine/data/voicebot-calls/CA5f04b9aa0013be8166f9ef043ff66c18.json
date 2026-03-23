@@ -1,0 +1,84 @@
+{
+  "streamSid": "MZ5aad400fd9304e11a33a531052773375",
+  "callSid": "CA5f04b9aa0013be8166f9ef043ff66c18",
+  "companyId": null,
+  "companyName": "the company",
+  "campaignId": null,
+  "leadId": null,
+  "leadName": null,
+  "leadPhone": null,
+  "leadEmail": null,
+  "language": "en",
+  "openingLine": "Hello, this is the AI calling assistant from your marketing team. Is this a bad time for a quick conversation?",
+  "turns": [
+    {
+      "role": "assistant",
+      "text": "Hello, this is the AI calling assistant from your marketing team. Is this a bad time for a quick conversation?",
+      "createdAt": "2026-03-19T18:14:31.722Z",
+      "type": "opening_line"
+    },
+    {
+      "role": "lead",
+      "text": "Hello",
+      "createdAt": "2026-03-19T18:14:32.494Z",
+      "interruptedBot": false
+    },
+    {
+      "role": "assistant",
+      "text": "Hi, thanks for taking my call. I’m with Groq and we help businesses streamline their data pipelines and accelerate AI workloads. Could you tell me what your top priority is right now when it comes to data or AI infrastructure?",
+      "createdAt": "2026-03-19T18:14:33.854Z"
+    },
+    {
+      "role": "lead",
+      "text": "Hmm",
+      "createdAt": "2026-03-19T18:15:00.383Z",
+      "interruptedBot": false
+    },
+    {
+      "role": "assistant",
+      "text": "Sure—just to recap, we help businesses streamline data pipelines and accelerate AI workloads, and I’m checking if you’re facing any challenges with your data or AI infrastructure. Are you currently experiencing any issues in that area?",
+      "createdAt": "2026-03-19T18:15:01.802Z"
+    },
+    {
+      "role": "lead",
+      "text": "Yeah, I am facing some issues.",
+      "createdAt": "2026-03-19T18:15:27.468Z",
+      "interruptedBot": false
+    },
+    {
+      "role": "assistant",
+      "text": "We help businesses streamline data pipelines and accelerate AI workloads, and you mentioned you’re facing some issues with your data or AI infrastructure. Could you share the specific challenge you’re seeing—like performance bottlenecks, integration problems, or scaling limits?",
+      "createdAt": "2026-03-19T18:15:29.284Z"
+    }
+  ],
+  "scorecard": {
+    "callSid": "CA5f04b9aa0013be8166f9ef043ff66c18",
+    "leadId": null,
+    "leadName": null,
+    "companyId": null,
+    "companyName": "the company",
+    "status": "nurture",
+    "fitScore": 5,
+    "intentScore": 3,
+    "urgencyScore": 2,
+    "authorityScore": 2,
+    "budgetScore": 2,
+    "leadTemperature": "warm",
+    "detectedSignals": [
+      "expressed issues with data or AI infrastructure"
+    ],
+    "objections": [],
+    "nextAction": "schedule a follow-up call to discuss the lead's specific challenges and explore potential solutions",
+    "humanCloserBrief": "The lead is experiencing issues with their data or AI infrastructure, which aligns with Groq's services. However, more information is needed to determine their fit and budget.",
+    "recommendedCrmUpdate": {
+      "lifecycleStage": "prospect",
+      "ownerQueue": "data_ai_infrastructure",
+      "disposition": "open"
+    }
+  },
+  "googleSheetsSync": null,
+  "lastTranscript": "Yeah, I am facing some issues.",
+  "lastAssistantText": "We help businesses streamline data pipelines and accelerate AI workloads, and you mentioned you’re facing some issues with your data or AI infrastructure. Could you share the specific challenge you’re seeing—like performance bottlenecks, integration problems, or scaling limits?",
+  "endedAt": "2026-03-19T18:15:48.262Z",
+  "persistedAt": "2026-03-19T18:15:48.266Z"
+}

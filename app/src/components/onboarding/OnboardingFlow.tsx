@@ -41,7 +41,6 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
           {phase === 'welcome' && (
             <WelcomeStep
               onStart={() => setPhase('form')}
-              onSkip={handleSkip}
               steps={STEPS}
             />
           )}
@@ -55,6 +54,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
               updateField={updateField}
               onNext={handleNext}
               onBack={handleBack}
+              onSkip={handleSkip}
               canAdvance={canAdvance}
             />
           )}

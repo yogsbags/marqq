@@ -180,14 +180,14 @@ export function ProductTour({ onDone }: Props) {
       {/* Tooltip card */}
       <div
         ref={tooltipRef}
-        className="fixed z-[62] rounded-xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-700 p-5"
+        className="fixed z-[62] rounded-[1.25rem] border border-orange-200/70 bg-background/98 p-5 shadow-2xl dark:border-orange-900/40 dark:bg-zinc-950/96"
         style={tooltipStyle}
         onClick={e => e.stopPropagation()}
       >
         {/* Close / skip */}
         <button
           onClick={finish}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          className="absolute top-3 right-3 text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Skip tour"
         >
           <X className="h-4 w-4" />
@@ -203,16 +203,16 @@ export function ProductTour({ onDone }: Props) {
                   ? 'w-6 bg-orange-500'
                   : i < step
                   ? 'w-2 bg-orange-300'
-                  : 'w-2 bg-gray-200 dark:bg-gray-700'
+                  : 'w-2 bg-orange-100 dark:bg-white/10'
               }`}
             />
           ))}
         </div>
 
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base mb-1.5">
+        <h3 className="mb-1.5 text-base font-semibold text-foreground">
           {current.title}
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-5">
+        <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
           {current.description}
         </p>
 
@@ -220,7 +220,7 @@ export function ProductTour({ onDone }: Props) {
         <div className="flex items-center justify-between">
           <button
             onClick={finish}
-            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             Skip tour
           </button>

@@ -16,6 +16,7 @@ import express from "express";
 import multer from "multer";
 import Groq from "groq-sdk";
 import { tracedGroq, tracedLLM, langfuse } from "./langfuse.js";
+import { runAgenticLoop, getComposioTools } from "./agents/agenticLoop.js";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleAuth } from "google-auth-library";
@@ -59,9 +60,10 @@ import {
 import { HooksEngine } from "./hooks-engine.js";
 import { listCompanyKpis } from "./kpi-aggregator.js";
 import { detectCompanyAnomalies } from "./anomaly-detector.js";
+import { canAccessModule, PLAN_CREDITS, CREDIT_COSTS } from "./plans.js";
 import { getLatestCalibrationNote } from "./calibration-writer.js";
 import { REGISTRY, executeAutomationTriggers } from "./automations/registry.js";
-import { getConnectors, initiateConnection, disconnectConnector } from "./mcp-router.js";
+import { getConnectors, getAgentConnectors, getAgentConnectorApps, initiateConnection, disconnectConnector } from "./mcp-router.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const IS_MAIN_MODULE = process.argv[1]
@@ -79,6 +81,11 @@ const DEPLOYMENT_QUEUE_PATH = join(CREWAI_DIR, "deployments", "queue.json");
 const DEPLOYMENT_SCHEDULER_INTERVAL_MS = Math.max(
   15_000,
   Number(process.env.AGENT_DEPLOYMENT_SCHEDULER_INTERVAL_MS || 60_000),
+);
+// Poll scheduled_automations table once per minute; env override for testing
+const AUTOMATION_SCHEDULER_INTERVAL_MS = Math.max(
+  15_000,
+  Number(process.env.AGENT_AUTOMATION_SCHEDULER_INTERVAL_MS || 60_000),
 );
 const DEFAULT_MONITOR_RECURRENCE_MINUTES = Math.max(
   15,
@@ -102,8 +109,26 @@ const VALID_AGENTS = new Set([
   "kiran",
   "sam",
 ]);
-// Company-intel artifacts use rubric-controlled direct generation so the UI gets a stable schema.
-const ARTIFACT_AGENT_MAP = {};
+// Company-intel artifacts: map each artifact type to the named agent best suited to produce it.
+// This routes generation through the full agent stack (SOUL + skills + MKG + guardrails)
+// rather than falling back to raw Groq immediately.
+const ARTIFACT_AGENT_MAP = {
+  competitor_intelligence: { agent: "isha",  taskType: "competitor_intelligence" },
+  opportunities:           { agent: "isha",  taskType: "opportunities_analysis" },
+  icps:                    { agent: "neel",  taskType: "icp_definition" },
+  marketing_strategy:      { agent: "neel",  taskType: "marketing_strategy" },
+  positioning_messaging:   { agent: "neel",  taskType: "positioning_messaging" },
+  channel_strategy:        { agent: "dev",   taskType: "channel_strategy" },
+  client_profiling:        { agent: "kiran", taskType: "client_profiling" },
+  partner_profiling:       { agent: "kiran", taskType: "partner_profiling" },
+  lookalike_audiences:     { agent: "kiran", taskType: "lookalike_audiences" },
+  lead_magnets:            { agent: "tara",  taskType: "lead_magnets" },
+  sales_enablement:        { agent: "sam",   taskType: "sales_enablement" },
+  content_strategy:        { agent: "sam",   taskType: "content_strategy" },
+  social_calendar:         { agent: "riya",  taskType: "social_calendar" },
+  pricing_intelligence:    { agent: "tara",  taskType: "pricing_intelligence" },
+  website_audit:           { agent: "tara",  taskType: "website_audit" },
+};
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
 const gemini = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 const COMPANY_PROFILE_PRIMARY_PROVIDER = (
@@ -226,6 +251,196 @@ function hasUsableAgentProse(fullText) {
   return prose.length >= 120 && /[A-Za-z]/.test(prose);
 }
 
+/**
+ * Converts an internal Error into a user-safe message before sending over SSE.
+ * Strips model names, function brackets, internal sentinel strings, and technical jargon.
+ */
+function toUserFacingError(err) {
+  const msg = String(err?.message || err || "")
+    // Remove internal bracket prefixes: [runAgentForArtifact], [agent:isha], [contract], etc.
+    .replace(/\[[\w:/ .]+\]/g, "")
+    // Model names
+    .replace(/groq model\s+"[^"]+"/gi, "AI model")
+    .replace(/gemini model\s+"[^"]+"/gi, "AI model")
+    .replace(/"?(llama|gpt|qwen|deepseek|gemini|mixtral|claude)[-\w.]*"?/gi, "AI model")
+    // Internal sentinel strings
+    .replace(/---CONTRACT---/g, "")
+    .replace(/did not return a\s+\S+\s+block/gi, "produced incomplete output")
+    .replace(/returned insufficient user-facing prose/gi, "could not produce a usable response")
+    .replace(/All agent run models failed/gi, "The AI service is temporarily unavailable. Please try again.")
+    .replace(/\b(SOUL|MKG|run_id|company_id|task_type)\b/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+  return msg || "Agent run failed. Please try again."
+}
+
+const AGENTMAIL_BASE_URL = "https://api.agentmail.to/v0";
+
+function extractEmailAddresses(value) {
+  if (!value) return [];
+  return Array.from(new Set(String(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []));
+}
+
+function extractSlackTargets(value) {
+  if (!value) return [];
+  return Array.from(
+    new Set(
+      [...String(value).matchAll(/(^|[\s,])(#([a-z0-9_-]+))/gi)]
+        .map((match) => match[2])
+        .filter(Boolean)
+    )
+  );
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function extractDelimitedSection(text, startLabel, endLabel = null) {
+  const startIndex = String(text || "").indexOf(startLabel);
+  if (startIndex === -1) return "";
+  const from = startIndex + startLabel.length;
+  const endIndex = endLabel ? String(text).indexOf(endLabel, from) : -1;
+  const slice = endIndex === -1 ? String(text).slice(from) : String(text).slice(from, endIndex);
+  return slice.trim();
+}
+
+function parseJsonBlock(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed.startsWith("{")) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function parseAgentMailReportRequest(query) {
+  const text = String(query || "");
+  const destinationLineMatch = text.match(/Destination details:\s*(.+)/i);
+  const deliveryNoteMatch = text.match(/Delivery note:\s*(.+)/i);
+  const reportLineMatch = text.match(/Distribute the (.+?) report\./i);
+  const reportTitleMatch =
+    text.match(/Report title:\s*(.+)/i) ||
+    text.match(/Title:\s*(.+)/i);
+  const subjectMatch = text.match(/Subject:\s*(.+)/i);
+  const docUrlMatch = text.match(/Doc URL:\s*(https?:\/\/\S+)/i);
+  const narrative = extractDelimitedSection(text, "Generated report narrative:\n", "\n\nGenerated report artifact:\n");
+  const artifactRaw = extractDelimitedSection(text, "Generated report artifact:\n");
+  const artifact = parseJsonBlock(artifactRaw);
+  const destinationText = destinationLineMatch?.[1] || text;
+  const reportName = artifact?.report_title || reportTitleMatch?.[1]?.trim() || reportLineMatch?.[1] || "Marqq";
+
+  return {
+    recipients: extractEmailAddresses(destinationText),
+    slackTargets: extractSlackTargets(destinationText),
+    subject:
+      artifact?.recommended_subject ||
+      artifact?.subject_line ||
+      subjectMatch?.[1]?.trim() ||
+      `${reportName} report`,
+    docUrl: artifact?.doc_url || artifact?.file_url || docUrlMatch?.[1] || null,
+    reportMarkdown: artifact?.report_markdown || "",
+    reportHtml: artifact?.report_html || "",
+    executiveSummary: artifact?.executive_summary || "",
+    narrative: narrative || text,
+    deliveryNote: deliveryNoteMatch?.[1]?.trim() || "",
+    reportName,
+  };
+}
+
+function buildAgentMailBodies({
+  reportName,
+  subject,
+  docUrl,
+  executiveSummary,
+  narrative,
+  reportMarkdown,
+  reportHtml,
+  deliveryNote,
+}) {
+  const summary = executiveSummary || narrative || reportMarkdown || "Your report is ready.";
+  const textParts = [
+    `Subject: ${subject}`,
+    "",
+    deliveryNote ? `Note: ${deliveryNote}` : "",
+    `Your ${reportName} report is ready.`,
+    "",
+    summary,
+    docUrl ? `Report link: ${docUrl}` : "",
+  ].filter(Boolean);
+
+  const safeSummary = escapeHtml(summary).replace(/\n/g, "<br />");
+  const safeNote = deliveryNote ? `<p><strong>Note:</strong> ${escapeHtml(deliveryNote)}</p>` : "";
+  const html =
+    reportHtml ||
+    `<div>${safeNote}<p>Your <strong>${escapeHtml(reportName)}</strong> report is ready.</p><p>${safeSummary}</p>${
+      docUrl ? `<p><a href="${escapeHtml(docUrl)}">Open the report</a></p>` : ""
+    }</div>`;
+
+  return {
+    text: textParts.join("\n"),
+    html,
+  };
+}
+
+async function agentMailFetch(path, apiKey, init = {}) {
+  const response = await fetch(`${AGENTMAIL_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`AgentMail request failed: ${response.status} ${body.slice(0, 300)}`);
+  }
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+async function ensureAgentMailInbox(apiKey, companyId) {
+  const list = await agentMailFetch("/inboxes", apiKey, { method: "GET" });
+  const existingInbox = list?.inboxes?.[0] || list?.items?.[0] || list?.data?.[0] || null;
+  if (existingInbox?.inbox_id) return existingInbox;
+
+  return agentMailFetch("/inboxes", apiKey, {
+    method: "POST",
+    body: JSON.stringify({
+      display_name: companyId ? `Marqq Reports ${companyId.slice(0, 8)}` : "Marqq Reports",
+      client_id: companyId ? `marqq-reports-${companyId}` : "marqq-reports",
+    }),
+  });
+}
+
+async function sendReportViaAgentMail({ apiKey, companyId, query }) {
+  const parsed = parseAgentMailReportRequest(query);
+  if (!parsed.recipients.length) {
+    throw new Error("No email recipients found in report delivery request");
+  }
+
+  const inbox = await ensureAgentMailInbox(apiKey, companyId);
+  const bodies = buildAgentMailBodies(parsed);
+  const result = await agentMailFetch(`/inboxes/${encodeURIComponent(inbox.inbox_id)}/messages/send`, apiKey, {
+    method: "POST",
+    body: JSON.stringify({
+      to: parsed.recipients,
+      subject: parsed.subject,
+      text: bodies.text,
+      html: bodies.html,
+    }),
+  });
+
+  return { inbox, parsed, result };
+}
+
 function sanitizeAgentRunFullText(name, taskType, fullText) {
   const text = String(fullText || "");
   const contractIndex = text.indexOf("---CONTRACT---");
@@ -268,6 +483,8 @@ function buildAgentRunGuardrails(name, taskType) {
     "Do not fabricate competitor moves, campaign copy, agent activity, KPI values, search volume, or proof points.",
     "If you must provide an example because source material is missing, label it explicitly as a sample and keep it separate from factual findings.",
     "Before the contract block, always include substantive user-facing prose. Do not return only JSON or only the contract.",
+    "NEVER use the term 'MKG' in your user-facing response. Refer to it as 'company context', 'marketing context', or 'company knowledge' instead.",
+    "NEVER reference internal system terms such as 'SOUL', 'run_id', 'company_id', 'task_type', or 'contract block' in user-facing text.",
   ];
 
   const agentSpecific = {
@@ -350,6 +567,25 @@ function buildAgentRunGuardrails(name, taskType) {
       "Do not use consumer wealth tiers, net-worth bands, family-office language, HNI/UHNI framing, or investor personas unless the selected company explicitly operates in wealth or investment services.",
       "If the company profile points to software, AI, SaaS, services, or B2B solutions, keep the ICPs anchored to business buyers and operational use cases.",
     ],
+    generate_image: [
+      "Use native image generation first for the first draft or concept asset.",
+      "Prefer the generate_social_image automation before using Canva tools, even if Canva is connected.",
+      "Use Canva only as a secondary tool for design import, resize, autofill, export, template-based production, or packaging the native draft into channel-ready assets.",
+    ],
+    generate_video: [
+      "Use native video generation first for the first draft or concept asset.",
+      "Prefer the generate_faceless_video automation before using Veo tools, even if Veo is connected.",
+      "Use Veo tools only as a secondary path for direct operation handling, polling, download, or explicit toolkit-level control after the native generation path has been chosen.",
+    ],
+    marketing_report: [
+      "If Google Docs or Google Drive tools are available in this run, use them to create or store the report before finishing.",
+      "For report documents, create a native Google Doc layout with normal headings, paragraphs, and lists. Do not leave markdown syntax visible in the final document.",
+      "Prefer non-markdown Google Docs creation and update tools when they are available.",
+      "Do not claim Google Docs, Google Drive, or OneDrive are unavailable unless the tool list for this run truly omitted them.",
+      "If a Google Docs creation tool succeeds, include the resulting doc URL in artifact.data.doc_url.",
+      "If a storage tool succeeds, include the resulting file URL in artifact.data.file_url.",
+      "Do not leave doc_url or file_url null after a successful document or file creation call.",
+    ],
   };
 
   const lines = [
@@ -359,6 +595,28 @@ function buildAgentRunGuardrails(name, taskType) {
     ...(taskSpecific[taskType] || []).map((item) => `- ${item}`),
   ];
   return `\n\n${lines.join("\n")}`;
+}
+
+function filterComposioToolsForTaskType(taskType, tools) {
+  const list = Array.isArray(tools) ? tools : [];
+  if (taskType !== "marketing_report") return list;
+
+  const blockedToolNames = new Set([
+    "GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN",
+    "GOOGLEDOCS_UPDATE_DOCUMENT_MARKDOWN",
+    "GOOGLEDOCS_UPDATE_DOCUMENT_SECTION_MARKDOWN",
+    "GOOGLESHEETS_CREATE_DOCUMENT_MARKDOWN",
+    "GOOGLESHEETS_UPDATE_DOCUMENT_MARKDOWN",
+  ]);
+
+  return list.filter((tool) => {
+    const toolName =
+      tool?.function?.name ||
+      tool?.name ||
+      tool?.slug ||
+      "";
+    return !blockedToolNames.has(toolName);
+  });
 }
 
 const AGENT_PROFILES = {
@@ -545,9 +803,14 @@ const AGENT_PLAN_GROQ_MODELS = [
   process.env.GROQ_AGENT_PLAN_MODEL || "groq/compound",
   "llama-3.3-70b-versatile",
 ];
-const AGENT_RUN_GROQ_MODELS = [
+const AGENT_RUN_NO_TOOL_GROQ_MODELS = [
   process.env.GROQ_AGENT_RUN_MODEL || "groq/compound",
   "llama-3.3-70b-versatile",
+];
+const AGENT_RUN_TOOL_GROQ_MODELS = [
+  process.env.GROQ_AGENT_RUN_TOOL_MODEL || "openai/gpt-oss-120b",
+  "llama-3.3-70b-versatile",
+  "moonshotai/kimi-k2-instruct-0905",
 ];
 const AGENT_RUN_PRIMARY_PROVIDER = (
   process.env.AGENT_RUN_PRIMARY_PROVIDER ||
@@ -599,7 +862,7 @@ const TWILIO_OUTBOUND_GREETING =
   process.env.TWILIO_OUTBOUND_GREETING ||
   "Hello, this is the AI calling assistant from your marketing team.";
 const TWILIO_SILENCE_FRAME_THRESHOLD = Number(
-  process.env.TWILIO_SILENCE_FRAME_THRESHOLD || 18,
+  process.env.TWILIO_SILENCE_FRAME_THRESHOLD || 10,
 );
 const TWILIO_SPEECH_RMS_THRESHOLD = Number(
   process.env.TWILIO_SPEECH_RMS_THRESHOLD || 350,
@@ -612,7 +875,7 @@ const TWILIO_MIN_UTTERANCE_SAMPLES = Number(
   process.env.TWILIO_MIN_UTTERANCE_SAMPLES || 6400,
 );
 const TWILIO_INTERRUPT_SILENCE_FRAMES = Number(
-  process.env.TWILIO_INTERRUPT_SILENCE_FRAMES || 10,
+  process.env.TWILIO_INTERRUPT_SILENCE_FRAMES || 6,
 );
 const TWILIO_MAX_CONVERSATION_TURNS = Number(
   process.env.TWILIO_MAX_CONVERSATION_TURNS || 24,
@@ -723,20 +986,80 @@ async function finalizeAgentRunResponse({
   runId,
   companyId,
   fullText,
+  toolExecutions = [],
   res,
   startedAt,
   triggerContext = null,
 }) {
   await markAgentHeartbeat(name, "completed", Date.now() - startedAt);
 
-  const rawContract = extractContract(fullText);
+  let rawContract = extractContract(fullText);
 
+  // Two-pass recovery: if the LLM dropped the ---CONTRACT--- block (token budget
+  // exhausted mid-prose), ask a second fast non-streaming call to synthesise it.
   if (!rawContract) {
-    console.warn(`[contract] ${name}/${runId}: ---CONTRACT--- sentinel missing from response`);
-    res.write(`data: ${JSON.stringify({ contractError: "missing" })}\n\n`);
-    res.write("data: [DONE]\n\n");
-    res.end();
-    return;
+    console.warn(`[contract] ${name}/${runId}: sentinel missing — attempting recovery pass`);
+    try {
+      const prose = fullText.trim();
+      const successfulToolContext = Array.isArray(toolExecutions) && toolExecutions.length
+        ? `\nSuccessful or attempted tool executions for this run:\n${toolExecutions
+            .map((entry) => JSON.stringify({
+              tool: entry.emittedToolName || entry.requestedToolName,
+              successful: entry.successful,
+              data: entry.successful ? entry.data : null,
+              error: entry.successful ? null : entry.error,
+            }))
+            .join("\n")}\n`
+        : "";
+      const recoveryPrompt = `You are a JSON extractor. The agent just produced the following response but forgot to append the ---CONTRACT--- block. Synthesise the contract JSON from the content below.
+
+Return ONLY valid JSON (no markdown, no commentary) with this exact shape:
+{
+  "agent": "${name}",
+  "task": "<one-line summary of what the agent did>",
+  "company_id": "${companyId ?? null}",
+  "run_id": "${runId}",
+  "timestamp": "${new Date().toISOString()}",
+  "input": { "mkg_version": null, "dependencies_read": [], "assumptions_made": [] },
+  "artifact": {
+    "data": {},
+    "summary": "<one paragraph summary extracted from the response>",
+    "confidence": 0.75
+  },
+  "context_patch": { "writes_to": [], "patch": {} },
+  "handoff_notes": "",
+  "missing_data": [],
+  "tasks_created": [],
+  "outcome_prediction": null,
+  "automation_triggers": []
+}
+
+If tool execution context is provided, use it to recover artifact.data fields such as doc_url and file_url.
+If a successful Google Docs create call exists with a document_id, set artifact.data.doc_url to https://docs.google.com/document/d/<document_id>/edit.
+If a successful Google Drive file creation exists with a file id, set artifact.data.file_url to https://drive.google.com/file/d/<id>/view.
+
+Agent response to extract from:
+${prose.slice(0, 6000)}
+${successfulToolContext}`;
+
+      const recovery = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: recoveryPrompt }],
+        stream: false,
+        max_tokens: 1500,
+        temperature: 0,
+        response_format: { type: "json_object" },
+      });
+      const recoveryText = recovery.choices[0]?.message?.content?.trim() || "";
+      rawContract = JSON.parse(recoveryText);
+      console.log(`[contract] ${name}/${runId}: recovery pass succeeded`);
+    } catch (err) {
+      console.warn(`[contract] ${name}/${runId}: recovery pass failed:`, err.message);
+      res.write(`data: ${JSON.stringify({ contractError: "missing" })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
   }
 
   const { valid, errors } = validateContract(rawContract);
@@ -766,6 +1089,49 @@ async function finalizeAgentRunResponse({
       .join(" | ");
   }
 
+  const reportData = rawContract?.artifact?.data;
+  if (reportData && typeof reportData === "object") {
+    const successfulGoogleDocCreate = toolExecutions.find((entry) =>
+      entry?.successful &&
+      ["GOOGLEDOCS_CREATE_DOCUMENT", "GOOGLEDOCS_CREATE_DOCUMENT2", "GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN"].includes(entry?.emittedToolName) &&
+      (
+        entry?.data?.document_id ||
+        entry?.data?.documentId ||
+        entry?.data?.id ||
+        entry?.data?.response_data?.documentId
+      )
+    );
+    const successfulGoogleDriveFile = toolExecutions.find((entry) =>
+      entry?.successful &&
+      entry?.emittedToolName === "GOOGLEDRIVE_CREATE_FILE" &&
+      (entry?.data?.id || entry?.data?.file_id)
+    );
+
+    if (!reportData.doc_url && successfulGoogleDocCreate) {
+      const documentId =
+        successfulGoogleDocCreate.data?.document_id ||
+        successfulGoogleDocCreate.data?.documentId ||
+        successfulGoogleDocCreate.data?.id ||
+        successfulGoogleDocCreate.data?.response_data?.documentId;
+      if (documentId) {
+        reportData.doc_url = `https://docs.google.com/document/d/${documentId}/edit`;
+      }
+    }
+
+    if (!reportData.file_url && successfulGoogleDriveFile) {
+      const fileId = successfulGoogleDriveFile.data?.id || successfulGoogleDriveFile.data?.file_id;
+      if (fileId) {
+        reportData.file_url = `https://drive.google.com/file/d/${fileId}/view`;
+      }
+    }
+
+    if ((reportData.doc_url || reportData.file_url) && Array.isArray(rawContract.input?.assumptions_made)) {
+      rawContract.input.assumptions_made = rawContract.input.assumptions_made.filter(
+        (item) => !/No Google Docs\/Drive\/OneDrive connection detected/i.test(String(item))
+      );
+    }
+  }
+
   if (
     companyId &&
     rawContract.context_patch?.patch &&
@@ -787,9 +1153,13 @@ async function finalizeAgentRunResponse({
   ]);
 
   if (rawContract.automation_triggers?.length) {
-    await executeAutomationTriggers(rawContract, companyId).catch(err =>
-      console.error('[automations] executeAutomationTriggers failed:', err)
-    );
+    const automationResults = await executeAutomationTriggers(rawContract, companyId).catch(err => {
+      console.error('[automations] executeAutomationTriggers failed:', err);
+      return [];
+    });
+    if (automationResults?.length) {
+      rawContract.automation_results = automationResults;
+    }
   }
 
   if (rawContract.scheduled_automations?.length && companyId) {
@@ -801,6 +1171,37 @@ async function finalizeAgentRunResponse({
       } catch (e) {
         console.warn('[automations] Failed to upsert scheduled automation:', e.message);
       }
+    }
+  }
+
+  // Wire triggers_agents: if contract declares downstream agents, queue them via agent_tasks
+  if (rawContract?.triggers_agents?.length && companyId) {
+    try {
+      const triggerList = Array.isArray(rawContract.triggers_agents)
+        ? rawContract.triggers_agents
+        : String(rawContract.triggers_agents).split(',').map(s => s.trim()).filter(Boolean);
+
+      const validTriggers = triggerList.filter(a => VALID_AGENTS.has(a));
+      if (validTriggers.length && supabase) {
+        const chainBaseTime = Date.now();
+        const chainRows = validTriggers.map((agentName, index) => ({
+          agent: agentName,
+          company_id: companyId,
+          task_type: 'chain_trigger',
+          query: rawContract?.handoff_notes
+            ? `Continue from previous run: ${String(rawContract.handoff_notes).slice(0, 300)}`
+            : `Continue the workflow for ${companyId}`,
+          scheduled_for: new Date(chainBaseTime + (index + 1) * 90000).toISOString(),
+          triggered_by: name,
+          trigger_id: runId,
+          status: 'pending',
+        }));
+        const { error: chainErr } = await supabase.from('agent_tasks').insert(chainRows);
+        if (chainErr) console.warn('[triggers_agents] Failed to queue chain:', chainErr.message);
+        else console.log(`[triggers_agents] Queued ${validTriggers.join(', ')} for ${companyId}`);
+      }
+    } catch (e) {
+      console.warn('[triggers_agents] Error wiring chain:', e.message);
     }
   }
 
@@ -1378,6 +1779,17 @@ async function persistVoicebotCallRecord(record) {
     ),
     "utf-8",
   );
+}
+
+async function readVoicebotCallRecord(callSid) {
+  const safeCallSid = normalizeShortText(callSid, "");
+  if (!safeCallSid) return null;
+  try {
+    const raw = await readFile(voicebotCallPath(safeCallSid), "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 function splitLeadName(fullName = "") {
@@ -2096,6 +2508,8 @@ async function runVoicebotDialogue({
     buildCompanySalesContext(companyId),
   ]);
   const citations = genericCitations.concat(companyCitations);
+  const outboundBrief = String(session.openingLine || "").trim();
+  const campaignContext = String(session.campaignId || "").trim();
   const kbContext = citations.length
     ? citations
         .map(
@@ -2123,7 +2537,17 @@ Rules:
 - If the lead sounds qualified, steer toward a concrete next step for a human closer.
 - If language is Hindi, answer in Hindi. Otherwise answer in Indian English.
 - End with one natural next-step question only when it helps move the conversation forward.
+- Treat the outbound brief below as the source of truth for what this call is about.
+- Do not substitute a different company, product, offer, or industry narrative when the outbound brief is present.
+- Never switch into unrelated themes such as AI infrastructure, inference, GPUs, or latency unless the outbound brief or company context explicitly mentions them.
+- If the lead says this feels like a cold call, acknowledge that directly and explain the outreach reason using the outbound brief.
 ${interruptionMode ? "- The caller interrupted the previous reply. Respond extremely quickly: 1-2 short spoken sentences, ideally under 20 words total.\n- Do not restate context unless absolutely necessary." : ""}
+
+Outbound brief:
+${outboundBrief || "No explicit outbound brief provided."}
+
+Campaign context:
+${campaignContext || "No campaign label provided."}
 
 Company sales context:
 ${companySalesContext.salesContext}
@@ -2146,16 +2570,16 @@ ${kbContext}`;
           ...messageHistory,
           {
             role: "user",
-            content: `Language: ${language === "hi" ? "Hindi" : "English"}\nLead name: ${leadName || "Unknown"}\nUser message: ${String(userText || "").trim()}`,
+            content: `Language: ${language === "hi" ? "Hindi" : "English"}\nLead name: ${leadName || "Unknown"}\nOutbound brief: ${outboundBrief || "Not provided"}\nCampaign: ${campaignContext || "Not provided"}\nUser message: ${String(userText || "").trim()}`,
           },
         ],
         temperature: 0.4,
         ...(model === "groq/compound"
           ? {
-              max_completion_tokens: 500,
+              max_completion_tokens: interruptionMode ? 80 : 160,
             }
           : {
-              max_tokens: interruptionMode ? 120 : 500,
+              max_tokens: interruptionMode ? 60 : 140,
             }),
       });
 
@@ -2196,8 +2620,32 @@ function getTwilioMediaStreamUrl() {
   if (!baseUrl) return "";
   return baseUrl
     .replace(/^http:\/\//i, "ws://")
-      .replace(/^https:\/\//i, "wss://")
+    .replace(/^https:\/\//i, "wss://")
     .concat("/api/voicebot/twilio/media-stream");
+}
+
+function buildVoicebotOpeningLine(value) {
+  const fallback =
+    process.env.TWILIO_OUTBOUND_GREETING || TWILIO_OUTBOUND_GREETING;
+  const raw = String(value || "").replace(/\s+/g, " ").trim();
+  if (!raw) return fallback;
+  if (/is this a bad time for a quick conversation\?/i.test(raw)) {
+    const trimmed = raw.replace(/\s+/g, " ").trim();
+    return trimmed.length <= 140 ? trimmed : `${trimmed.slice(0, 137).trim()}...`;
+  }
+  const normalized = raw.replace(/[.!?]+/g, ". ");
+  const words = normalized.split(/\s+/).filter(Boolean);
+  let opening = "";
+
+  for (const word of words) {
+    const candidate = opening ? `${opening} ${word}` : word;
+    if (candidate.length > 110) break;
+    opening = candidate;
+  }
+
+  opening = opening.trim().replace(/[.,;:!?-]+$/, "");
+  if (!opening) return fallback;
+  return `${opening}. Is this a bad time for a quick conversation?`;
 }
 
 function createWavBufferFromPcm16(int16Samples, sampleRate = 8000, channels = 1) {
@@ -2371,7 +2819,9 @@ async function generateTwilioAssistantReply({
       transcript,
     });
     if (!transcript) return;
-    if (utterance.length < TWILIO_MIN_UTTERANCE_SAMPLES && transcript.length < 8) {
+    const normalizedTranscript = transcript.toLowerCase().replace(/[^\p{L}\p{N}\s?!.]/gu, "").trim();
+    const allowShortGreeting = /^(hello|hello\?|hi|hi\?|hey|hey\?|yes|yes\?|speaking|who is this|who's this|okay|okay\.|ok|ok\.|hmm|hmm\.|right|right\.)$/i.test(normalizedTranscript);
+    if (!allowShortGreeting && utterance.length < TWILIO_MIN_UTTERANCE_SAMPLES && transcript.length < 8) {
       console.log("[TwilioMediaStream] dropped micro-utterance", {
         streamSid: session.streamSid,
         transcript,
@@ -2747,6 +3197,31 @@ async function assembleMarketingContext({ userId = "", workspaceId = "", company
 }
 
 const app = express();
+const ALLOWED_CORS_ORIGINS = new Set([
+  "http://localhost:3007",
+  "http://127.0.0.1:3007",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_CORS_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -3524,7 +3999,7 @@ app.post("/api/voicebot/twilio/calls", async (req, res) => {
     twimlUrl.searchParams.set("leadEmail", resolvedLeadEmail);
     twimlUrl.searchParams.set("language", language === "hi" ? "hi" : "en");
     twimlUrl.searchParams.set("gender", gender === "male" ? "male" : "female");
-    twimlUrl.searchParams.set("openingLine", String(openingLine || TWILIO_OUTBOUND_GREETING));
+    twimlUrl.searchParams.set("openingLine", buildVoicebotOpeningLine(openingLine || defaultGreeting));
 
     const statusCallbackUrl = new URL(
       "/api/voicebot/twilio/status",
@@ -3572,6 +4047,25 @@ app.post("/api/voicebot/twilio/calls", async (req, res) => {
       leadEmail: resolvedLeadEmail || null,
       twimlUrl: twimlUrl.toString(),
     });
+
+    if (json?.sid) {
+      await persistVoicebotCallRecord({
+        callSid: json.sid,
+        companyId: String(companyId || ""),
+        campaignId: String(campaignId || ""),
+        leadId: String(leadId || ""),
+        leadName: resolvedLeadName || null,
+        leadPhone: resolvedLeadPhone || targetPhone,
+        leadEmail: resolvedLeadEmail || null,
+        language: language === "hi" ? "hi" : "en",
+        openingLine: buildVoicebotOpeningLine(openingLine || defaultGreeting),
+        status: "queued",
+        queuedAt: new Date().toISOString(),
+        turns: [],
+      }).catch((error) => {
+        console.warn("[TwilioCalls] failed to persist queued context:", String(error));
+      });
+    }
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -3583,7 +4077,7 @@ app.all("/api/voicebot/twilio/twiml", (req, res) => {
     process.env.TWILIO_OUTBOUND_GREETING || TWILIO_OUTBOUND_GREETING;
   const language = source.language === "hi" ? "hi" : "en";
   const gender = source.gender === "male" ? "male" : "female";
-  const openingLine = String(source.openingLine || defaultGreeting).trim();
+  const openingLine = buildVoicebotOpeningLine(source.openingLine || defaultGreeting);
   const streamUrl = getTwilioMediaStreamUrl();
 
   if (!streamUrl) {
@@ -3962,6 +4456,51 @@ async function runAgentForArtifact(agentName, query, companyId, taskType) {
 
   const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\ntask_type: ${taskType ?? "artifact_generation"}\n`;
 
+  // Load MKG + company profile (same logic as SSE endpoint)
+  let mkgBlock = "";
+  if (companyId) {
+    try {
+      const [mkgData, companiesData] = await Promise.all([
+        MKGService.read(companyId).catch(() => null),
+        fetch(`http://localhost:${process.env.PORT || 3007}/api/company-intel/companies`).then(r => r.json()).catch(() => null),
+      ]);
+      const company = (companiesData?.companies ?? []).find(c => c.id === companyId);
+      const profile = company?.profile ?? {};
+      const mkg = mkgData ?? {};
+      const lines = ["## Company Knowledge Base"];
+      if (company?.companyName) lines.push(`Company: ${company.companyName}`);
+      if (company?.websiteUrl) lines.push(`Website: ${company.websiteUrl}`);
+      if (profile.summary) lines.push(`Summary: ${profile.summary}`);
+      if (profile.industry) lines.push(`Industry: ${profile.industry}`);
+      if (Array.isArray(profile.geoFocus) && profile.geoFocus.length) lines.push(`Geography: ${profile.geoFocus.join(", ")}`);
+      if (Array.isArray(profile.offerings) && profile.offerings.length) lines.push(`Offerings: ${profile.offerings.join(", ")}`);
+      if (Array.isArray(profile.primaryAudience) && profile.primaryAudience.length) lines.push(`Primary Audience: ${profile.primaryAudience.join(", ")}`);
+      if (profile.brandVoice?.tone) lines.push(`Brand Voice: ${profile.brandVoice.tone}${profile.brandVoice.style ? `, ${profile.brandVoice.style}` : ""}`);
+      const mkgFields = ["positioning", "icp", "competitors", "offers", "messaging", "channels", "content_pillars"];
+      for (const field of mkgFields) {
+        const entry = mkg[field];
+        if (entry?.value != null && entry.confidence >= 0.5) {
+          lines.push(`Company.${field}: ${JSON.stringify(entry.value)}`);
+        }
+      }
+      if (lines.length > 1) mkgBlock = "\n\n" + lines.join("\n");
+    } catch { /* non-blocking */ }
+  }
+
+  // Guardrails (same as SSE endpoint)
+  const guardrailsBlock = buildAgentRunGuardrails(agentName, taskType);
+
+  // Industry intel
+  let industryIntelBlock = '';
+  if (companyId) {
+    try {
+      const intel = await loadIndustryIntel(companyId);
+      if (intel?.brief) {
+        industryIntelBlock = `\n\n## Industry Intelligence (Last 30 Days)\nUse this as live market context when forming recommendations. Generated: ${intel.generated_at ?? 'unknown'}.\n\n${intel.brief}`;
+      }
+    } catch {}
+  }
+
   // Fetch recent automation results for this company
   let recentAutomationData = '';
   if (companyId) {
@@ -4014,18 +4553,34 @@ else in your response.
 Replace ALL placeholder values with your actual outputs.
 - artifact.data: must contain the structured artifact content for the requested type
 - context_patch.patch: use only valid MKG field names: positioning, icp, competitors, offers, messaging, channels, funnel, metrics, baselines, content_pillars, campaigns, insights
-- automation_triggers: array of { "automation_id": "<id from registry>", "params": {}, "reason": "<why>" } — only include if you need live data or analysis from an automation
+- automation_triggers: array of { "automation_id": "<id from registry>", "params": {}, "reason": "<why>" } — include when you need to generate content assets (images, videos, emails, articles) OR fetch live data. For content creation tasks (image, email, video, article), you MUST populate this with the appropriate automation_id
 - "scheduled_automations": recurring jobs to schedule, e.g. [{ "automation_id": "fetch_meta_ads", "cron": "0 9 * * *", "params": { "ad_account_id": "act_123" }, "reason": "Daily morning pull" }]. Cron patterns: "0 9 * * *" daily 9am, "0 */6 * * *" every 6h, "*/15 * * * *" every 15min, "0 9 * * 1" weekly Mon 9am. Use [] if no schedule needed.
 - The JSON must be valid JSON (no trailing commas, no comments)
+
+## Available Paid Media Automations
+- fetch_meta_ads: Read Meta Ads performance (campaigns, spend, CTR, ROAS) — params: { ad_account_id?, date_range? }
+- create_meta_campaign: Create a full Meta Ads campaign (Campaign→AdSet→Creative→Ad) — params: { campaign_name, objective, daily_budget, targeting, headline, primary_text, link_url, cta_type?, status? }
+- optimize_meta_roas: Pause low-ROAS ads and scale winning ad sets — params: { roas_threshold_pause?, roas_threshold_scale?, budget_scale_factor?, date_range?, dry_run? }. Set as scheduled_automation every 6h for autonomous ROAS management.
+- google_ads_fetch: Read Google Ads campaigns — params: { campaign_name?, campaign_id? }
+
+## Available Content Creation Automations (Riya + Maya)
+- generate_social_image: Gemini Flash image (gemini-3.1-flash-image-preview) -> imgbb CDN. params: { prompt, aspect_ratio (1:1|16:9|9:16|4:5), platform, brand_context?, style? }. Returns: { image_url, cdn_url, platform }
+- generate_email_html: Full inline-CSS HTML email newsletter. params: { subject, content, tone?, brand_name?, primary_color?, sections? }. Returns: { html, subject, preview_text }
+- generate_faceless_video: Google Veo 3.1 video (async). params: { prompt, duration?, aspect_ratio?, style? }. Returns: { status:queued, operation_name }
+- generate_avatar_video: HeyGen spokesperson video (async). params: { script, avatar_id?, voice_id?, background_color?, width?, height? }. Returns: { status:processing, video_id, check_url }
+- create_seo_article: Full HTML blog post with SEO meta. params: { keyword, topic?, word_count_target?, target_audience?, brand_context? }. Returns: { html, title, meta_description, slug, word_count }
 `;
 
   const fullSystem = [
     systemPrompt,
+    mkgBlock,
     memory ? `\n\n## Your Recent Memory\n${memory}` : "",
     calibrationNote?.text ? `\n\n## Latest Calibration Note\n${calibrationNote.text}` : "",
     skillsBlock,
     runContextBlock,
+    guardrailsBlock,
     recentAutomationData,
+    industryIntelBlock,
     contractInstruction,
   ].join("");
 
@@ -4543,6 +5098,239 @@ app.get('/api/industry-intel/:companyId', async (req, res) => {
   return res.json(intel);
 });
 
+// ── POST /api/agents/planner/route ─────────────────────────────────────────────
+// Given a natural-language goal, returns a structured workflow plan:
+//   { workflow_name, description, steps: [{ agent, query, description, order }] }
+// Uses Groq to classify the goal against known workflows and agent capabilities.
+
+app.post("/api/agents/planner/route", async (req, res) => {
+  const { goal, company_id } = req.body || {};
+  if (!goal?.trim()) return res.status(400).json({ error: "goal is required" });
+
+  const companyId = typeof company_id === "string" ? company_id.trim() : null;
+
+  // Load MKG for context
+  let mkgSummary = "";
+  if (companyId) {
+    try {
+      const mkg = await MKGService.read(companyId).catch(() => null);
+      if (mkg) {
+        const parts = [];
+        if (mkg.positioning?.value) parts.push(`Positioning: ${JSON.stringify(mkg.positioning.value).slice(0, 120)}`);
+        if (mkg.icp?.value) parts.push(`ICP: ${JSON.stringify(mkg.icp.value).slice(0, 120)}`);
+        if (mkg.offers?.value) parts.push(`Offers: ${JSON.stringify(mkg.offers.value).slice(0, 120)}`);
+        mkgSummary = parts.join("\n");
+      }
+    } catch { /* non-blocking */ }
+  }
+
+  const systemPrompt = `You are a marketing workflow planner for Marqq AI. Given a user goal, return a JSON workflow plan.
+
+Available agents and what they do:
+- veena: company research, MKG population, initial intelligence
+- isha: market signals, competitor research, industry trends
+- neel: SEO research, keyword strategy, content gaps
+- sam: outreach sequences, proposal writing, lead qualification
+- riya: content creation, social posts, emails, images, videos, SEO articles
+- maya: SEO monitoring, ranking analysis, content performance
+- arjun: lead intelligence, ICP matching, lead scoring
+- tara: marketing audit, channel analysis, GTM strategy
+- kiran: performance analysis, budget optimization, ROAS
+- dev: technical analysis, data pipelines, campaign analytics
+- priya: brand intelligence, positioning, messaging
+- zara: campaign strategy, distribution planning, launch coordination
+
+Respond ONLY with valid JSON. No prose. Schema:
+{
+  "workflow_name": "string (short descriptive name)",
+  "description": "string (one sentence what this workflow does)",
+  "steps": [
+    { "order": 1, "agent": "agent_name", "query": "specific task query for this agent", "description": "what this step produces" }
+  ]
+}
+
+Rules:
+- 2 to 4 steps max
+- Each step query should be specific and actionable, referencing the user goal
+- Pick agents that logically chain: researcher → strategist → creator → executor
+- Return only the JSON object, no markdown fences`;
+
+  const userMessage = `Goal: "${goal.trim()}"${mkgSummary ? `\n\nCompany context:\n${mkgSummary}` : ""}`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.3,
+      max_tokens: 800,
+    });
+
+    const raw = completion.choices?.[0]?.message?.content?.trim() ?? "";
+    // Strip markdown fences if model adds them
+    const jsonStr = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    let plan;
+    try {
+      plan = JSON.parse(jsonStr);
+    } catch {
+      return res.status(500).json({ error: "Planner returned invalid JSON", raw });
+    }
+    res.json(plan);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+// ── POST /api/agents/chain/run ──────────────────────────────────────────────────
+// Runs a sequence of agent steps one-by-one, streaming SSE for each.
+// Body: { steps: [{ agent, query }], company_id }
+// SSE events:
+//   data: { step_start: { order, agent, query } }
+//   data: { text: "..." }              (prose from that agent)
+//   data: { tool_call: {...} }
+//   data: { tool_result: {...} }
+//   data: { step_done: { order, agent, contract: {...} } }
+//   data: [DONE]
+
+app.post("/api/agents/chain/run", async (req, res) => {
+  const { steps, company_id } = req.body || {};
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return res.status(400).json({ error: "steps array required" });
+  }
+
+  const companyId = typeof company_id === "string" ? company_id.trim() : null;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  try {
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const agentName = step.agent?.toLowerCase?.();
+      const query = step.query?.trim?.();
+      if (!agentName || !VALID_AGENTS.has(agentName) || !query) continue;
+
+      send({ step_start: { order: i + 1, agent: agentName, query } });
+
+      // Load agent context (same as /run)
+      const soulPath = join(AGENTS_DIR, agentName, "SOUL.md");
+      let systemPrompt = `You are ${agentName}, a marketing AI agent.`;
+      try { systemPrompt = await readFile(soulPath, "utf-8"); } catch { /* default */ }
+
+      const { memory, calibrationNote } = await loadAgentPromptContext(agentName, companyId);
+
+      let skillsBlock = "";
+      try {
+        const skillsDir = join(AGENTS_DIR, agentName, "skills");
+        const files = (await readdir(skillsDir)).filter(f => f.endsWith(".md")).sort();
+        if (files.length) {
+          const contents = await Promise.all(files.map(f => readFile(join(skillsDir, f), "utf-8")));
+          skillsBlock = "\n\n## Your Available Skills\n" + contents.map((c, idx) => `### ${files[idx].replace(".md", "")}\n${c}`).join("\n\n---\n\n");
+        }
+      } catch { /* no skills */ }
+
+      let mkgBlock = "";
+      if (companyId) {
+        try {
+          const [mkgData, companiesData] = await Promise.all([
+            MKGService.read(companyId).catch(() => null),
+            fetch(`http://localhost:${process.env.PORT || 3007}/api/company-intel/companies`).then(r => r.json()).catch(() => null),
+          ]);
+          const company = (companiesData?.companies ?? []).find(c => c.id === companyId);
+          const profile = company?.profile ?? {};
+          const mkg = mkgData ?? {};
+          const lines = ["## Company Knowledge Base"];
+          if (company?.companyName) lines.push(`Company: ${company.companyName}`);
+          if (profile.summary) lines.push(`Summary: ${profile.summary}`);
+          if (profile.industry) lines.push(`Industry: ${profile.industry}`);
+          const mkgFields = ["positioning", "icp", "competitors", "offers", "messaging", "channels", "content_pillars"];
+          for (const field of mkgFields) {
+            const entry = mkg[field];
+            if (entry?.value != null && entry.confidence >= 0.5) lines.push(`Company.${field}: ${JSON.stringify(entry.value).slice(0, 200)}`);
+          }
+          if (lines.length > 1) mkgBlock = "\n\n" + lines.join("\n");
+        } catch { /* non-blocking */ }
+      }
+
+      const runId = randomUUID();
+      const contractInstruction = buildContractInstruction(agentName, companyId, runId, null, null, null, {});
+
+      const fullSystem = [systemPrompt, skillsBlock, memory ? `\n\n## Your Recent Memory\n${memory}` : "", calibrationNote ? `\n\n## Calibration Notes\n${calibrationNote}` : "", mkgBlock, `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\nchain_step: ${i + 1} of ${steps.length}`, contractInstruction].filter(Boolean).join("");
+
+      const messages = [{ role: "system", content: fullSystem }, { role: "user", content: query }];
+
+      const CONTENT_GEN_TASK_TYPES = new Set(["content_creation", "generate_image", "generate_video", "generate_avatar_video", "generate_email", "seo_analysis"]);
+      let composioTools = [];
+      const composioApiKey = process.env.COMPOSIO_API_KEY;
+      const allowedConnectorIds = getAgentConnectors(agentName);
+      const allowedApps = getAgentConnectorApps(agentName);
+      const connectorAppMap = Object.fromEntries(
+        allowedConnectorIds.map((connectorId, index) => [connectorId, allowedApps[index]])
+      );
+      if (composioApiKey && companyId && allowedApps.length > 0) {
+        try {
+          const connectorStates = await getConnectors(companyId);
+          const connectedAllowedIds = new Set(
+            connectorStates
+              .filter((connector) => connector.connected && allowedConnectorIds.includes(connector.id))
+              .map((connector) => connector.id)
+          );
+          const connectedAllowedApps = allowedConnectorIds
+            .filter((connectorId) => connectedAllowedIds.has(connectorId))
+            .map((connectorId) => connectorAppMap[connectorId])
+            .filter(Boolean);
+          if (connectedAllowedApps.length > 0) {
+            composioTools = await getComposioTools(companyId, composioApiKey, {
+              toolkits: connectedAllowedApps,
+              limit: 10,
+            });
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      const fullText = await runAgenticLoop({
+        groqClient: groq,
+        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        messages,
+        tools: composioTools,
+        res,
+        entityId: companyId,
+        composioApiKey: composioTools.length ? composioApiKey : null,
+        maxRounds: 4,
+      });
+
+      // Parse contract and patch MKG
+      const contractMatch = fullText.match(/---CONTRACT---\s*([\s\S]*?)(?:---END CONTRACT---|$)/);
+      let contractObj = null;
+      if (contractMatch) {
+        try {
+          const cleaned = contractMatch[1].trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "");
+          contractObj = JSON.parse(cleaned);
+          if (companyId && contractObj?.context_patch?.patch) {
+            await MKGService.patch(companyId, contractObj.context_patch.patch).catch(() => {});
+          }
+        } catch { /* malformed contract */ }
+      }
+
+      send({ step_done: { order: i + 1, agent: agentName, contract: contractObj } });
+    }
+  } catch (err) {
+    send({ error: String(err.message) });
+  }
+
+  res.write("data: [DONE]\n\n");
+  res.end();
+});
+
 // ── POST /api/agents/:name/run ─────────────────────────────────────────────────
 // Runs an agent interactively (triggered by slash commands in ChatHome).
 // Loads SOUL.md + MEMORY.md + skills/*.md as system prompt, calls Groq, streams SSE.
@@ -4560,6 +5348,8 @@ app.post("/api/agents/:name/run", async (req, res) => {
     hook_id,
     trigger_metadata,
     offer_focus,
+    tags: clientTags,
+    conversation_history,
   } = req.body;
   const workspaceId = typeof req.headers["x-workspace-id"] === "string"
     ? req.headers["x-workspace-id"].trim()
@@ -4572,6 +5362,70 @@ app.post("/api/agents/:name/run", async (req, res) => {
     return res.status(400).json({ error: "query is required" });
   }
 
+  // ── Plan + Credit check ────────────────────────────────────────────────────
+  if (workspaceId) {
+    try {
+      const { data: ws } = await supabase
+        .from("workspaces")
+        .select("plan, credits_remaining, credits_total, credits_reset_at")
+        .eq("id", workspaceId)
+        .single();
+
+      if (ws) {
+        const plan = ws.plan || "growth";
+
+        // Reset credits if the monthly window has elapsed
+        const resetAt = ws.credits_reset_at ? new Date(ws.credits_reset_at) : null;
+        if (resetAt && new Date() > resetAt) {
+          const newTotal = PLAN_CREDITS[plan] ?? 500;
+          await supabase
+            .from("workspaces")
+            .update({
+              credits_remaining: newTotal,
+              credits_total: newTotal,
+              credits_reset_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            })
+            .eq("id", workspaceId);
+          ws.credits_remaining = newTotal;
+        }
+
+        // Check module access
+        if (!canAccessModule(plan, task_type)) {
+          return res.status(403).json({
+            error: "module_locked",
+            message: "This module is not available on your current plan.",
+            required_plan: plan === "growth" ? "scale" : "agency",
+            current_plan: plan,
+          });
+        }
+
+        // Check credit balance (unlimited = -1)
+        const creditCost = CREDIT_COSTS.agent_run;
+        if (ws.credits_remaining !== -1 && ws.credits_remaining < creditCost) {
+          return res.status(402).json({
+            error: "insufficient_credits",
+            message: "You've used all your agent run credits for this month.",
+            credits_remaining: ws.credits_remaining,
+            credits_total: ws.credits_total,
+            reset_at: ws.credits_reset_at,
+          });
+        }
+
+        // Deduct credit immediately (optimistic deduction)
+        if (ws.credits_remaining !== -1) {
+          await supabase
+            .from("workspaces")
+            .update({ credits_remaining: ws.credits_remaining - creditCost })
+            .eq("id", workspaceId);
+        }
+      }
+    } catch (planErr) {
+      // Non-fatal: if plan check fails, let the run proceed
+      console.warn("[plan-check] error:", planErr.message);
+    }
+  }
+  // ── End plan + credit check ────────────────────────────────────────────────
+
   // Generate or adopt run_id for idempotency
   const runId = (typeof clientRunId === "string" && clientRunId.trim())
     ? clientRunId.trim()
@@ -4582,6 +5436,90 @@ app.post("/api/agents/:name/run", async (req, res) => {
     : (typeof workspaceId === "string" && workspaceId.trim())
       ? workspaceId.trim()
       : null;
+
+  const agentMailApiKey = process.env.AGENTMAIL_API_KEY || "";
+  const shouldUseAgentMailForReportDelivery =
+    name === "sam" &&
+    task_type === "report_delivery" &&
+    Boolean(agentMailApiKey) &&
+    extractEmailAddresses(query).length > 0;
+
+  if (shouldUseAgentMailForReportDelivery) {
+    try {
+      const startedAt = Date.now();
+      const sent = await sendReportViaAgentMail({
+        apiKey: agentMailApiKey,
+        companyId,
+        query,
+      });
+
+      const narrative = [
+        `Sent the report by email via AgentMail to ${sent.parsed.recipients.join(", ")}.`,
+        sent.parsed.docUrl ? `Included report link: ${sent.parsed.docUrl}` : "",
+        sent.parsed.slackTargets.length
+          ? `Slack targets were requested (${sent.parsed.slackTargets.join(", ")}), but AgentMail handled the email portion only.`
+          : "",
+      ].filter(Boolean).join(" ");
+
+      const contract = {
+        agent: name,
+        task: "Send report via AgentMail",
+        company_id: companyId ?? null,
+        run_id: runId,
+        timestamp: new Date().toISOString(),
+        input: {
+          mkg_version: null,
+          dependencies_read: ["agentmail"],
+          assumptions_made: sent.parsed.slackTargets.length
+            ? ["Slack delivery was not executed in the AgentMail path."]
+            : [],
+        },
+        artifact: {
+          data: {
+            sent_via: "agentmail",
+            recipients: sent.parsed.recipients,
+            slack_targets: sent.parsed.slackTargets,
+            subject_line: sent.parsed.subject,
+            doc_url: sent.parsed.docUrl,
+            delivery_status: "sent",
+            inbox_id: sent.inbox.inbox_id || null,
+            message_id: sent.result?.message_id || null,
+            thread_id: sent.result?.thread_id || null,
+          },
+          summary: narrative,
+          confidence: 0.98,
+        },
+        context_patch: { writes_to: [], patch: {} },
+        handoff_notes: sent.parsed.slackTargets.length
+          ? `Email was sent via AgentMail. Slack delivery still requires the existing Slack-based path if needed.`
+          : "Email was sent via AgentMail.",
+        missing_data: [],
+        tasks_created: [],
+        outcome_prediction: null,
+        automation_triggers: [],
+      };
+
+      const fullText = `${narrative}\n\n---CONTRACT---\n${JSON.stringify(contract, null, 2)}`;
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders?.();
+      res.write(`data: ${JSON.stringify({ text: narrative })}\n\n`);
+      await finalizeAgentRunResponse({
+        name,
+        runId,
+        companyId,
+        fullText,
+        res,
+        startedAt,
+      });
+      return;
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ error: toUserFacingError(err) })}\n\n`);
+      res.end();
+      return;
+    }
+  }
 
   // Load SOUL.md
   const soulPath = join(AGENTS_DIR, name, "SOUL.md");
@@ -4641,12 +5579,12 @@ app.post("/api/agents/:name/run", async (req, res) => {
       if (Array.isArray(profile.primaryAudience) && profile.primaryAudience.length) lines.push(`Primary Audience: ${profile.primaryAudience.join(", ")}`);
       if (profile.brandVoice?.tone) lines.push(`Brand Voice: ${profile.brandVoice.tone}${profile.brandVoice.style ? `, ${profile.brandVoice.style}` : ""}`);
 
-      // Inject high-confidence MKG fields
+      // Inject high-confidence company knowledge fields
       const mkgFields = ["positioning", "icp", "competitors", "offers", "messaging", "channels", "content_pillars"];
       for (const field of mkgFields) {
         const entry = mkg[field];
         if (entry?.value != null && entry.confidence >= 0.5) {
-          lines.push(`MKG.${field} (confidence ${entry.confidence}): ${JSON.stringify(entry.value)}`);
+          lines.push(`Company.${field}: ${JSON.stringify(entry.value)}`);
         }
       }
 
@@ -4773,9 +5711,22 @@ Replace ALL placeholder values with your actual outputs.
 - context_patch.patch: use only valid MKG field names: positioning, icp, competitors, offers, messaging, channels, funnel, metrics, baselines, content_pillars, campaigns, insights
 - tasks_created: array of { "task_type": "...", "agent_name": "...", "description": "...", "priority": "low|medium|high" }
 - outcome_prediction: optional — include if you can predict a measurable metric change, otherwise keep null
-- automation_triggers: array of { "automation_id": "<id from registry>", "params": {}, "reason": "<why>" } — only include if you need live data or analysis from an automation
+- automation_triggers: array of { "automation_id": "<id from registry>", "params": {}, "reason": "<why>" } — include when you need to generate content assets (images, videos, emails, articles) OR fetch live data. For content creation tasks (image, email, video, article), you MUST populate this with the appropriate automation_id
 - "scheduled_automations": recurring jobs to schedule, e.g. [{ "automation_id": "fetch_meta_ads", "cron": "0 9 * * *", "params": { "ad_account_id": "act_123" }, "reason": "Daily morning pull" }]. Cron patterns: "0 9 * * *" daily 9am, "0 */6 * * *" every 6h, "*/15 * * * *" every 15min, "0 9 * * 1" weekly Mon 9am. Use [] if no schedule needed.
 - The JSON must be valid JSON (no trailing commas, no comments)
+
+## Available Paid Media Automations
+- fetch_meta_ads: Read Meta Ads performance (campaigns, spend, CTR, ROAS) — params: { ad_account_id?, date_range? }
+- create_meta_campaign: Create a full Meta Ads campaign (Campaign→AdSet→Creative→Ad) — params: { campaign_name, objective, daily_budget, targeting, headline, primary_text, link_url, cta_type?, status? }
+- optimize_meta_roas: Pause low-ROAS ads and scale winning ad sets — params: { roas_threshold_pause?, roas_threshold_scale?, budget_scale_factor?, date_range?, dry_run? }. Set as scheduled_automation every 6h for autonomous ROAS management.
+- google_ads_fetch: Read Google Ads campaigns — params: { campaign_name?, campaign_id? }
+
+## Available Content Creation Automations (Riya + Maya)
+- generate_social_image: Gemini Flash image (gemini-3.1-flash-image-preview) -> imgbb CDN. params: { prompt, aspect_ratio (1:1|16:9|9:16|4:5), platform, brand_context?, style? }. Returns: { image_url, cdn_url, platform }
+- generate_email_html: Full inline-CSS HTML email newsletter. params: { subject, content, tone?, brand_name?, primary_color?, sections? }. Returns: { html, subject, preview_text }
+- generate_faceless_video: Google Veo 3.1 video (async). params: { prompt, duration?, aspect_ratio?, style? }. Returns: { status:queued, operation_name }
+- generate_avatar_video: HeyGen spokesperson video (async). params: { script, avatar_id?, voice_id?, background_color?, width?, height? }. Returns: { status:processing, video_id, check_url }
+- create_seo_article: Full HTML blog post with SEO meta. params: { keyword, topic?, word_count_target?, target_audience?, brand_context? }. Returns: { html, title, meta_description, slug, word_count }
 `;
 
   const fullSystem = [
@@ -4834,11 +5785,12 @@ Replace ALL placeholder values with your actual outputs.
     let fullText = "";
     let lastModelError = null;
     // Langfuse: per-agent traced client so every run is attributed to the agent + company
+    const extraTags = Array.isArray(clientTags) ? clientTags.filter(t => typeof t === 'string') : [];
     const agentGroq = tracedLLM({
       traceName: `agent-run:${name}`,
       sessionId: runId,
       userId: companyId || undefined,
-      tags: ['agent-run', name],
+      tags: ['agent-run', name, ...(task_type ? [task_type] : []), ...extraTags],
     });
     let completed = false;
 
@@ -4855,37 +5807,106 @@ Replace ALL placeholder values with your actual outputs.
         res.write(`data: ${JSON.stringify({ text: fullText })}\n\n`);
         completed = true;
       } catch (modelError) {
+        console.warn(`[agent:${name}] Groq model "${model}" failed: ${modelError?.message || modelError}`);
         lastModelError = modelError;
         fullText = "";
       }
     }
 
-    for (const model of completed ? [] : AGENT_RUN_GROQ_MODELS) {
+    // Build Composio tools if API key is configured
+    // Content-generation taskTypes use automation_triggers (not Composio tools) to avoid
+    // the LLM calling random external APIs instead of writing the contract JSON.
+    const CONTENT_GEN_TASK_TYPES = new Set([
+      'content_creation', 'generate_image', 'generate_video',
+      'generate_avatar_video', 'generate_email', 'seo_analysis',
+    ]);
+    const composioApiKey = process.env.COMPOSIO_API_KEY || null;
+    const composioEntityId = companyId || "default";
+    let composioTools = [];
+    const allowedConnectorIds = getAgentConnectors(name);
+    const allowedApps = getAgentConnectorApps(name);
+    const allowSecondaryCreativeTools =
+      name === 'riya' && (
+        (task_type === 'generate_image' && allowedConnectorIds.includes('canva')) ||
+        (task_type === 'generate_video' && allowedConnectorIds.includes('veo'))
+      );
+    const skipComposioForTaskType =
+      (CONTENT_GEN_TASK_TYPES.has(task_type) && !allowSecondaryCreativeTools) ||
+      (name === 'isha' && task_type === 'daily_market_scan');
+    const connectorAppMap = Object.fromEntries(
+      allowedConnectorIds.map((connectorId, index) => [connectorId, allowedApps[index]])
+    );
+    if (composioApiKey && !completed && !skipComposioForTaskType && companyId && allowedApps.length > 0) {
       try {
-        const stream = await agentGroq.chat.completions.create({
+        const connectorStates = await getConnectors(companyId);
+        const connectedAllowedIds = new Set(
+          connectorStates
+            .filter((connector) => connector.connected && allowedConnectorIds.includes(connector.id))
+            .map((connector) => connector.id)
+        );
+        const connectedAllowedApps = allowedConnectorIds
+          .filter((connectorId) => connectedAllowedIds.has(connectorId))
+          .map((connectorId) => connectorAppMap[connectorId])
+          .filter(Boolean);
+
+        if (connectedAllowedApps.length > 0) {
+          composioTools = await getComposioTools(composioEntityId, composioApiKey, {
+            toolkits: connectedAllowedApps,
+            limit: 40,
+          });
+          composioTools = filterComposioToolsForTaskType(task_type, composioTools);
+          console.log(`[agent:${name}] Composio tools enabled for apps: ${connectedAllowedApps.join(", ")}`);
+        } else {
+          console.log(`[agent:${name}] No connected allowed Composio apps for workspace ${companyId}; running without tools`);
+        }
+      } catch (toolFetchErr) {
+        // Non-fatal: proceed without tools
+        console.warn(`[agent:${name}] Composio tool fetch failed: ${toolFetchErr.message}`);
+      }
+    }
+
+    const groqModelsForRun = composioTools.length > 0
+      ? AGENT_RUN_TOOL_GROQ_MODELS
+      : AGENT_RUN_NO_TOOL_GROQ_MODELS;
+
+    for (const model of completed ? [] : groqModelsForRun) {
+      try {
+        const agenticResult = await runAgenticLoop({
+          groqClient: agentGroq,
           model,
-          messages: [
-            { role: "system", content: fullSystem },
-            { role: "user", content: query },
-          ],
-          stream: true,
-          max_tokens: 8192,
+          messages: (() => {
+            // Inject prior conversation turns (up to 6 most recent) for continuity
+            const historyMessages = Array.isArray(conversation_history)
+              ? conversation_history.slice(-6).map(m => ({
+                  role: m.role === 'user' ? 'user' : 'assistant',
+                  content: String(m.content ?? '').slice(0, 2000),
+                })).filter(m => m.content)
+              : [];
+            return [
+              { role: "system", content: fullSystem },
+              ...historyMessages,
+              { role: "user", content: query },
+            ];
+          })(),
+          tools: composioTools,
+          res,
+          entityId: composioEntityId,
+          taskType: task_type,
+          composioApiKey,
+          reasoningFormat: process.env.AGENT_REASONING_FORMAT || undefined,
+          reasoningEffort: process.env.AGENT_REASONING_EFFORT || undefined,
+          maxTokens: 8192,
           temperature: 0.4,
         });
-
-        for await (const chunk of stream) {
-          const text = chunk.choices[0]?.delta?.content ?? "";
-          if (text) {
-            fullText += text;
-            res.write(`data: ${JSON.stringify({ text })}\n\n`);
-          }
-        }
+        fullText = agenticResult.fullText;
+        const toolExecutions = agenticResult.toolExecutions || [];
 
         if (!hasUsableAgentProse(fullText)) {
           throw new Error(`Groq model "${model}" returned insufficient user-facing prose`);
         }
 
         completed = true;
+        req._toolExecutions = toolExecutions;
         break;
       } catch (modelError) {
         lastModelError = modelError;
@@ -4904,6 +5925,7 @@ Replace ALL placeholder values with your actual outputs.
       runId,
       companyId,
       fullText,
+      toolExecutions: req._toolExecutions || [],
       res,
       startedAt,
       triggerContext: triggered_by
@@ -4913,8 +5935,84 @@ Replace ALL placeholder values with your actual outputs.
 
   } catch (err) {
     await markAgentHeartbeat(name, "error", Date.now() - startedAt, String(err));
-    res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: toUserFacingError(err) })}\n\n`);
     res.end();
+  }
+});
+
+// ── Artifact persistence ────────────────────────────────────────────────────
+// Artifacts are saved per-company in a JSON file (Supabase table can replace later).
+// File: platform/crewai/memory/{companyId}/artifacts.json
+
+const ARTIFACTS_VERSION = 1;
+
+async function loadArtifacts(companyId) {
+  try {
+    const p = join(dirname(fileURLToPath(import.meta.url)), '..', 'crewai', 'memory', companyId, 'artifacts.json');
+    const raw = await readFile(p, 'utf-8');
+    return JSON.parse(raw);
+  } catch { return []; }
+}
+
+async function saveArtifactToFile(companyId, entry) {
+  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'crewai', 'memory', companyId);
+  const p = join(dir, 'artifacts.json');
+  try { await mkdir(dir, { recursive: true }); } catch {}
+  const existing = await loadArtifacts(companyId);
+  const updated = [entry, ...existing.filter(a => a.id !== entry.id)].slice(0, 200);
+  await writeFile(p, JSON.stringify(updated, null, 2), 'utf-8');
+  return entry;
+}
+
+// POST /api/artifacts/:companyId — save an artifact
+app.post('/api/artifacts/:companyId', async (req, res) => {
+  const { companyId } = req.params;
+  const { agent, run_id, type, data, handoff_notes, tags } = req.body || {};
+  if (!agent || !data) return res.status(400).json({ error: 'agent and data required' });
+  try {
+    const entry = {
+      id: run_id ?? randomUUID(),
+      companyId,
+      agent,
+      type: type ?? 'general',
+      data,
+      handoff_notes: handoff_notes ?? null,
+      tags: tags ?? [],
+      savedAt: new Date().toISOString(),
+      version: ARTIFACTS_VERSION,
+    };
+    await saveArtifactToFile(companyId, entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/artifacts/:companyId — list artifacts (most recent first)
+app.get('/api/artifacts/:companyId', async (req, res) => {
+  const { companyId } = req.params;
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const type = req.query.type;
+  try {
+    let artifacts = await loadArtifacts(companyId);
+    if (type) artifacts = artifacts.filter(a => a.type === type);
+    res.json(artifacts.slice(0, limit));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/artifacts/:companyId/:artifactId
+app.delete('/api/artifacts/:companyId/:artifactId', async (req, res) => {
+  const { companyId, artifactId } = req.params;
+  try {
+    const existing = await loadArtifacts(companyId);
+    const updated = existing.filter(a => a.id !== artifactId);
+    const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'crewai', 'memory', companyId);
+    await writeFile(join(dir, 'artifacts.json'), JSON.stringify(updated, null, 2), 'utf-8');
+    res.json({ deleted: artifactId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -4938,6 +6036,103 @@ app.get('/api/automations/runs', async (req, res) => {
     res.json({ runs: data || [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/automations/execute — direct test/manual execution of any automation
+app.post('/api/automations/execute', async (req, res) => {
+  const { automation_id, params = {}, company_id } = req.body || {};
+  if (!automation_id) return res.status(400).json({ error: 'automation_id required' });
+  if (!company_id) return res.status(400).json({ error: 'company_id required' });
+  try {
+    const { executeAutomationTriggers } = await import('./automations/registry.js');
+    const results = await executeAutomationTriggers(
+      { automation_triggers: [{ automation_id, params }] },
+      company_id
+    );
+    res.json(results[0] || { status: 'no_result' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/automations/video-poll — poll Veo 3.1 operation or HeyGen video_id, upload to Cloudinary when done
+app.post('/api/automations/video-poll', async (req, res) => {
+  const { provider, operation_name, video_id, company_id } = req.body || {};
+  if (!provider) return res.status(400).json({ error: 'provider required: veo | heygen' });
+
+  try {
+    const { pollVeoOperation, pollHeyGenVideo } = await import('./automations/handlers/contentCreation.js');
+    let result;
+    if (provider === 'veo') {
+      if (!operation_name) return res.status(400).json({ error: 'operation_name required for veo' });
+      result = await pollVeoOperation(operation_name);
+    } else if (provider === 'heygen') {
+      if (!video_id) return res.status(400).json({ error: 'video_id required for heygen' });
+      result = await pollHeyGenVideo(video_id, company_id);
+    } else {
+      return res.status(400).json({ error: 'provider must be veo or heygen' });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/heygen/avatars', async (req, res) => {
+  const companyId = typeof req.query.companyId === 'string' ? req.query.companyId.trim() : '';
+  if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+
+  try {
+    const { getConnectedAccountApiKey } = await import('./mcp-router.js');
+    const { listHeyGenAvatars } = await import('./automations/handlers/contentCreation.js');
+
+    const connected = await getConnectedAccountApiKey('heygen', companyId);
+    const apiKey = connected?.api_key || null;
+    if (!apiKey) {
+      return res.status(404).json({ error: connected?.error || 'HeyGen is not connected for this workspace' });
+    }
+
+    const avatars = await listHeyGenAvatars(apiKey);
+    return res.json({
+      avatars: avatars.map((avatar) => ({
+        avatar_id: avatar?.avatar_id ?? null,
+        avatar_name: avatar?.avatar_name ?? null,
+        preview_image_url: avatar?.preview_image_url ?? null,
+        preview_video_url: avatar?.preview_video_url ?? null,
+        premium: Boolean(avatar?.premium),
+      })).filter((avatar) => avatar.avatar_id),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error?.message || 'Failed to load HeyGen avatars' });
+  }
+});
+
+app.get('/api/heygen/voices', async (req, res) => {
+  const companyId = typeof req.query.companyId === 'string' ? req.query.companyId.trim() : '';
+  if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+
+  try {
+    const { getConnectedAccountApiKey } = await import('./mcp-router.js');
+    const { listHeyGenVoices } = await import('./automations/handlers/contentCreation.js');
+
+    const connected = await getConnectedAccountApiKey('heygen', companyId);
+    const apiKey = connected?.api_key || null;
+    if (!apiKey) {
+      return res.status(404).json({ error: connected?.error || 'HeyGen is not connected for this workspace' });
+    }
+
+    const voices = await listHeyGenVoices(apiKey);
+    return res.json({
+      voices: voices.map((voice) => ({
+        voice_id: voice?.voice_id ?? null,
+        name: voice?.name ?? null,
+        language: voice?.language ?? null,
+        gender: voice?.gender ?? null,
+      })).filter((voice) => voice.voice_id),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error?.message || 'Failed to load HeyGen voices' });
   }
 });
 
@@ -5073,24 +6268,26 @@ function attachTwilioMediaStreamServer(server) {
           session.streamSid = payload.start?.streamSid || payload.streamSid || null;
           session.callSid = payload.start?.callSid || null;
           const customParameters = payload.start?.customParameters || {};
+          const persistedCall = session.callSid
+            ? await readVoicebotCallRecord(session.callSid)
+            : null;
           session.language =
-            customParameters.language === "hi" ? "hi" : "en";
+            (customParameters.language || persistedCall?.language) === "hi" ? "hi" : "en";
           session.gender =
             customParameters.gender === "male" ? "male" : "female";
-          session.companyId = customParameters.companyId || null;
-          session.campaignId = customParameters.campaignId || null;
-          session.leadId = customParameters.leadId || null;
-          session.leadName = customParameters.leadName || null;
-          session.leadPhone = customParameters.leadPhone || null;
-          session.leadEmail = customParameters.leadEmail || null;
+          session.companyId = customParameters.companyId || persistedCall?.companyId || null;
+          session.campaignId = customParameters.campaignId || persistedCall?.campaignId || null;
+          session.leadId = customParameters.leadId || persistedCall?.leadId || null;
+          session.leadName = customParameters.leadName || persistedCall?.leadName || null;
+          session.leadPhone = customParameters.leadPhone || persistedCall?.leadPhone || null;
+          session.leadEmail = customParameters.leadEmail || persistedCall?.leadEmail || null;
           session.openingLine =
-            String(
+            buildVoicebotOpeningLine(
               customParameters.openingLine ||
+                persistedCall?.openingLine ||
                 process.env.TWILIO_OUTBOUND_GREETING ||
                 TWILIO_OUTBOUND_GREETING,
-            ).trim() ||
-            process.env.TWILIO_OUTBOUND_GREETING ||
-            TWILIO_OUTBOUND_GREETING;
+            );
           twilioMediaSessions.set(session.streamSid, session);
           console.log("[TwilioMediaStream] stream started", {
             streamSid: session.streamSid,
@@ -5269,6 +6466,7 @@ let nightlyScheduler = null;
 let hooksEngine = null;
 let deploymentScheduler = null;
 let deploymentProcessorRunning = false;
+let automationScheduler = null;
 
 function getDeploymentNextRunAt(recurrenceMinutes = DEFAULT_MONITOR_RECURRENCE_MINUTES) {
   return new Date(Date.now() + Math.max(1, Number(recurrenceMinutes) || DEFAULT_MONITOR_RECURRENCE_MINUTES) * 60_000).toISOString();
@@ -5436,6 +6634,50 @@ function stopDeploymentScheduler() {
   deploymentScheduler = null;
 }
 
+// ── Scheduled Automation Reconciler ─────────────────────────────────────────
+// Polls scheduled_automations (Supabase) for rows where next_run <= now and
+// executes them. This is what closes the loop for agent-declared
+// scheduled_automations in contract JSON.
+
+async function runAutomationSchedulerTick() {
+  let client = null;
+  try {
+    const mod = await import('./automations/registry.js');
+    const { supabaseAdmin, supabase: anonClient } = await import('./supabase.js');
+    client = supabaseAdmin || anonClient;
+    if (!client) {
+      console.warn('[automation-scheduler] No Supabase client available — skipping tick');
+      return;
+    }
+    const results = await mod.runDueScheduledAutomations(client);
+    if (results.length > 0) {
+      console.info(`[automation-scheduler] Ran ${results.length} due automation(s):`,
+        results.map(r => `${r.automation_id}@${r.company_id} → ${r.status}`).join(', '));
+    }
+  } catch (err) {
+    console.error('[automation-scheduler] tick failed:', err.message);
+  }
+}
+
+function startAutomationScheduler() {
+  if (automationScheduler) return;
+  automationScheduler = setInterval(() => {
+    runAutomationSchedulerTick().catch((err) => {
+      console.error('[automation-scheduler] interval error:', err.message);
+    });
+  }, AUTOMATION_SCHEDULER_INTERVAL_MS);
+  // Run immediately on start to catch any overdue rows
+  runAutomationSchedulerTick().catch((err) => {
+    console.error('[automation-scheduler] initial tick failed:', err.message);
+  });
+}
+
+function stopAutomationScheduler() {
+  if (!automationScheduler) return;
+  clearInterval(automationScheduler);
+  automationScheduler = null;
+}
+
 function buildHookDispatchQuery(batch, entry) {
   const lines = [
     `Execute hook task "${entry.task_type}" for company ${batch.company_id}.`,
@@ -5542,6 +6784,7 @@ function startBackendRuntime() {
     console.log(`[content-engine] Listening on port ${PORT}`);
     startWorker();
     startDeploymentScheduler();
+    startAutomationScheduler();
     if (!nightlyScheduler) {
       nightlyScheduler = createNightlyScheduler({
         client: getPipelineWriteClient(),
@@ -5569,6 +6812,7 @@ async function stopBackendRuntime() {
     hooksEngine.stop();
     hooksEngine = null;
   }
+  stopAutomationScheduler();
   stopDeploymentScheduler();
   if (nightlyScheduler) {
     nightlyScheduler.stop();
@@ -5597,9 +6841,9 @@ app.get("/api/integrations", async (req, res) => {
 
 // ── POST /api/integrations/connect & /disconnect ──────────────────────────
 app.post("/api/integrations/connect", async (req, res) => {
-  const { companyId, connectorId } = req.body;
+  const { companyId, connectorId, extraFields } = req.body;
   if (!companyId || !connectorId) return res.status(400).json({ error: 'companyId and connectorId required' });
-  const result = await initiateConnection(companyId, connectorId);
+  const result = await initiateConnection(companyId, connectorId, extraFields || {});
   if (result.error) return res.status(400).json({ error: result.error });
   res.json(result);
 });
@@ -7034,6 +8278,48 @@ app.post("/api/analytics/run", express.json(), async (req, res) => {
   }
 });
 
+/** Run a URL-based Python script and return its JSON stdout */
+function runPythonUrl(scriptName, args) {
+  return new Promise((resolve, reject) => {
+    const script = join(ANALYTICS_SCRIPTS_DIR, scriptName);
+    const proc = spawn("python3", [script, ...args]);
+    let stdout = "", stderr = "";
+    proc.stdout.on("data", d => { stdout += d.toString(); });
+    proc.stderr.on("data", d => { stderr += d.toString(); });
+    proc.on("close", code => {
+      if (code !== 0) return reject(new Error(stderr.slice(0, 500) || `Script exited ${code}`));
+      try { resolve(JSON.parse(stdout)); }
+      catch { reject(new Error("Script returned non-JSON output")); }
+    });
+  });
+}
+
+/** POST /api/analytics/analyze-page — run analyze_page.py on a URL */
+app.post("/api/analytics/analyze-page", express.json(), async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ error: "url is required" });
+  try {
+    const result = await runPythonUrl("analyze_page.py", [url]);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/** POST /api/analytics/scan-competitors — run competitor_scanner.py on one or more URLs */
+app.post("/api/analytics/scan-competitors", express.json(), async (req, res) => {
+  const { urls } = req.body || {};
+  if (!urls || !Array.isArray(urls) || urls.length === 0) {
+    return res.status(400).json({ error: "urls array is required" });
+  }
+  try {
+    const result = await runPythonUrl("competitor_scanner.py", urls);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Budget optimization upload endpoints (now powered by multer)
 app.post("/api/budget-optimization/upload", analyticsUpload.single("file"), async (req, res) => {
   try {
@@ -7220,6 +8506,75 @@ app.patch("/api/workspaces/:id", async (req, res) => {
       .update(updates)
       .eq("id", id)
       .select()
+      .single();
+    if (error) throw error;
+    res.json({ workspace: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/workspaces/:id/plan — get plan + credits for a workspace
+app.get("/api/workspaces/:id/plan", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from("workspaces")
+      .select("plan, credits_remaining, credits_total, credits_reset_at")
+      .eq("id", id)
+      .single();
+    if (error) throw error;
+
+    const plan = data?.plan || "growth";
+
+    // Auto-reset if monthly window elapsed
+    const resetAt = data?.credits_reset_at ? new Date(data.credits_reset_at) : null;
+    let creditsRemaining = data?.credits_remaining ?? PLAN_CREDITS[plan] ?? 500;
+    let creditsTotal = data?.credits_total ?? PLAN_CREDITS[plan] ?? 500;
+    let resetAtOut = data?.credits_reset_at;
+
+    if (resetAt && new Date() > resetAt) {
+      const newTotal = PLAN_CREDITS[plan] ?? 500;
+      const newResetAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await supabase
+        .from("workspaces")
+        .update({ credits_remaining: newTotal, credits_total: newTotal, credits_reset_at: newResetAt })
+        .eq("id", id);
+      creditsRemaining = newTotal;
+      creditsTotal = newTotal;
+      resetAtOut = newResetAt;
+    }
+
+    res.json({
+      plan,
+      credits_remaining: creditsRemaining,
+      credits_total: creditsTotal,
+      credits_reset_at: resetAtOut,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/workspaces/:id/plan — update plan (admin/billing use)
+app.patch("/api/workspaces/:id/plan", async (req, res) => {
+  const { id } = req.params;
+  const { plan } = req.body;
+  if (!plan || !["growth", "scale", "agency"].includes(plan)) {
+    return res.status(400).json({ error: "plan must be growth | scale | agency" });
+  }
+  try {
+    const newTotal = PLAN_CREDITS[plan] === -1 ? -1 : (PLAN_CREDITS[plan] ?? 500);
+    const { data, error } = await supabase
+      .from("workspaces")
+      .update({
+        plan,
+        credits_total: newTotal,
+        credits_remaining: newTotal,
+        credits_reset_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .eq("id", id)
+      .select("plan, credits_remaining, credits_total, credits_reset_at")
       .single();
     if (error) throw error;
     res.json({ workspace: data });

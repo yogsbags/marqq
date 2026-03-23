@@ -1,7 +1,6 @@
 import OnboardingContainer from './OnboardingContainer';
 import ProgressBar from './ProgressBar';
 import { FormData, OnboardingStep } from './types';
-import { GOALS } from './constants';
 
 interface FormStepProps {
   stepIdx: number;
@@ -11,11 +10,12 @@ interface FormStepProps {
   updateField: (key: keyof FormData, value: string) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
   canAdvance: boolean;
 }
 
 export function FormStep({
-  stepIdx, totalSteps, currentStep, formData, updateField, onNext, onBack, canAdvance
+  stepIdx, totalSteps, currentStep, formData, updateField, onNext, onBack, onSkip, canAdvance
 }: FormStepProps) {
   return (
     <OnboardingContainer ariaLabel="Form step">
@@ -38,38 +38,28 @@ export function FormStep({
       {/* Fields */}
       <div className="flex flex-col gap-5 mb-10 w-full">
         {currentStep.fields.map((field) => {
-          if (field.type === 'goal-picker') {
+          if (field.type === 'choice') {
             return (
               <div key={field.key} className="w-full">
-                <div className="grid grid-cols-1 gap-2">
-                  {GOALS.map((goal) => {
-                    const selected = formData.primaryGoal === goal.value;
+                <label className="font-mono text-[10px] text-white/40 tracking-[0.12em] block uppercase mb-2">
+                  {field.label}
+                </label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(field.options || []).map((option) => {
+                    const selected = formData[field.key] === option;
                     return (
                       <button
-                        key={goal.value}
+                        key={option}
                         type="button"
-                        onClick={() => updateField('primaryGoal', goal.value)}
-                        className="w-full text-left flex items-center gap-4 px-4 py-3.5 rounded-xl border transition-all duration-200 cursor-pointer"
+                        onClick={() => updateField(field.key, option)}
+                        className="w-full text-left rounded-xl border px-4 py-3 text-sm transition-all duration-200"
                         style={{
                           background: selected ? 'rgba(255,101,33,0.12)' : 'rgba(255,255,255,0.03)',
                           borderColor: selected ? '#FF6521' : 'rgba(255,255,255,0.08)',
+                          color: selected ? '#FF6521' : '#EDEDF3',
                         }}
                       >
-                        <span className="text-xl shrink-0">{goal.emoji}</span>
-                        <div className="min-w-0">
-                          <div className="font-syne text-[13px] font-semibold leading-tight"
-                            style={{ color: selected ? '#FF6521' : '#EDEDF3' }}>
-                            {goal.label}
-                          </div>
-                          <div className="font-mono text-[10px] mt-0.5"
-                            style={{ color: selected ? 'rgba(255,101,33,0.7)' : 'rgba(255,255,255,0.3)' }}>
-                            {goal.sub}
-                          </div>
-                        </div>
-                        <div className="ml-auto shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                          style={{ borderColor: selected ? '#FF6521' : 'rgba(255,255,255,0.2)' }}>
-                          {selected && <div className="w-2 h-2 rounded-full bg-[#FF6521]" />}
-                        </div>
+                        {option}
                       </button>
                     );
                   })}
@@ -120,6 +110,14 @@ export function FormStep({
             className="bg-transparent border-none cursor-pointer text-white/30 text-[13px] hover:text-white/50 transition-colors font-sans"
           >
             ← Back
+          </button>
+        )}
+        {stepIdx > 0 && stepIdx < totalSteps - 1 && (
+          <button
+            onClick={onSkip}
+            className="bg-transparent border-none cursor-pointer text-white/30 text-[13px] hover:text-white/50 transition-colors font-sans"
+          >
+            Skip tour
           </button>
         )}
       </div>

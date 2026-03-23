@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { addAiTasks } from '@/lib/taskStore';
+
 import { cn } from '@/lib/utils';
 import { buildAgentHeaders, buildAgentPlanPayload, buildAgentRunPayload } from '@/lib/agentContext';
 
@@ -374,13 +374,13 @@ export function AgentDashboard() {
   const statusColour = (status?: HeartbeatAgent['status']) => {
     switch (status) {
       case 'running':
-        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300';
+        return 'border border-orange-200/80 bg-orange-50 text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300';
       case 'completed':
-        return 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300';
+        return 'border border-orange-200/80 bg-orange-100/80 text-orange-800 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-200';
       case 'error':
-        return 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300';
+        return 'border border-red-200/80 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+        return 'border border-border bg-muted text-muted-foreground';
     }
   };
 
@@ -428,14 +428,8 @@ export function AgentDashboard() {
 
   const approveTaskPlan = () => {
     if (!taskAgent || !planPreview) return;
-    addAiTasks(
-      planPreview.tasks.map((task) => ({
-        label: `[${taskAgent} • AI Team] ${task.label}`,
-        horizon: task.horizon,
-      })),
-    );
     setAgentPlans((prev) => ({ ...prev, [taskAgent]: planPreview }));
-    toast.success(`Plan approved for ${taskAgent}. Tasks added to the taskboard.`);
+    toast.success(`Plan approved for ${taskAgent}.`);
     setTaskAgent(null);
     setTaskDraft('');
     setPlanPreview(null);
@@ -449,14 +443,34 @@ export function AgentDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
-          AI Team
-        </h1>
-        <p className="mx-auto max-w-3xl text-sm text-muted-foreground">
-          Meet your AI team, assign work, and run tasks from one place.
-        </p>
-      </div>
+      <Card className="overflow-hidden rounded-[1.9rem] border-orange-200/70 bg-[linear-gradient(135deg,rgba(255,247,237,0.96),rgba(255,237,213,0.84))] shadow-[0_28px_60px_-34px_rgba(249,115,22,0.35)] dark:border-orange-900/40 dark:bg-[linear-gradient(135deg,rgba(52,30,16,0.92),rgba(18,18,22,0.92))]">
+        <CardContent className="flex flex-col gap-5 p-6 md:flex-row md:items-end md:justify-between md:p-8">
+          <div className="max-w-2xl space-y-3">
+            <div className="inline-flex items-center rounded-full border border-orange-200/80 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-orange-700 dark:border-orange-900/40 dark:bg-white/10 dark:text-orange-300">
+              Command Center
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-brand-syne text-3xl tracking-tight text-slate-950 dark:text-orange-50 md:text-4xl">
+                AI Team
+              </h1>
+              <p className="max-w-xl text-sm leading-6 text-slate-600 dark:text-orange-100/72">
+                Assign work, review plans, and run the right agent without opening a cluttered operator console.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid min-w-[220px] gap-3 rounded-[1.4rem] border border-orange-200/70 bg-white/75 p-4 text-sm shadow-[0_20px_40px_-28px_rgba(15,23,42,0.35)] dark:border-orange-900/40 dark:bg-white/5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Agents</span>
+              <span className="text-lg font-semibold text-foreground">{DIGITAL_EMPLOYEES.length}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">How it works</span>
+              <span className="text-xs font-medium text-orange-700 dark:text-orange-300">Task → Plan → Run</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div>
         <div className="mb-3 flex items-center justify-between">
@@ -468,19 +482,19 @@ export function AgentDashboard() {
               onClick={refreshIndustryIntel}
               disabled={intelRefreshing || !workspaceId || workspaceId === 'default'}
               title={intelMeta
-                ? `Last refreshed: ${new Date(intelMeta.generated_at).toLocaleString()} via ${intelMeta.source ?? 'unknown'}${intelMeta.search_query ? ` · query: "${intelMeta.search_query}"` : ''}`
-                : 'Fetch last-30-days industry intelligence — injected into every agent run'}
+                ? `Agents have market context from ${new Date(intelMeta.generated_at).toLocaleString()} · source: ${intelMeta.source ?? 'unknown'}${intelMeta.search_query ? ` · "${intelMeta.search_query}"` : ''}\nClick to pull fresh signals from Reddit, YouTube & HN`
+                : 'Give agents fresh market context — pulls last-30-day signals from Reddit, YouTube & HN and injects them into every agent run'}
               className="h-7 text-xs"
             >
               <TrendingUp className={`h-3 w-3 mr-1.5 ${intelRefreshing ? 'animate-pulse' : ''}`} />
-              {intelRefreshing ? 'Refreshing…' : 'Industry Intel'}
+              {intelRefreshing ? 'Pulling signals…' : 'Market Signals'}
               {intelMeta && !intelRefreshing && (
                 <span className={`ml-1.5 text-xs ${intelMeta.source === 'last30days' ? 'text-green-500' : 'text-amber-500'}`}>●</span>
               )}
             </Button>
             <button
               onClick={fetchHeartbeat}
-              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               <RefreshCw className="h-3 w-3" />
               Refresh
@@ -494,6 +508,7 @@ export function AgentDashboard() {
             const lastRun = userRuns[employee.name] ?? null;
             const profile = EMPLOYEE_PROFILES[employee.name];
             const savedPlan = agentPlans[employee.name];
+            const cardSummary = profile.executes[0];
 
             return (
               <Card
@@ -514,18 +529,18 @@ export function AgentDashboard() {
                     </Badge>
                   </div>
 
-                  <p className="mb-4 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                    {profile.personality}
+                  <p className="mb-3 line-clamp-1 text-xs leading-5 text-muted-foreground">
+                    {cardSummary}
                   </p>
 
                   {savedPlan && (
-                    <div className="mb-4 rounded-xl border border-orange-200/70 bg-orange-50/70 p-3 dark:border-orange-900/60 dark:bg-orange-950/20">
+                    <div className="mb-3 rounded-xl border border-orange-200/70 bg-orange-50/70 p-3 dark:border-orange-900/60 dark:bg-orange-950/20">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
-                            Execution plan ready
+                            Plan ready
                           </p>
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-foreground">
+                          <p className="mt-1 line-clamp-1 text-xs leading-5 text-foreground">
                             {savedPlan.summary}
                           </p>
                         </div>
@@ -539,14 +554,12 @@ export function AgentDashboard() {
                     </div>
                   )}
 
-                  <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Last run</p>
-                      <p className="mt-1 font-medium text-foreground">{formatLastRun(lastRun)}</p>
-                    </div>
+                  <div className="mb-4 flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 p-3 text-xs">
+                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Last run</span>
+                    <span className="font-medium text-foreground">{formatLastRun(lastRun)}</span>
                   </div>
 
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -569,7 +582,7 @@ export function AgentDashboard() {
                       ) : (
                         <>
                           <PlayCircle className="mr-2 h-3.5 w-3.5" />
-                          {savedPlan ? 'Run Now' : 'Give Task'}
+                          {savedPlan ? 'Run' : 'Task'}
                         </>
                       )}
                     </Button>

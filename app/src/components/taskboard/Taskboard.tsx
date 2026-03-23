@@ -1,14 +1,29 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { TaskItem } from './TaskItem';
 import type { Task } from '@/types/chat';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { removeTask as removeStoredTask } from '@/lib/taskStore';
+import { fetchJson } from '@/components/modules/company-intelligence/api';
 
 type Horizon = 'day' | 'week' | 'month';
+type DeploymentEntry = {
+  id: string;
+  agentName: string;
+  workspaceId?: string | null;
+  agentTarget?: string | null;
+  sectionTitle?: string | null;
+  tasks?: Array<{ label: string; horizon?: Horizon }>;
+  scheduleMode?: string | null;
+  status?: string;
+  scheduledFor?: string | null;
+  createdAt?: string;
+};
 
 const STORAGE_KEY = 'marqq_tasks';
 
@@ -31,10 +46,25 @@ function saveTasks(tasks: Task[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
-export function Taskboard() {
+export function Taskboard({
+  collapsed: collapsedProp,
+  onCollapsedChange,
+}: {
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
+}) {
   const [tasks, setTasks] = useState<Task[]>(loadTasks);
   const [horizon, setHorizon] = useState<Horizon>('day');
-  const [collapsed, setCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = collapsedProp ?? internalCollapsed;
+
+  const setCollapsed = useCallback((next: boolean | ((current: boolean) => boolean)) => {
+    const resolved = typeof next === 'function' ? next(collapsed) : next;
+    if (collapsedProp === undefined) {
+      setInternalCollapsed(resolved);
+    }
+    onCollapsedChange?.(resolved);
+  }, [collapsed, collapsedProp, onCollapsedChange]);
 
   // Reload when ChatHome adds an AI task
   useEffect(() => {
@@ -44,8 +74,52 @@ export function Taskboard() {
   }, []);
   const [newLabel, setNewLabel] = useState('');
   const [adding, setAdding] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [deployments, setDeployments] = useState<DeploymentEntry[]>([]);
 
   const visibleTasks = tasks.filter(t => t.horizon === horizon);
+  const selectedDayKey = selectedDate.toDateString();
+
+  const scheduledEntries = useMemo(() => {
+    return deployments
+      .filter((deployment) => ['active', 'paused', 'pending', 'running'].includes(String(deployment.status || '')))
+      .map((deployment) => {
+        const when = deployment.scheduledFor ? new Date(deployment.scheduledFor) : deployment.createdAt ? new Date(deployment.createdAt) : null;
+        return {
+          ...deployment,
+          when,
+        };
+      })
+      .filter((deployment) => deployment.when && !Number.isNaN(deployment.when.getTime()));
+  }, [deployments]);
+
+  const scheduledTasksForDay = useMemo(() => {
+    return scheduledEntries.filter((deployment) => deployment.when?.toDateString() === selectedDayKey);
+  }, [scheduledEntries, selectedDayKey]);
+
+  const calendarHighlightedDays = useMemo(() => scheduledEntries.map((deployment) => deployment.when as Date).filter(Boolean), [scheduledEntries]);
+
+  const loadDeployments = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem('marqq_active_workspace');
+      const activeWorkspace = raw ? JSON.parse(raw) : null;
+      const workspaceId = typeof activeWorkspace?.id === 'string' ? activeWorkspace.id : null;
+      const response = await fetchJson<{ deployments?: DeploymentEntry[] }>('/api/agents/deployments');
+      const filtered = (response.deployments || []).filter((deployment) => {
+        if (!workspaceId) return true;
+        return !deployment.workspaceId || deployment.workspaceId === workspaceId;
+      });
+      setDeployments(filtered);
+    } catch {
+      setDeployments([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!calendarOpen) return;
+    void loadDeployments();
+  }, [calendarOpen, loadDeployments]);
 
   const toggleTask = useCallback((id: string) => {
     setTasks(prev => {
@@ -89,10 +163,10 @@ export function Taskboard() {
 
   if (collapsed) {
     return (
-      <div className="w-8 flex-shrink-0 flex flex-col border-l bg-white dark:bg-gray-950 h-full">
+      <div className="flex h-full w-8 flex-shrink-0 flex-col border-l border-border/70 bg-background/90 backdrop-blur">
         <button
           onClick={() => setCollapsed(false)}
-          className="flex-1 flex flex-col items-center justify-center gap-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
+          className="flex-1 flex flex-col items-center justify-center gap-1 text-[10px] text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
           title="Show tasks"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -103,41 +177,54 @@ export function Taskboard() {
   }
 
   return (
-    <div className="w-[280px] flex-shrink-0 flex flex-col border-l bg-white dark:bg-gray-950 h-full transition-all duration-300">
+    <div className="flex h-full w-[280px] flex-shrink-0 flex-col border-l border-border/70 bg-background/90 backdrop-blur">
       {/* Header */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Tasks</h2>
-        <button
-          onClick={() => setCollapsed(true)}
-          className="mb-3 inline-flex items-center justify-center rounded-md p-1 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title="Hide tasks"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-foreground">Tasks</h2>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCalendarOpen(true)}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-orange-600 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors"
+                title="View scheduled tasks calendar"
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Calendar
+              </button>
+              <button
+                onClick={() => setCollapsed(true)}
+                className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                title="Hide tasks"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
 
-        {/* Horizon tabs */}
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg">
-          {(['day', 'week', 'month'] as Horizon[]).map(h => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
-              className={cn(
-                "flex-1 text-xs py-1 rounded-md font-medium transition-colors capitalize",
-                horizon === h
-                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              )}
-            >
-              {h}
-            </button>
-          ))}
+          <div className="flex gap-1 rounded-lg bg-muted/70 p-0.5">
+            {(['day', 'week', 'month'] as Horizon[]).map(h => (
+              <button
+                key={h}
+                onClick={() => setHorizon(h)}
+                className={cn(
+                  "flex-1 text-xs py-1 rounded-md font-medium transition-colors capitalize",
+                  horizon === h
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Task list */}
       <ScrollArea className="flex-1 px-3">
         {pending.length === 0 && completed.length === 0 ? (
-          <p className="text-xs text-gray-400 dark:text-gray-600 text-center py-8">No tasks for this {horizon}</p>
+          <p className="py-8 text-center text-xs text-muted-foreground">No tasks for this {horizon}</p>
         ) : (
           <>
             {pending.map(task => (
@@ -173,13 +260,77 @@ export function Taskboard() {
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-600 hover:text-orange-500 dark:hover:text-orange-400 transition-colors w-full"
+            className="flex w-full items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-orange-500 dark:hover:text-orange-400"
           >
             <span className="text-base leading-none">+</span>
             <span>Add task</span>
           </button>
         )}
       </div>
+
+      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Scheduled Tasks Calendar</DialogTitle>
+            <DialogDescription>
+              Review scheduled tasks by date and inspect what is queued for the selected day.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+            <div className="rounded-xl border border-border/60 bg-background/80">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                modifiers={{ scheduled: calendarHighlightedDays }}
+                modifiersClassNames={{
+                  scheduled: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 font-bold'
+                }}
+                className="w-full"
+              />
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/80 p-4">
+              <div className="mb-3 text-sm font-semibold text-foreground">
+                {selectedDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+              </div>
+              <ScrollArea className="h-[320px] pr-3">
+                {scheduledTasksForDay.length ? (
+                  <div className="space-y-3">
+                    {scheduledTasksForDay.map((deployment) => (
+                      <div key={deployment.id} className="rounded-lg border border-border/60 bg-background/70 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold text-foreground">
+                            {deployment.agentTarget || deployment.sectionTitle || deployment.agentName}
+                          </div>
+                          <div className="text-[11px] font-medium uppercase tracking-wide text-orange-600 dark:text-orange-300">
+                            {deployment.status}
+                          </div>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {deployment.when?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Scheduled'}
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {(deployment.tasks || []).length ? (
+                            deployment.tasks!.map((task, idx) => (
+                              <div key={`${deployment.id}-${idx}`} className="text-sm text-foreground">
+                                • {task.label}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-muted-foreground">No task details available.</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No scheduled tasks for this date.</div>
+                )}
+              </ScrollArea>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

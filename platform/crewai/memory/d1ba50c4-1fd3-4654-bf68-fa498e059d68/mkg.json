@@ -1,0 +1,223 @@
+{
+  "company_id": "d1ba50c4-1fd3-4654-bf68-fa498e059d68",
+  "updated_at": "2026-03-12T13:49:05.700Z",
+  "positioning": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "icp": {
+    "value": [
+      {
+        "segment": "FinTech / BFSI innovators",
+        "firmographic": {
+          "company_size_revenue": "₹50 Cr‑₹500 Cr",
+          "employee_range": "50‑500",
+          "industry": "Banking, Payments, Lending, Insurance",
+          "geography": "India (pan‑India, some NRI units)"
+        },
+        "behavioural_psychographic": {
+          "culture": "Data‑driven, compliance‑focused, ROI‑obsessed",
+          "adoption": "Early AI/ML adopters, value speed‑to‑market",
+          "values": "Security, regulatory compliance, customer experience"
+        },
+        "decision_maker_title": "Head of Digital Transformation / Chief Innovation Officer",
+        "pain_points": [
+          "Legacy core systems block real‑time personalization",
+          "High manual underwriting / fraud‑detection costs",
+          "Regulatory pressure for AI‑enabled KYC/AML"
+        ],
+        "buying_triggers": [
+          "Launch of a new digital product (mobile wallet, credit line)",
+          "Regulatory deadline for AI‑enabled compliance",
+          "Competitive pressure after rival releases AI feature"
+        ],
+        "messaging_angle": "Accelerate your AI‑first banking roadmap – secure, compliant, and customer‑centric apps that cut processing time by 30 % and boost digital adoption."
+      },
+      {
+        "segment": "PropTech platforms & real‑estate developers",
+        "firmographic": {
+          "company_size_revenue": "₹20 Cr‑₹200 Cr",
+          "employee_range": "30‑200",
+          "industry": "Real‑estate brokerage, property‑management SaaS, construction tech",
+          "geography": "Tier‑1 & Tier‑2 Indian cities (Mumbai, Bengaluru, Hyderabad)"
+        },
+        "behavioural_psychographic": {
+          "culture": "Visual, data‑rich, ROI‑focused",
+          "adoption": "Seeks tech differentiation, wary of integration risk",
+          "values": "Speed, accuracy, data privacy"
+        },
+        "decision_maker_title": "Chief Product Officer / VP of Engineering",
+        "pain_points": [
+          "Manual property valuation & lead scoring are slow",
+          "Inconsistent UX across web & mobile",
+          "Difficulty extracting actionable insights from large property datasets"
+        ],
+        "buying_triggers": [
+          "Funding round earmarked for AI/ML",
+          "Expansion into a new city where AI valuation is a differentiator",
+          "Customer demand for instant property recommendations"
+        ],
+        "messaging_angle": "Turn every property interaction into a data‑driven conversion – AI‑powered valuation, recommendation and automation that double qualified leads in 6 months."
+      },
+      {
+        "segment": "MarTech SaaS & growth‑stage startups",
+        "firmographic": {
+          "company_size_revenue": "₹10 Cr‑₹100 Cr",
+          "employee_range": "20‑150",
+          "industry": "Marketing technology, ad‑tech, CDP",
+          "geography": "India & APAC (global brand clientele)"
+        },
+        "behavioural_psychographic": {
+          "culture": "Aggressive growth, rapid iteration, cross‑functional",
+          "adoption": "First‑to‑market, risk‑tolerant, investor‑driven",
+          "values": "Scalability, measurable ROI, product differentiation"
+        },
+        "decision_maker_title": "Chief Marketing Officer / Head of Product",
+        "pain_points": [
+          "Rule‑based personalization cannot scale",
+          "High churn from poor onboarding experiences",
+          "Pressure to prove AI ROI quickly for investors"
+        ],
+        "buying_triggers": [
+          "Series A/B funding that mandates AI‑enabled differentiation",
+          "Major client request for AI‑driven campaign optimization",
+          "Internal KPI target (e.g., 20 % lift in conversion) needing AI"
+        ],
+        "messaging_angle": "Supercharge your marketing stack with AI‑native modules that personalize every touchpoint, cut churn by 15 % and give investors the data‑backed growth story they demand."
+      }
+    ],
+    "confidence": 0.7,
+    "last_verified": "2026-03-12",
+    "source_agent": "isha",
+    "expires_at": "2026-04-11"
+  },
+  "competitors": {
+    "0": {
+      "name": "Clevertap",
+      "positioning": "Mobile-first retention platform for consumer apps",
+      "strengths": [
+        "Deep mobile SDK integration",
+        "Strong India enterprise sales team"
+      ],
+      "weaknesses": [
+        "No B2B lead scoring capabilities",
+        "Weak LinkedIn organic presence"
+      ],
+      "recent_moves": "Launched 'Engage AI' campaign targeting SaaS churn reduction; running Google Ads on 'customer retention software India'",
+      "threat_level": "Medium"
+    },
+    "1": {
+      "name": "HubSpot",
+      "positioning": "All-in-one marketing, sales, and customer service platform",
+      "strengths": [
+        "Comprehensive suite of tools for marketing, sales, and customer service",
+        "Strong brand recognition and global customer base"
+      ],
+      "weaknesses": [
+        "Complexity of the platform can be overwhelming for small businesses",
+        "Pricing can be steep for growing businesses"
+      ],
+      "recent_moves": "Introduced AI-powered content generation tools for marketing automation",
+      "threat_level": "High"
+    },
+    "2": {
+      "name": "Zoho",
+      "positioning": "Integrated suite of business applications for sales, marketing, and customer support",
+      "strengths": [
+        "Affordable pricing with a comprehensive suite of tools",
+        "Strong focus on small and medium-sized businesses"
+      ],
+      "weaknesses": [
+        "Less emphasis on AI and machine learning compared to competitors",
+        "Limited customization options for some tools"
+      ],
+      "recent_moves": "Launched new AI-driven analytics for sales forecasting",
+      "threat_level": "Medium"
+    },
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "offers": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "messaging": {
+    "value": "Transform your business with AI-powered solutions that accelerate growth, cut manual processing by 30%, and deliver measurable results in 90 days.",
+    "confidence": 0.9,
+    "last_verified": "2026-03-12",
+    "source_agent": "sam",
+    "expires_at": "2026-04-12"
+  },
+  "channels": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "funnel": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "metrics": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "baselines": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "content_pillars": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "campaigns": {
+    "value": null,
+    "confidence": 0,
+    "last_verified": null,
+    "source_agent": null,
+    "expires_at": null
+  },
+  "insights": {
+    "value": [
+      {
+        "insight": "12% variance in conversion rate predictions",
+        "calibration_note": "Conversion Rate over-predicted by 12%"
+      }
+    ],
+    "confidence": 0.9,
+    "last_verified": "2026-03-12",
+    "source_agent": "arjun",
+    "expires_at": "2026-04-12",
+    "competitive_gaps": [
+      "Unified ICP-fit scoring + outbound sequencing not offered by any competitor",
+      "B2B pipeline activation in India is underserved; competitors focus on consumer retention or complex all‑in‑one suites",
+      "No top‑3 competitor creates content targeting 'lead scoring for Series‑A startups'"
+    ],
+    "messaging_vulnerabilities": [
+      "Clevertap claims 'AI-powered personalization' but B2B case studies are generic – we can counter with ICP‑specific scoring demos",
+      "HubSpot markets an 'all‑in‑one' solution but SMBs complain about complexity – we can highlight our 30‑minute setup, AI‑native modules"
+    ]
+  }
+}

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Label } from '@/components/ui/label'
-import { Pencil, Check, X } from 'lucide-react'
+import { Pencil, Check, X, Sparkles } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+const ALL_PRODUCTS_VALUE = '__all_products__'
 
 export interface Offer {
   name: string
@@ -76,7 +79,8 @@ export function OfferSelector({ companyId, value, onChange }: OfferSelectorProps
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Product / Service</Label>
+        {/* Fix 13: descriptive label explaining what this filter does */}
+        <Label className="text-xs text-muted-foreground">Focus on product / service</Label>
         {!editing && (
           <button
             type="button"
@@ -124,23 +128,36 @@ export function OfferSelector({ companyId, value, onChange }: OfferSelectorProps
         </div>
       ) : (
         offers.length > 0 ? (
-          <select
-            className="w-full text-sm border rounded-md px-3 py-1.5 bg-background text-foreground border-border dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700 dark:[color-scheme:dark]"
-            value={value}
-            onChange={e => {
-              const name = e.target.value
-              const found = offers.find(o => o.name === name) ?? null
+          <Select
+            value={value || ALL_PRODUCTS_VALUE}
+            onValueChange={(next) => {
+              const name = next === ALL_PRODUCTS_VALUE ? '' : next
+              const found = offers.find((offer) => offer.name === name) ?? null
               onChange(name, found)
             }}
           >
-            <option value="">— all products —</option>
-            {offers.map(o => (
-              <option key={o.name} value={o.name}>
-                {o.name}{o.price_signal ? ` · ${o.price_signal}` : ''}
-              </option>
-            ))}
-          </select>
-        ) : null
+            <SelectTrigger className="h-10 bg-background text-left">
+              <SelectValue placeholder="All products (no filter)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_PRODUCTS_VALUE}>All products (no filter)</SelectItem>
+              {offers.map((offer) => (
+                <SelectItem key={offer.name} value={offer.name}>
+                  {offer.name}{offer.price_signal ? ` · ${offer.price_signal}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('marqq:navigate', { detail: { moduleId: 'setup' } }))}
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-md border border-dashed border-orange-300 bg-orange-50/60 dark:border-orange-800 dark:bg-orange-950/20 text-xs text-orange-600 dark:text-orange-400 hover:bg-orange-100/60 dark:hover:bg-orange-950/40 transition-colors text-left"
+          >
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            <span>No offers yet — <span className="underline underline-offset-2">Run Setup first</span> to populate this</span>
+          </button>
+        )
       )}
 
       {/* Show selected custom value as a chip when no dropdown options exist */}

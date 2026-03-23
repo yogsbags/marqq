@@ -3,6 +3,7 @@ import { GtmContextBanner } from '@/components/ui/gtm-context-banner'
 import { useGtmContext } from '@/lib/gtmContext'
 import { Lightbulb } from 'lucide-react'
 import type { ArtifactRecord } from '../api'
+import { ArtifactScoreCards, clampDisplayScore } from '../ui/ArtifactScoreCards'
 
 type Props = {
   artifact: ArtifactRecord | null
@@ -34,7 +35,7 @@ export function MarketingStrategyPage({ artifact }: Props) {
         )}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">No strategy yet</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">No strategy yet</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             Generate to see objective, funnel plan, KPIs, and a 90-day plan.
@@ -57,22 +58,39 @@ export function MarketingStrategyPage({ artifact }: Props) {
   const funnelPlan: any[] = Array.isArray(data.funnelPlan) ? data.funnelPlan : []
   const plan90: any[] = Array.isArray(data['90DayPlan']) ? data['90DayPlan'] : []
   const risks: RiskItem[] = Array.isArray(data.risksAndMitigations) ? (data.risksAndMitigations as RiskItem[]) : []
+  const aiScores = asObj(data.scores)
+  const strategicClarity = Number.isFinite(Number(aiScores?.strategicClarity))
+    ? clampDisplayScore(aiScores.strategicClarity)
+    : clampDisplayScore((objective ? 25 : 0) + (positioning ? 25 : 0) + targetSegments.length * 8)
+  const funnelStrength = Number.isFinite(Number(aiScores?.funnelStrength))
+    ? clampDisplayScore(aiScores.funnelStrength)
+    : clampDisplayScore(funnelPlan.length * 20 + kpis.length * 6)
+  const executionReadiness = Number.isFinite(Number(aiScores?.executionReadiness))
+    ? clampDisplayScore(aiScores.executionReadiness)
+    : clampDisplayScore(plan90.length * 7 + risks.length * 6)
 
   return (
     <div className="space-y-4">
       {isFromGtm && gtmContext && (
         <GtmContextBanner context={gtmContext} onDismiss={dismissGtmContext} />
       )}
+      <ArtifactScoreCards
+        items={[
+          { label: 'Strategic Clarity', value: strategicClarity, description: 'How clearly the plan defines objective, positioning, and segment focus.' },
+          { label: 'Funnel Strength', value: funnelStrength, description: 'How solid the stage-by-stage funnel logic and KPI framing are.' },
+          { label: 'Execution Readiness', value: executionReadiness, description: 'How ready this strategy is for operational rollout.' },
+        ]}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Objective</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Objective</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-foreground">{objective || '—'}</CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Positioning</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Positioning</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-foreground">{positioning || '—'}</CardContent>
         </Card>
@@ -81,7 +99,7 @@ export function MarketingStrategyPage({ artifact }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Target Segments</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Target Segments</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {targetSegments.length ? (
@@ -98,7 +116,7 @@ export function MarketingStrategyPage({ artifact }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Messaging Pillars</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Messaging Pillars</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {messagingPillars.length ? (
@@ -115,7 +133,7 @@ export function MarketingStrategyPage({ artifact }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">KPIs</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">KPIs</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {kpis.length ? (
@@ -133,7 +151,7 @@ export function MarketingStrategyPage({ artifact }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Funnel Plan</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Funnel Plan</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {funnelPlan.length ? (
@@ -169,7 +187,7 @@ export function MarketingStrategyPage({ artifact }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">90‑Day Plan</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">90‑Day Plan</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {plan90.length ? (
@@ -197,7 +215,7 @@ export function MarketingStrategyPage({ artifact }: Props) {
       {risks.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Risks & Mitigations</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Risks & Mitigations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {risks.map((r, idx) => {

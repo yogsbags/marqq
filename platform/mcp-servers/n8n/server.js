@@ -9,7 +9,7 @@ async function n8nRequest(method, path, body) {
   const res = await fetch(`${N8N_URL}/api/v1${path}`, {
     method,
     headers: {
-      'Authorization': `Bearer ${N8N_API_KEY}`,
+      'X-N8N-API-KEY': N8N_API_KEY,
       'Content-Type': 'application/json',
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -120,7 +120,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case 'list_workflows': {
         const data = await n8nRequest('GET', '/workflows');
-        return ok(data);
+        const items = Array.isArray(data) ? data : (data.data || []);
+        return ok(items.map(w => ({ id: w.id, name: w.name, active: w.active, updatedAt: w.updatedAt })));
       }
 
       case 'get_workflow': {

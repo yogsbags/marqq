@@ -128,9 +128,9 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-background rounded-lg shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col">
+      <div className="bg-background rounded-[1.75rem] border border-orange-200/70 dark:border-orange-900/40 shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
+        <div className="flex items-center justify-between border-b border-orange-200/70 bg-[linear-gradient(135deg,rgba(255,247,237,0.96),rgba(255,237,213,0.9))] p-6 text-foreground dark:border-orange-900/40 dark:bg-[linear-gradient(135deg,rgba(40,24,12,0.92),rgba(24,24,27,0.9))]">
           <div className="flex items-center space-x-3">
             {file.name.toLowerCase().endsWith('.csv') ? (
               <FileSpreadsheet className="h-6 w-6" />
@@ -141,14 +141,14 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
               <h2 className="text-xl font-semibold">
                 {file.name.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel'} Analysis & Chat
               </h2>
-              <p className="text-blue-100 text-sm">{file.name} • {formatFileSize(file.size)}</p>
+              <p className="text-sm text-muted-foreground">{file.name} • {formatFileSize(file.size)}</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-white hover:bg-white/20"
+            className="text-muted-foreground hover:bg-orange-100 hover:text-foreground dark:hover:bg-orange-950/30"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -159,7 +159,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
           <div className="w-1/2 border-r flex flex-col">
             <div className="p-4 border-b">
               <h3 className="font-semibold flex items-center">
-                <BarChart3 className="h-4 w-4 mr-2 text-blue-500" />
+                <BarChart3 className="h-4 w-4 mr-2 text-orange-500" />
                 Data Analysis
               </h3>
             </div>
@@ -168,7 +168,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
               {isAnalyzing ? (
                 <div className="space-y-4">
                   <div className="flex items-center space-x-3">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500"></div>
                     <span>Analyzing your CSV data...</span>
                   </div>
                   <Progress value={75} className="w-full" />
@@ -192,12 +192,12 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="text-center p-3 bg-blue-50 rounded-lg">
-                          <div className="text-2xl font-bold text-blue-600">{analysis.keyMetrics.totalRows.toLocaleString()}</div>
+                        <div className="rounded-2xl border border-orange-200/70 bg-orange-50/75 p-3 text-center dark:border-orange-900/40 dark:bg-orange-950/20">
+                          <div className="text-2xl font-bold text-orange-600 dark:text-orange-300">{analysis.keyMetrics.totalRows.toLocaleString()}</div>
                           <div className="text-sm text-muted-foreground">Total Rows</div>
                         </div>
-                        <div className="text-center p-3 bg-green-50 rounded-lg">
-                          <div className="text-2xl font-bold text-green-600">{analysis.keyMetrics.totalColumns}</div>
+                        <div className="rounded-2xl border border-border bg-muted/40 p-3 text-center dark:bg-background/40">
+                          <div className="text-2xl font-bold text-foreground">{analysis.keyMetrics.totalColumns}</div>
                           <div className="text-sm text-muted-foreground">Columns</div>
                         </div>
                       </div>
@@ -208,7 +208,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center">
-                        <Lightbulb className="h-4 w-4 mr-2 text-yellow-500" />
+                        <Lightbulb className="h-4 w-4 mr-2 text-orange-500" />
                         AI Insights
                       </CardTitle>
                     </CardHeader>
@@ -216,7 +216,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                       <div className="space-y-2">
                         {analysis.insights.map((insight: string, index: number) => (
                           <div key={index} className="flex items-start space-x-2">
-                            <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <CheckCircle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
                             <span className="text-sm">{insight}</span>
                           </div>
                         ))}
@@ -253,11 +253,11 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                       </CardHeader>
                       <CardContent>
                         <div className="overflow-x-auto">
-                          <table className="w-full text-xs border-collapse border border-gray-200">
+                          <table className="w-full border-collapse border border-border text-xs">
                             <thead>
                               <tr className="bg-muted">
                                 {Object.keys(analysis.sampleData[0]).map((header: string) => (
-                                  <th key={header} className="border border-gray-200 p-2 text-left font-medium">
+                                  <th key={header} className="border border-border p-2 text-left font-medium">
                                     {header}
                                   </th>
                                 ))}
@@ -267,7 +267,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                               {analysis.sampleData.map((row: any, index: number) => (
                                 <tr key={index} className="hover:bg-muted/50">
                                   {Object.values(row).map((value: any, cellIndex: number) => (
-                                    <td key={cellIndex} className="border border-gray-200 p-2">
+                                    <td key={cellIndex} className="border border-border p-2">
                                       {String(value)}
                                     </td>
                                   ))}
@@ -295,7 +295,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
           <div className="w-1/2 flex flex-col">
             <div className="p-4 border-b">
               <h3 className="font-semibold flex items-center">
-                <MessageCircle className="h-4 w-4 mr-2 text-green-500" />
+                <MessageCircle className="h-4 w-4 mr-2 text-orange-500" />
                 Chat with Your Data
               </h3>
             </div>
@@ -314,15 +314,15 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                     <div className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center",
                       message.sender === 'ai' 
-                        ? "bg-green-100 text-green-600" 
-                        : "bg-blue-100 text-blue-600"
+                        ? "border border-orange-200/80 bg-orange-50 text-orange-600 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300" 
+                        : "bg-foreground text-background"
                     )}>
                       {message.sender === 'ai' ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
                     </div>
                     <Card className={cn(
                       "max-w-[80%] p-3",
                       message.sender === 'user' 
-                        ? "bg-blue-500 text-white" 
+                        ? "bg-orange-500 text-white border-orange-500" 
                         : "bg-muted"
                     )}>
                       <div className="text-sm whitespace-pre-wrap">
@@ -338,7 +338,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                       </div>
                       <div className={cn(
                         "text-xs mt-1 opacity-70",
-                        message.sender === 'user' ? "text-blue-100" : "text-muted-foreground"
+                        message.sender === 'user' ? "text-orange-100" : "text-muted-foreground"
                       )}>
                         {message.timestamp.toLocaleTimeString([], { 
                           hour: '2-digit', 
@@ -352,14 +352,14 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                 {/* Typing Indicator */}
                 {isChatting && (
                   <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-orange-200/80 bg-orange-50 text-orange-600 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300">
                       <Bot className="h-4 w-4" />
                     </div>
                     <Card className="p-3 bg-muted">
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                       </div>
                     </Card>
                   </div>
@@ -381,7 +381,7 @@ export function CSVAnalysisPanel({ file, onClose }: CSVAnalysisPanelProps) {
                 <Button
                   onClick={handleChatSubmit}
                   disabled={!chatInput.trim() || isChatting || isAnalyzing}
-                  className="bg-green-500 hover:bg-green-600"
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
                 >
                   <Send className="h-4 w-4" />
                 </Button>

@@ -27,7 +27,7 @@ export function ActivationStep({ phase }: ActivationStepProps) {
               Briefing your agents…
             </h2>
             <p className="text-sm text-white/70 leading-[1.7] font-sans max-w-[360px]">
-              Each agent is receiving your company context and calibrating to your business goals.
+              Each agent is receiving your company context so Veena can start building the first intelligence layer.
             </p>
           </div>
         )}

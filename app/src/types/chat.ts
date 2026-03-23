@@ -1,6 +1,7 @@
 export interface Message {
   id: string;
   content: string;
+  reasoning?: string;
   sender: 'user' | 'ai';
   timestamp: Date;
   file?: {

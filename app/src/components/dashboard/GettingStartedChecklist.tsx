@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Bot, CheckCircle2, ChevronDown, ChevronUp, Globe, Plug } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -15,8 +15,17 @@ function getWebsiteStepKey(workspaceId: string) {
   return `marqq_checklist_website_step_completed:${workspaceId}`;
 }
 
+function getIntegrationStepKey(workspaceId: string) {
+  return `marqq_checklist_integration_step_completed:${workspaceId}`;
+}
+
+function getFirstRunStepKey(workspaceId: string) {
+  return `marqq_checklist_first_run_step_completed:${workspaceId}`;
+}
+
 interface GettingStartedChecklistProps {
   onNavigate: (moduleId: string) => void;
+  onWebsiteSaved?: (websiteUrl: string) => void;
 }
 
 function queueCompanyIntelAutorun(companyName: string, websiteUrl: string, companyId?: string) {
@@ -56,7 +65,34 @@ function isNetworkFetchError(error: unknown) {
   return error instanceof TypeError && error.message === 'Failed to fetch';
 }
 
-export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistProps) {
+function StepBadge({
+  stepNumber,
+  complete,
+  active,
+}: {
+  stepNumber: 1 | 2 | 3;
+  complete: boolean;
+  active: boolean;
+}) {
+  if (complete) {
+    return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-semibold shadow-sm",
+        active
+          ? "border-orange-500 bg-orange-500 text-white dark:border-orange-500 dark:bg-orange-500 dark:text-white"
+          : "border-orange-300 bg-background text-orange-600 dark:border-orange-700 dark:bg-gray-950 dark:text-orange-300"
+      )}
+    >
+      <span>{stepNumber}</span>
+    </div>
+  );
+}
+
+export function GettingStartedChecklist({ onNavigate, onWebsiteSaved }: GettingStartedChecklistProps) {
   const { user } = useAuth();
   const { activeWorkspace, updateWebsiteUrl } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
@@ -70,6 +106,9 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
   const [hasAgentRun, setHasAgentRun] = useState(false);
   const [allDoneShown, setAllDoneShown] = useState(false);
   const [websiteStepCompleted, setWebsiteStepCompleted] = useState(false);
+  const [integrationStepCompleted, setIntegrationStepCompleted] = useState(false);
+  const [firstRunStepCompleted, setFirstRunStepCompleted] = useState(false);
+  const [runningFirstAgent, setRunningFirstAgent] = useState(false);
 
   useEffect(() => {
     setWebsiteUrl(activeWorkspace?.website_url ?? '');
@@ -78,13 +117,19 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
   useEffect(() => {
     if (!activeWorkspace?.id) {
       setWebsiteStepCompleted(false);
+      setIntegrationStepCompleted(false);
+      setFirstRunStepCompleted(false);
       return;
     }
 
     try {
       setWebsiteStepCompleted(localStorage.getItem(getWebsiteStepKey(activeWorkspace.id)) === '1');
+      setIntegrationStepCompleted(localStorage.getItem(getIntegrationStepKey(activeWorkspace.id)) === '1');
+      setFirstRunStepCompleted(localStorage.getItem(getFirstRunStepKey(activeWorkspace.id)) === '1');
     } catch {
       setWebsiteStepCompleted(false);
+      setIntegrationStepCompleted(false);
+      setFirstRunStepCompleted(false);
     }
   }, [activeWorkspace?.id]);
 
@@ -111,9 +156,11 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
 
   useEffect(() => { checkCompletionStatus(); }, [checkCompletionStatus]);
 
-  const step1Complete = websiteStepCompleted;
-  const step2Complete = step1Complete && hasIntegration;
-  const step3Complete = step2Complete && hasAgentRun;
+  const hasCapturedWebsite = Boolean(activeWorkspace?.website_url?.trim());
+  const step1Complete = websiteStepCompleted || hasCapturedWebsite;
+  const step2Complete = step1Complete && integrationStepCompleted;
+  const step3Complete = step2Complete && firstRunStepCompleted;
+  const activeStep = !step1Complete ? 1 : !step2Complete ? 2 : !step3Complete ? 3 : null;
   const completedCount = [step1Complete, step2Complete, step3Complete].filter(Boolean).length;
   const allComplete = completedCount === 3;
 
@@ -128,6 +175,43 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
     }
   }, [allComplete, allDoneShown]);
 
+  const startCompanyIntel = useCallback(async (rawWebsiteUrl: string) => {
+    const normalizedUrl = normalizeWebsiteUrl(rawWebsiteUrl);
+    const derivedName = deriveCompanyName(activeWorkspace?.name, rawWebsiteUrl);
+    const existing = await fetchJson<{ companies: Array<{ id: string; websiteUrl: string | null }> }>('/api/company-intel/companies');
+    let companyId = existing.companies.find((company) => (
+      company.websiteUrl && normalizeWebsiteUrl(company.websiteUrl) === normalizedUrl
+    ))?.id;
+
+    if (!companyId) {
+      const created = await fetchJson<{ company: { id: string } }>('/api/company-intel/companies', {
+        method: 'POST',
+        body: JSON.stringify({ companyName: derivedName, websiteUrl: rawWebsiteUrl })
+      });
+      companyId = created.company.id;
+    }
+
+    if (!companyId) {
+      throw new Error('Unable to prepare company intelligence.');
+    }
+
+    queueCompanyIntelAutorun(derivedName, rawWebsiteUrl, companyId);
+    await fetchJson(`/api/company-intel/companies/${companyId}/generate-all`, {
+      method: 'POST',
+      body: JSON.stringify({
+        inputs: {
+          goal: 'Increase qualified leads',
+          geo: 'India',
+          timeframe: '90 days',
+          channels: ['instagram', 'linkedin', 'youtube', 'whatsapp'],
+          notes: 'Keep it compliance-safe (no guaranteed returns).'
+        }
+      })
+    });
+
+    return { companyId, derivedName };
+  }, [activeWorkspace?.name]);
+
   const handleSaveUrl = async () => {
     const url = websiteUrl.trim();
     if (!url) return;
@@ -138,53 +222,11 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
         localStorage.setItem(getWebsiteStepKey(activeWorkspace.id), '1');
         setWebsiteStepCompleted(true);
       }
-      const derivedName = deriveCompanyName(activeWorkspace?.name, url);
-      queueCompanyIntelAutorun(derivedName, url)
-      void (async () => {
-        try {
-          const normalizedUrl = normalizeWebsiteUrl(url);
-          const existing = await fetchJson<{ companies: Array<{ id: string; websiteUrl: string | null }> }>('/api/company-intel/companies');
-          let companyId = existing.companies.find((company) => (
-            company.websiteUrl && normalizeWebsiteUrl(company.websiteUrl) === normalizedUrl
-          ))?.id;
-
-          if (!companyId) {
-            const created = await fetchJson<{ company: { id: string } }>('/api/company-intel/companies', {
-              method: 'POST',
-              body: JSON.stringify({ companyName: derivedName, websiteUrl: url })
-            });
-            companyId = created.company.id;
-          }
-
-          if (companyId) {
-            queueCompanyIntelAutorun(derivedName, url, companyId)
-            await fetchJson(`/api/company-intel/companies/${companyId}/generate-all`, {
-              method: 'POST',
-              body: JSON.stringify({
-                inputs: {
-                  goal: 'Increase qualified leads',
-                  geo: 'India',
-                  timeframe: '90 days',
-                  channels: ['instagram', 'linkedin', 'youtube', 'whatsapp'],
-                  notes: 'Keep it compliance-safe (no guaranteed returns).'
-                }
-              })
-            });
-            await fetchJson('/api/agents/zara/mark-run', {
-              method: 'POST',
-              body: JSON.stringify({ durationMs: 0 })
-            });
-            setHasAgentRun(true);
-          }
-        } catch (backgroundError) {
-          if (!isNetworkFetchError(backgroundError)) {
-            console.error('Background company intel sync failed:', backgroundError);
-          }
-        }
-      })();
-
-      toast.success('Website URL saved. Company intelligence is being populated in the background.')
+      onWebsiteSaved?.(url);
+      await startCompanyIntel(url);
+      toast.success('Website URL saved. Starting Company Intelligence.')
       setShowCompanyIntelCta(true);
+      onNavigate('company-intelligence');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
     } finally {
@@ -195,6 +237,42 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
   if (dismissed) return null;
 
   const firstName = user?.name?.split(' ')[0] ?? 'there';
+
+  const handleRunFirstAgent = async () => {
+    const currentWebsiteUrl = activeWorkspace?.website_url?.trim();
+    if (!currentWebsiteUrl || !activeWorkspace?.id) {
+      toast.error('Save your website URL first.');
+      return;
+    }
+    if (!step2Complete) {
+      toast.error('Connect an account before running your first agent.');
+      onNavigate('settings-accounts');
+      return;
+    }
+
+    setRunningFirstAgent(true);
+    try {
+      await startCompanyIntel(currentWebsiteUrl);
+      await fetchJson('/api/agents/zara/mark-run', {
+        method: 'POST',
+        body: JSON.stringify({ durationMs: 0 })
+      });
+      setHasAgentRun(true);
+      if (activeWorkspace?.id) {
+        localStorage.setItem(getFirstRunStepKey(activeWorkspace.id), '1');
+        setFirstRunStepCompleted(true);
+      }
+      toast.success('Your first AI run has started.');
+      onNavigate('company-intelligence');
+    } catch (error) {
+      if (!isNetworkFetchError(error)) {
+        console.error('First AI run failed:', error);
+      }
+      toast.error(error instanceof Error ? error.message : 'Failed to run your first AI agent');
+    } finally {
+      setRunningFirstAgent(false);
+    }
+  };
 
   return (
     <div className="mx-4 mt-3 mb-1 border rounded-xl bg-card shadow-sm overflow-hidden">
@@ -231,18 +309,25 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
       {!collapsed && !allComplete && (
         <div className="divide-y">
           {/* Step 1 */}
-          <div className="px-5 py-4 flex gap-4">
+          <div
+            className={cn(
+              "px-5 py-4 flex gap-4 border-l-2",
+              activeStep === 1
+                ? "border-l-orange-500 bg-orange-50/40 dark:bg-orange-950/10"
+                : "border-l-transparent"
+            )}
+          >
             <div className="mt-0.5 shrink-0">
-              {step1Complete
-                ? <CheckCircle2 className="h-5 w-5 text-green-500" />
-                : <Globe className="h-5 w-5 text-orange-500" />}
+              <StepBadge stepNumber={1} complete={step1Complete} active={activeStep === 1} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">Enter your website URL</p>
               <p className="text-xs text-muted-foreground mb-2">
-                Company Intelligence agent (Veena) will research and analyze your brand automatically
+                {hasCapturedWebsite
+                  ? 'Your company website is already captured. Open Company Intelligence to review it.'
+                  : 'Save your company website so agents can use the right business context.'}
               </p>
-              {!step1Complete && (
+              {!hasCapturedWebsite && (
                 <div className="flex gap-2">
                   <Input
                     placeholder="https://yourcompany.com"
@@ -260,7 +345,7 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
                   </Button>
                 </div>
               )}
-              {(step1Complete || showCompanyIntelCta) && (
+              {(hasCapturedWebsite || showCompanyIntelCta) && (
                 <div className="mt-2">
                   <Button
                     variant="default"
@@ -269,12 +354,12 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
                     onClick={() => {
                       if (activeWorkspace?.website_url) {
                         const derivedName = deriveCompanyName(activeWorkspace.name, activeWorkspace.website_url);
-                        queueCompanyIntelAutorun(derivedName, activeWorkspace.website_url)
+                        queueCompanyIntelAutorun(derivedName, activeWorkspace.website_url);
                       }
                       onNavigate('company-intelligence');
                     }}
                   >
-                    Show Company Intel →
+                    Show Company Intel
                   </Button>
                 </div>
               )}
@@ -282,40 +367,74 @@ export function GettingStartedChecklist({ onNavigate }: GettingStartedChecklistP
           </div>
 
           {/* Step 2 */}
-          <div className={cn('px-5 py-4 flex items-center gap-4', step2Complete && 'opacity-60')}>
+          <div
+            className={cn(
+              'px-5 py-4 flex items-center gap-4 border-l-2',
+              step2Complete && 'opacity-60',
+              activeStep === 2
+                ? "border-l-orange-500 bg-orange-50/40 dark:bg-orange-950/10"
+                : "border-l-transparent"
+            )}
+          >
             <div className="shrink-0">
-              {step2Complete
-                ? <CheckCircle2 className="h-5 w-5 text-green-500" />
-                : <Plug className="h-5 w-5 text-blue-500" />}
+              <StepBadge stepNumber={2} complete={step2Complete} active={activeStep === 2} />
             </div>
             <div className="flex-1">
               <p className="font-medium text-sm">Connect an account</p>
               <p className="text-xs text-muted-foreground">
-                Link Google Ads, Meta or LinkedIn for live data
+                Link Google Ads, Meta, or LinkedIn so your first run has campaign context.
               </p>
             </div>
             {!step2Complete && (
-              <Button variant="outline" size="sm" onClick={() => onNavigate('settings-accounts')}>
-                + Connect
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!step1Complete}
+                onClick={() => {
+                  if (step1Complete && hasIntegration && activeWorkspace?.id) {
+                    localStorage.setItem(getIntegrationStepKey(activeWorkspace.id), '1');
+                    setIntegrationStepCompleted(true);
+                  } else {
+                    onNavigate('settings-accounts');
+                  }
+                }}
+              >
+                {hasIntegration && step1Complete ? 'Mark done' : '+ Connect'}
               </Button>
             )}
           </div>
 
           {/* Step 3 */}
-          <div className="px-5 py-4 flex items-center gap-4">
+          <div
+            className={cn(
+              "px-5 py-4 flex items-center gap-4 border-l-2",
+              activeStep === 3
+                ? "border-l-orange-500 bg-orange-50/40 dark:bg-orange-950/10"
+                : "border-l-transparent"
+            )}
+          >
             <div className="shrink-0">
-              {step3Complete
-                ? <CheckCircle2 className="h-5 w-5 text-green-500" />
-                : <Bot className="h-5 w-5 text-purple-500" />}
+              <StepBadge stepNumber={3} complete={step3Complete} active={activeStep === 3} />
             </div>
             <div className="flex-1">
-              <p className="font-medium text-sm">Run your first AI agent</p>
+              <p className="font-medium text-sm">Run your first AI analysis</p>
               <p className="text-xs text-muted-foreground">
-                Ask Maya, Riya or any agent to start working
+                Start Company Intelligence after your website and connectors are ready.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => onNavigate('home')}>
-              {step3Complete ? '→ Open' : '→ Run'}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (step3Complete) {
+                  onNavigate('company-intelligence');
+                  return;
+                }
+                void handleRunFirstAgent();
+              }}
+              disabled={runningFirstAgent || !step1Complete || !step2Complete}
+            >
+              {step3Complete ? '→ Open' : runningFirstAgent ? 'Running…' : '→ Run'}
             </Button>
           </div>
         </div>

@@ -7,7 +7,7 @@
  * params: {} (no params needed — uses all stored ads for the company)
  */
 
-import Groq from 'groq-sdk';
+import { tracedLLM } from '../../langfuse.js';
 import { MKGService } from '../../mkg-service.js';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
@@ -16,9 +16,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MEMORY_ROOT = join(__dirname, '..', '..', '..', 'crewai', 'memory');
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || '' });
-
 export async function adsIntelAnalyze(params, companyId, supabaseClient) {
+  const groq = tracedLLM({ traceName: 'ads-intel-analysis', userId: companyId || undefined, tags: ['ads-intel', 'automation'] });
   if (!supabaseClient) return { status: 'error', error: 'supabaseClient required' };
   if (!companyId)      return { status: 'error', error: 'companyId required' };
 

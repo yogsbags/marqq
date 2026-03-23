@@ -19,6 +19,10 @@ function safeString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)))
+}
+
 function buildCategorySeries(productsServices: any[]) {
   const counts = new Map<string, number>()
   for (const p of productsServices) {
@@ -51,12 +55,55 @@ export function CompanySnapshotCard({ companyName, websiteUrl, profile }: Props)
   const socialLinks = asObj(p.socialLinks) || {}
   const logoUrl = safeString(p.logoUrl)
   const sources = safeArray(p.sources).map((v) => safeString(v)).filter(Boolean)
+  const profileCompletenessScore = clampScore(
+    (summary ? 20 : 0) +
+    (industry ? 15 : 0) +
+    (geoFocus.length ? 10 : 0) +
+    (offerings.length ? 15 : 0) +
+    (primaryAudience.length ? 10 : 0) +
+    (productsServices.length ? 15 : 0) +
+    (sources.length ? 5 : 0) +
+    (websiteUrl ? 5 : 0) +
+    ((keyPages.about || keyPages.productsOrServices || keyPages.contact) ? 5 : 0)
+  )
+  const offerClarityScore = clampScore(
+    (offerings.length >= 3 ? 30 : offerings.length ? 18 : 0) +
+    (productsServices.length >= 3 ? 30 : productsServices.length ? 18 : 0) +
+    ((productsServices.some((item) => safeString(item?.description)) ? 20 : 0)) +
+    ((productsServices.some((item) => safeString(item?.differentiator)) ? 20 : 0))
+  )
+  const marketReadinessScore = clampScore(
+    (primaryAudience.length >= 2 ? 20 : primaryAudience.length ? 10 : 0) +
+    (geoFocus.length ? 15 : 0) +
+    ((socialLinks.linkedin || socialLinks.youtube || socialLinks.instagram || socialLinks.twitter) ? 15 : 0) +
+    (sources.length >= 2 ? 15 : sources.length ? 8 : 0) +
+    ((tone || style) ? 15 : 0) +
+    ((keyPages.productsOrServices || keyPages.about || keyPages.contact) ? 20 : 0)
+  )
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Profile Completeness</div>
+          <div className="text-2xl font-bold">{profileCompletenessScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How complete the current company profile is.</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Offer Clarity</div>
+          <div className="text-2xl font-bold">{offerClarityScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How clearly the products, services, and value are defined.</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-orange-600 dark:text-orange-400">Market Readiness</div>
+          <div className="text-2xl font-bold">{marketReadinessScore}/100</div>
+          <div className="text-xs text-muted-foreground mt-1">How usable this profile is for downstream GTM work.</div>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Company Snapshot</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Company Snapshot</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -136,7 +183,7 @@ export function CompanySnapshotCard({ companyName, websiteUrl, profile }: Props)
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Products & Services</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Products & Services</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {productsServices.length ? (
@@ -159,7 +206,7 @@ export function CompanySnapshotCard({ companyName, websiteUrl, profile }: Props)
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Category Mix</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Category Mix</CardTitle>
           </CardHeader>
           <CardContent className="h-[260px]">
             {categorySeries.length ? (
@@ -182,7 +229,7 @@ export function CompanySnapshotCard({ companyName, websiteUrl, profile }: Props)
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Key Links</CardTitle>
+          <CardTitle className="text-base text-orange-600 dark:text-orange-400">Key Links</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div className="border rounded-md p-3">
@@ -205,7 +252,7 @@ export function CompanySnapshotCard({ companyName, websiteUrl, profile }: Props)
       {sources.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Sources (grounded)</CardTitle>
+            <CardTitle className="text-base text-orange-600 dark:text-orange-400">Sources (grounded)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {sources.slice(0, 12).map((s, idx) => (
