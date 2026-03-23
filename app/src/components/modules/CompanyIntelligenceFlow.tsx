@@ -7,6 +7,7 @@ import { COMPANY_INTEL_PAGES, getCompanyIntelPageTitle, type CompanyIntelPageId 
 import { GenericArtifactPage } from './company-intelligence/pages/GenericArtifactPage'
 import { SocialIntelPage } from './company-intelligence/pages/SocialIntelPage'
 import { AdsIntelPage } from './company-intelligence/pages/AdsIntelPage'
+import { LeadMagnetsPage } from './company-intelligence/pages/LeadMagnetsPage'
 import { OverviewPage } from './company-intelligence/pages/OverviewPage'
 import { clearActiveCompanyContext, persistActiveCompanyContext } from '@/lib/agentContext'
 import { notifyCompanyIntelListUpdated } from '@/lib/companyIntelEvents'
@@ -499,7 +500,7 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-500">
             Company Intelligence
           </div>
-          <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mt-2">
             <div className="max-w-3xl space-y-1">
               <h1 className="font-brand-syne text-2xl font-semibold tracking-tight text-foreground md:text-[2.05rem]">
                 {title}
@@ -508,12 +509,6 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
                 Review a company once, then move through the specific intelligence views only when you need them.
               </p>
             </div>
-            {currentCompany ? (
-              <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Active company</div>
-                <div className="mt-1 font-medium text-foreground">{currentCompany.companyName}</div>
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -580,7 +575,14 @@ export function CompanyIntelligenceFlow({ guidedGoal = null, advancedMode = true
                 <AdsIntelPage companyId={currentCompany?.id} />
               ) : null}
 
-              {!showStartingScanState && activePage !== 'social_intel' && activePage !== 'ads_intel' ? (
+              {!showStartingScanState && activePage === 'lead_magnets' ? (
+                <LeadMagnetsPage artifact={activeArtifact} />
+              ) : null}
+
+              {!showStartingScanState &&
+              activePage !== 'social_intel' &&
+              activePage !== 'ads_intel' &&
+              activePage !== 'lead_magnets' ? (
                 <GenericArtifactPage
                   title={getCompanyIntelPageTitle(activePage)}
                   pageId={activePage}

@@ -16,7 +16,8 @@ const STEPS: SpotlightTourStep[] = [
   {
     target: 'nav-company-intel',
     title: 'Company Intelligence',
-    description: 'Analyze your company, benchmark competitors, and generate your full GTM strategy with one click.',
+    description:
+      'Analyze your company and benchmark competitors from one place. After you open it, switch sections with the tabs along the top of the screen.',
     placement: 'right',
   },
   {

@@ -3,7 +3,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { BRAND } from '@/lib/brand';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import {
   HiChat as Bot,
@@ -42,63 +42,13 @@ interface SidebarProps {
   onConversationSelect?: (id: string) => void;
 }
 
-function parseCompanyIntelPageFromHash(): string {
+/** Default hash when opening CI from sidebar so horizontal tabs + flow stay in sync */
+function ensureCompanyIntelHash() {
   const raw = window.location.hash || '';
-  if (!raw.startsWith('#')) return 'overview';
-  const value = raw.slice(1);
-  if (!value) return 'overview';
-
-  if (value.startsWith('company-intel:')) {
-    return value.slice('company-intel:'.length) || 'overview';
-  }
-
-  const params = new URLSearchParams(value.replace(/^(\?|&)/, ''));
-  return params.get('ci') || 'overview';
+  const value = raw.startsWith('#') ? raw.slice(1) : raw;
+  if (value.includes('ci=') || value.startsWith('company-intel:')) return;
+  window.location.hash = 'ci=overview';
 }
-
-const COMPANY_INTEL_GROUPS = [
-  {
-    label: 'Foundation',
-    items: [
-      { id: 'overview', title: 'Overview' },
-      { id: 'client_profiling', title: 'Client Profiling' },
-      { id: 'icps', title: 'Ideal Customer Profiles' },
-      { id: 'partner_profiling', title: 'Partner Profiling' },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      { id: 'competitor_intelligence', title: 'Competitor Intel' },
-      { id: 'social_intel', title: 'Social Intelligence' },
-      { id: 'ads_intel', title: 'Ads Intelligence' },
-      { id: 'website_audit', title: 'Website Audit' },
-    ],
-  },
-  {
-    label: 'Blueprint',
-    items: [
-      { id: 'opportunities', title: 'Opportunities' },
-      { id: 'marketing_strategy', title: 'Marketing Strategy' },
-      { id: 'positioning_messaging', title: 'Positioning & Messaging' },
-      { id: 'pricing_intelligence', title: 'Pricing Intelligence' },
-      { id: 'channel_strategy', title: 'Channel Strategy' },
-    ],
-  },
-  {
-    label: 'Activation',
-    items: [
-      { id: 'content_strategy', title: 'Content Strategy' },
-      { id: 'sales_enablement', title: 'Sales Assets' },
-      { id: 'social_calendar', title: 'Social Calendar' },
-      { id: 'lead_magnets', title: 'Lead Magnets' },
-      { id: 'lookalike_audiences', title: 'Lookalike Audiences' },
-    ],
-  },
-];
-
-// Flat list for backward-compat checks (isSelected, hash parsing, etc.)
-const COMPANY_INTEL_SUBMENU = COMPANY_INTEL_GROUPS.flatMap(g => g.items);
 
 interface NavItem {
   id: string;
@@ -172,8 +122,6 @@ const bottomItems = [
 ];
 
 export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCollapse, conversations, activeConversationId, onConversationSelect }: SidebarProps) {
-  const [companyIntelPage, setCompanyIntelPage] = useState<string>(() => parseCompanyIntelPageFromHash());
-  const [companyIntelOpen, setCompanyIntelOpen] = useState<boolean>(selectedModule === 'company-intelligence');
   const homeButtonSelected = !selectedModule || selectedModule === 'home';
 
   // Sections open state — default all collapsed; auto-open section of active module
@@ -183,46 +131,19 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
   });
 
   useEffect(() => {
-    const handler = () => setCompanyIntelPage(parseCompanyIntelPageFromHash());
-    window.addEventListener('hashchange', handler);
-    return () => window.removeEventListener('hashchange', handler);
-  }, []);
-
-  useEffect(() => {
-    if (collapsed) {
-      setCompanyIntelOpen(false);
-      return;
-    }
-    if (selectedModule === 'company-intelligence') {
-      setCompanyIntelOpen(true);
-    }
     // Auto-expand section containing newly selected module
     const active = sectionContaining(selectedModule);
     if (active) {
-      setOpenSections(prev => prev[active] ? prev : { ...prev, [active]: true });
+      setOpenSections(prev => (prev[active] ? prev : { ...prev, [active]: true }));
     }
-  }, [collapsed, selectedModule, companyIntelPage]);
-
-  const companySubmenuVisible = useMemo(
-    () => selectedModule === 'company-intelligence' && companyIntelOpen && !collapsed,
-    [selectedModule, companyIntelOpen, collapsed]
-  );
-
-  const navigateCompanyIntel = (pageId: string) => {
-    window.location.hash = `ci=${encodeURIComponent(pageId)}`;
-    onModuleSelect('company-intelligence');
-  };
+  }, [collapsed, selectedModule]);
 
   const toggleSection = (label: string) => {
     setOpenSections(prev => ({ ...prev, [label]: !prev[label] }));
   };
 
   const renderNavItem = (item: NavItem) => {
-    const isCompanyRoot = item.id === 'company-intelligence';
-    const isCompanyIntelSubpage = COMPANY_INTEL_SUBMENU.some((sub) => sub.id === companyIntelPage);
-    const isSelected = isCompanyRoot
-      ? selectedModule === 'company-intelligence' && isCompanyIntelSubpage
-      : selectedModule === item.id;
+    const isSelected = selectedModule === item.id;
 
     return (
       <div key={item.id} className="space-y-1">
@@ -236,13 +157,9 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
               : "bg-transparent text-foreground/70 hover:bg-orange-500/10 hover:text-orange-500"
           )}
           onClick={() => {
-            if (isCompanyRoot) {
-              if (selectedModule === 'company-intelligence' && companyIntelOpen) {
-                setCompanyIntelOpen(false);
-                return;
-              }
-              setCompanyIntelOpen(true);
-              navigateCompanyIntel(companyIntelPage || 'overview');
+            if (item.id === 'company-intelligence') {
+              ensureCompanyIntelHash();
+              onModuleSelect('company-intelligence');
               return;
             }
             onModuleSelect(item.id);
@@ -260,31 +177,6 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
           <item.icon className={cn("h-5 w-5", collapsed ? "" : "mr-2")} />
           {!collapsed && <span className="font-medium text-base text-left">{item.title}</span>}
         </Button>
-
-        {isCompanyRoot && companySubmenuVisible && (
-          <div className="ml-7 mt-1 space-y-3">
-            {COMPANY_INTEL_GROUPS.map(group => (
-              <div key={group.label}>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">{group.label}</p>
-                {group.items.map(sub => (
-                  <Button
-                    key={sub.id}
-                    variant={companyIntelPage === sub.id ? 'default' : 'ghost'}
-                    className={cn(
-                      'w-full justify-start text-sm py-1.5 h-auto font-normal',
-                      companyIntelPage === sub.id
-                        ? 'bg-orange-500 text-white hover:bg-orange-600'
-                        : 'text-foreground/60 hover:text-orange-500 hover:bg-orange-500/10'
-                    )}
-                    onClick={() => navigateCompanyIntel(sub.id)}
-                  >
-                    {sub.title}
-                  </Button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     );
   };

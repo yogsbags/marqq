@@ -43,7 +43,7 @@ const HOME_STEPS: SpotlightTourStep[] = [
     target: 'nav-company-intel',
     title: 'Company Intelligence',
     description:
-      'When you are ready to go deep: live company profile, competitors, ICP, positioning, channel strategy — built from your site and refreshed over time.',
+      'When you are ready to go deep: open it here, then use the horizontal tabs for Overview, ICPs, competitors, positioning, and the rest — built from your site and refreshed over time.',
     placement: 'right',
   },
   {

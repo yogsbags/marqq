@@ -1376,11 +1376,13 @@ function normalizeLeadMagnets(raw) {
   });
   return {
     scores,
-    leadMagnets: asArray(data.leadMagnets).map((m, idx) => {
+    leadMagnets: asArray(data.leadMagnets ?? data.lead_magnets).map((m, idx) => {
       const row = asObject(m);
       const lp = asObject(row.landingPageCopy);
+      // cleanText('', fallback) returns '' (empty string is still a string) — keep items with a default name
+      const nameFromModel = typeof row.name === 'string' ? row.name.trim() : '';
       return {
-        name: cleanText(row.name, `Lead Magnet ${idx + 1}`),
+        name: nameFromModel || `Lead Magnet ${idx + 1}`,
         format: cleanText(row.format),
         promise: cleanText(row.promise),
         outline: uniqueStrings(asArray(row.outline), 10),
