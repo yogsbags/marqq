@@ -497,6 +497,8 @@ function buildAgentRunGuardrails(name, taskType) {
       "Audit only real copy when it is present in context.",
       "If exact copy is missing, say that the audit is limited and provide optional sample rewrites in a separate 'Sample rewrite' section.",
       "Do not present invented original copy as if it came from the company.",
+      "When writing email sequences: write the COMPLETE email body — never use bracket placeholders like [Case Study Link], [desirable outcome], [Date], [Client Name]. If you need to reference a client story, write a generic narrative like 'A prop-tech founder we worked with...' without naming a real company.",
+      "Do not invent specific metrics in email copy (e.g. 'boost accuracy by 40%', 'reduce time by 6 months'). Use benefit language instead: 'faster valuation cycles', 'better-fit leads', 'less manual work'.",
     ],
     zara: [
       "Do not fabricate agent activity, market signals, or channel performance.",
@@ -521,21 +523,29 @@ function buildAgentRunGuardrails(name, taskType) {
     isha: [
       "Prefer crisp bullet points over long narrative explanation.",
       "Tie each market signal back to the company context in one sentence.",
+      "CRITICAL: Your competitor_set MUST use the exact competitor names from Company.competitors in the MKG (e.g. 'Successive Technologies', 'Appinventiv', 'ValueCoders', 'Tata Elxsi', 'Persistent Systems'). Do NOT substitute with large global vendors (IBM, Google Cloud, Microsoft Azure) unless they are explicitly listed in Company.competitors. The company competes with the MKG-listed players, not generic enterprise AI providers.",
+      "CRITICAL: Use the exact ICP segment names from Company.icp — not renamed, broadened, or generalized versions.",
     ],
     kiran: [
       "Do not include long reasoning walkthroughs.",
-      "Return the briefing directly: conversation angles, objections, responses, and script outline.",
-      "Keep the response under 700 words before the contract block.",
-      "Use exactly these sections in order: 'Top Conversation Angles', 'Likely Objections & Responses', 'Call Script Outline'.",
-      "Each section must use short bullets, not tables.",
-      "Do not include a reasoning, analysis, or snapshot section before the briefing.",
+      "When writing social media post drafts: do NOT include specific ₹ amounts, percentages, deal counts, or response rates in the post copy unless those exact figures appear in Company.offers, Company.content_pillars, or Company.messaging. Use questions, frameworks, and observations instead — never fabricated proof points.",
+      "Do not write posts formatted as client case studies or testimonials (e.g. 'a Series A founder told us...', '₹40L pipeline in 6 weeks', '8 demos booked') — these are false testimonials and will damage credibility.",
+      "Post hooks must be opinion-led, question-led, or observation-led — not results-led with invented numbers.",
+      "Do not fabricate client success stories or proof points that are not present in the company context.",
     ],
     neel: [
       "Avoid long reasoning preambles.",
       "Lead with the positioning, ICP, channel split, and 90-day plan.",
+      "Always use real competitor names from Company.competitors in the company knowledge base. Never substitute with generic labels like 'Company A', 'Competitor B', or 'Player X'. Use the actual company name and its specific weakness from the MKG.",
+      "Always use exact ICP segment names and firmographics from Company.icp when describing target segments.",
     ],
     tara: [
       "Lead with the deliverable itself, not the rationale table.",
+      "CRITICAL: Never fabricate named client case studies. Do not write copy like 'Razorpay reduced X by Y% using our product' or 'how [Real Company]'s team achieved Z' — these are false testimonials using real company names. This causes legal and reputational harm.",
+      "CRITICAL: Do not invent specific conversion rate predictions (e.g. 'opt in at 18-25%', 'convert 4-6% of sequence completers'). These are fabricated benchmarks. Remove all 'conversion_hypothesis' or 'expected_lift' fields that contain invented percentages.",
+      "Do not claim false social proof metrics like 'Used by 200+ Indian SaaS Teams' unless that exact number is in Company.offers or Company.content_pillars in the MKG.",
+      "When writing email sequences or lead magnets: use narrative proof (describe the category of customer and their challenge) rather than named companies or invented conversion rates.",
+      "Do not include specific percentage or numeric outcomes in case study narratives even when the company is anonymous (e.g. '30% lift in qualified leads', 'cut build time by 50%'). Describe results qualitatively: 'faster build cycles', 'higher lead quality', 'more demo requests' — the numbers are not verified and read as false advertising.",
     ],
     maya: [
       "Keep the preamble short and spend tokens on the actual SEO deliverables.",
@@ -1049,11 +1059,12 @@ Agent response to extract from:
 ${prose.slice(0, 15000)}
 ${successfulToolContext}`;
 
-      const recovery = await groq.chat.completions.create({
+      const recoveryClient = tracedLLM({ traceName: 'contract-recovery', tags: ['recovery'] });
+      const recovery = await recoveryClient.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: recoveryPrompt }],
         stream: false,
-        max_tokens: 1500,
+        max_tokens: 3000,
         temperature: 0,
         response_format: { type: "json_object" },
       });
