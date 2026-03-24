@@ -87,7 +87,13 @@ export function ChainRunPanel({ workflowName, steps, companyId, onClose }: Chain
               setStepStates(prev => {
                 const runningStep = prev.find(s => s.status === 'running')
                 if (!runningStep) return prev
-                return prev.map(s => s.order === runningStep.order ? { ...s, text: s.text + event.text } : s)
+                const updated = s => {
+                  if (s.order !== runningStep.order) return s
+                  const raw = s.text + event.text
+                  const cut = raw.indexOf('---CONTRACT---')
+                  return { ...s, text: cut >= 0 ? raw.slice(0, cut) : raw }
+                }
+                return prev.map(updated)
               })
             } else if (event.step_done) {
               const notes = event.step_done.contract?.handoff_notes

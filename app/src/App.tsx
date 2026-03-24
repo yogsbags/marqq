@@ -1,6 +1,7 @@
 import { AgentDashboard } from '@/components/agents/AgentDashboard';
 import { ProductTour } from '@/components/tour/ProductTour';
 import { HomePostOnboardingTour } from '@/components/tour/HomePostOnboardingTour';
+import { InviteAccept } from '@/components/auth/InviteAccept';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
 import { HelpPanel } from '@/components/help/HelpPanel';
@@ -255,6 +256,30 @@ function AppContent() {
   const [isOnboarded, setIsOnboarded] = useState(() => localStorage.getItem('marqq_onboarded') === '1');
   const [showTour, setShowTour] = useState(() => localStorage.getItem('marqq_tour_done') !== '1');
 
+  // Invite token from URL (?invite=<token>) or session (stored before login)
+  const [inviteToken, setInviteToken] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('invite') || null
+  })
+
+  // After login, check for a pending invite stored before the user signed in
+  useEffect(() => {
+    if (!isAuthenticated || inviteToken) return
+    const pending = sessionStorage.getItem('marqq_pending_invite')
+    if (pending) {
+      sessionStorage.removeItem('marqq_pending_invite')
+      setInviteToken(pending)
+    }
+  }, [isAuthenticated, inviteToken])
+
+  const clearInvite = () => {
+    setInviteToken(null)
+    // Remove ?invite= from URL without reload
+    const url = new URL(window.location.href)
+    url.searchParams.delete('invite')
+    window.history.replaceState(null, '', url.toString())
+  }
+
   // Queue home spotlight when onboarded but the tour is not finished (incl. legacy users).
   useEffect(() => {
     if (!isAuthenticated || !isOnboarded || isLoading) return;
@@ -266,6 +291,11 @@ function AppContent() {
       /* ignore */
     }
   }, [isAuthenticated, isOnboarded, isLoading]);
+
+  // Show invite acceptance screen when a token is present (regardless of auth state)
+  if (inviteToken && !isLoading) {
+    return <InviteAccept token={inviteToken} onDone={clearInvite} />
+  }
 
   if (isLoading) {
     return (

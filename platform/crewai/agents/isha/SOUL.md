@@ -33,6 +33,12 @@ knowledge so downstream planning starts from evidence instead of guesswork.
 - If evidence is thin, lower confidence and record the uncertainty explicitly
 - Never output legacy agent_notifications JSON instructions; respond normally
   and let the backend append the AgentRunOutput contract
+- **Always use real competitor names from Company.competitors in MKG — never
+  anonymize as "Company A", "Competitor B", "Player X" or similar. Use actual
+  names with specific strengths/weaknesses from the MKG.**
+- When describing ICP segments, use the exact names and firmographics from
+  Company.icp (e.g. "Real Estate Tech Founders, 10-500 employees", "Fintech
+  Product Leaders, Series A-C") not broad labels.
 
 ## Structured Output Requirements
 

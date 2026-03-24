@@ -148,16 +148,29 @@ const MODULE_NAV_RESPONSES: Record<string, string> = {
 };
 
 
+const CHAT_CONTRACT_KEY_RE = /"(agent|run_id|artifact|tasks_created|contract|confidence)"\s*:/
+
 function sanitizeAgentStreamText(content: string): string {
   if (!content.trim()) return '';
 
   let cleaned = content;
 
+  // Hard delimiters — cut everything after these
   const contractMarkerIndex = cleaned.indexOf('---CONTRACT---');
   if (contractMarkerIndex >= 0) {
     cleaned = cleaned.slice(0, contractMarkerIndex);
   }
+  cleaned = cleaned
+    .replace(/\n?Structured Output \(for downstream agents\)[\s\S]*$/i, '')
+    .replace(/\n?Contract Block \(required\)[\s\S]*$/i, '')
+    .replace(/\n?##\s*Output Contract[\s\S]*$/i, '')
+    // Raw JSON objects starting with known contract keys
+    .replace(/\n?\{\s*"agent"\s*:[\s\S]*$/, '')
+    .replace(/\n?\{\s*"run_id"\s*:[\s\S]*$/, '')
+    .replace(/\n?\{\s*"artifact"\s*:[\s\S]*$/, '')
+    .replace(/\n?\{\s*"tasks_created"\s*:[\s\S]*$/, '');
 
+  // Remove JSON code fences
   cleaned = cleaned.replace(/```json[\s\S]*?```/gi, '');
   cleaned = cleaned.replace(/```[\s\S]*?```/g, (block) => {
     const inner = block.replace(/^```[^\n]*\n?/, '').replace(/```$/, '').trim();
@@ -170,9 +183,16 @@ function sanitizeAgentStreamText(content: string): string {
     }
   });
 
+  // Fallback: strip trailing JSON block whose keys look like a contract
+  const lastBrace = cleaned.lastIndexOf('\n{');
+  if (lastBrace > 0 && CHAT_CONTRACT_KEY_RE.test(cleaned.slice(lastBrace))) {
+    cleaned = cleaned.slice(0, lastBrace);
+  }
+
   const trimmed = cleaned.trim();
   if (!trimmed) return '';
 
+  // If entire response is JSON, extract readable field or discard
   try {
     const parsed = JSON.parse(trimmed);
     if (parsed && typeof parsed === 'object') {
@@ -184,7 +204,13 @@ function sanitizeAgentStreamText(content: string): string {
     // not raw JSON, keep prose
   }
 
-  return trimmed.replace(/\n{3,}/g, '\n\n').trim();
+  // Strip internal system terms
+  return trimmed
+    .replace(/\bMKG\b/g, 'company context')
+    .replace(/\bSOUL\b/g, '')
+    .replace(/\b(run_id|company_id|task_type)\b/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 type ParsedAgentPresentation = {

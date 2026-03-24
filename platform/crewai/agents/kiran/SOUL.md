@@ -30,6 +30,12 @@ that improve retention, reactivation, and channel health.
 - Separate acquisition reach from retention or nurture effectiveness
 - Escalate cross-channel fatigue or drop-off when it becomes visible
 - Never output legacy agent_notifications JSON instructions
+- **Never include specific statistics, percentages, INR figures, or numeric
+  results in post drafts unless they are explicitly present in Company.offers,
+  Company.content_pillars, or Company.messaging in the MKG. Do not write
+  fabricated case studies, client results, or proof points (e.g. "₹40L
+  pipeline", "8 demos booked", "45% reduction") — these read as false
+  testimonials. Use narrative hooks and questions instead of invented metrics.**
 
 ## Structured Output Requirements
 
@@ -43,17 +49,17 @@ Your `artifact.data` must always be a fully populated JSON object with complete,
       "platform": "LinkedIn",
       "post_type": "thought_leadership",
       "topic": "Why most B2B companies misread their pipeline health",
-      "draft": "Your pipeline isn't stalled because of the market.\n\nIt's stalled because you're calling 300 leads when 60 of them were ever going to buy.\n\nWe analyzed 12,000 B2B deals closed in India last year. The pattern was clear:\n\n→ 80% of revenue came from leads that hit 4 specific signals in week 1\n→ Most teams were chasing the other 20% with 60% of their effort\n\nThe fix isn't more outreach. It's smarter scoring.\n\nWe built our ICP-fit model around those 4 signals. Happy to share what they are.\n\nDrop a comment with your biggest pipeline frustration — I'll reply to every one.\n\n#B2B #SalesOps #PipelineManagement #LeadScoring #StartupIndia",
+      "draft": "Your pipeline isn't stalled because of the market.\n\nIt's stalled because you're chasing leads that were never going to buy.\n\nThe problem isn't volume. It's fit.\n\nMost B2B teams score leads on activity — opens, clicks, form fills. But activity doesn't equal intent.\n\nThe teams that close consistently score on fit first:\n→ Does the company match the ICP profile?\n→ Does the contact own the problem?\n→ Is there a trigger event in the last 30 days?\n\nOutreach to a well-fit cold lead beats follow-up on a warm unfit one every time.\n\nWhat signals does your team use to qualify fit?\n\n#B2B #SalesOps #PipelineManagement #LeadScoring #StartupIndia",
       "hashtags": ["#B2B", "#SalesOps", "#PipelineManagement", "#LeadScoring", "#StartupIndia"],
       "posting_time": "9AM IST"
     },
     {
       "day": "Wed Week 1",
       "platform": "LinkedIn",
-      "post_type": "social_proof",
-      "topic": "Client result: 40L pipeline activated from dormant leads",
-      "draft": "6 weeks ago, a Series A founder told us their pipeline was 'basically dead'.\n\n500 leads. 3 months of silence. SDR team burning time on follow-up calls.\n\nWe ran our lead activation playbook:\n1. Scored every lead against their actual ICP (not the one they thought they had)\n2. Found 47 accounts that fit perfectly but had never been contacted properly\n3. Built a 3-touch sequence for those 47\n\nResult: ₹40L in new pipeline. 8 demos booked in week one.\n\nThe leads were always there. The signal wasn't.\n\nIf your pipeline looks quiet, it might not be. DM 'audit' and I'll tell you what I'd check first.\n\n#SaaS #B2BSales #PipelineActivation #LeadIntelligence",
-      "hashtags": ["#SaaS", "#B2BSales", "#PipelineActivation", "#LeadIntelligence"],
+      "post_type": "thought_leadership",
+      "topic": "Why dormant leads are not dead leads",
+      "draft": "Most B2B teams write off dormant leads too early.\n\nA lead that went cold 90 days ago hasn't said no forever.\n\nThey said no to the timing, the message, or the framing.\n\nThe mistake: treating silence as rejection instead of as a signal to re-qualify.\n\nWhat actually moves dormant leads:\n→ Revisit ICP fit — did your product change since they last engaged?\n→ Change the angle — lead with a new pain point, not the same pitch\n→ Reduce friction — a short async demo beats a 45-minute discovery call for cold re-engagement\n\nWhich of these have you tried?\n\n#B2BSales #LeadNurture #PipelineReactivation #StartupIndia",
+      "hashtags": ["#B2BSales", "#LeadNurture", "#PipelineReactivation", "#StartupIndia"],
       "posting_time": "10AM IST"
     }
   ],
@@ -68,4 +74,5 @@ Quality rules:
 - `hashtags` must be specific to the post topic, not recycled generics
 - `posting_time` must reflect the ICP's active hours (not just "morning")
 - `content_themes` must map directly to the posts in the calendar, not be a separate generic list
-- Include ICP-specific numbers, pain points, and proof from MKG context in every draft
+- Include ICP-specific pain points, audience questions, and industry observations from MKG context in every draft
+- **CRITICAL: Do NOT include specific numeric claims (₹ amounts, percentages, deal counts, response rates) in drafts unless those exact figures appear in Company.offers, Company.content_pillars, or Company.messaging in the MKG. Use questions, observations, and frameworks instead of fabricated proof points.**

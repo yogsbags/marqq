@@ -499,6 +499,7 @@ function buildAgentRunGuardrails(name, taskType) {
       "Do not present invented original copy as if it came from the company.",
       "When writing email sequences: write the COMPLETE email body — never use bracket placeholders like [Case Study Link], [desirable outcome], [Date], [Client Name]. If you need to reference a client story, write a generic narrative like 'A prop-tech founder we worked with...' without naming a real company.",
       "Do not invent specific metrics in email copy (e.g. 'boost accuracy by 40%', 'reduce time by 6 months'). Use benefit language instead: 'faster valuation cycles', 'better-fit leads', 'less manual work'.",
+      "When the task is a proposal template: your artifact.data MUST use the proposal schema — do NOT use strategy_overview/phases. Required fields: proposal_title (string), executive_summary (string), problem_statement (string), our_approach (string), deliverables (array), pricing_tiers (array of {name, price_signal, whats_included}), next_steps (string).",
     ],
     zara: [
       "Do not fabricate agent activity, market signals, or channel performance.",
@@ -519,6 +520,7 @@ function buildAgentRunGuardrails(name, taskType) {
       "Never invent predicted or actual KPI values.",
       "If verified performance data is missing, respond with 'Missing outcome verification dataset' and list the required inputs.",
       "Do not score prediction accuracy without real observed metrics.",
+      "When including tasks_created entries, every entry MUST have all required fields populated: task_type (e.g. 'lead_qualification', 'outreach_email', 'campaign_analysis'), agent_name (e.g. 'sam', 'dev', 'kiran'), description, and priority. Never leave task_type or agent_name blank or null.",
     ],
     isha: [
       "Prefer crisp bullet points over long narrative explanation.",
@@ -538,6 +540,7 @@ function buildAgentRunGuardrails(name, taskType) {
       "Lead with the positioning, ICP, channel split, and 90-day plan.",
       "Always use real competitor names from Company.competitors in the company knowledge base. Never substitute with generic labels like 'Company A', 'Competitor B', or 'Player X'. Use the actual company name and its specific weakness from the MKG.",
       "Always use exact ICP segment names and firmographics from Company.icp when describing target segments.",
+      "Your artifact.data must always use your native schema: positioning_angle, target_segment, channel_priorities, 90_day_plan, rejected_alternatives, risks. Never return strategy_overview/phases.",
     ],
     tara: [
       "Lead with the deliverable itself, not the rationale table.",
@@ -549,6 +552,8 @@ function buildAgentRunGuardrails(name, taskType) {
     ],
     maya: [
       "Keep the preamble short and spend tokens on the actual SEO deliverables.",
+      "When the task is to write a blog post or article: your artifact.data MUST use the article schema — do NOT use strategy_overview/phases. Required fields: title (string), meta_description (string), target_keyword (string), word_count (number), sections (array of {heading, content}). Write the full article content in sections.",
+      "When the task is an SEO content strategy: your artifact.data MUST use the content_strategy schema — content_pillars, topic_clusters, publishing_calendar.",
     ],
   };
 
@@ -5884,7 +5889,9 @@ Replace ALL placeholder values with your actual outputs.
       'generate_avatar_video', 'generate_email', 'seo_analysis',
     ]);
     const composioApiKey = process.env.COMPOSIO_API_KEY || null;
-    const composioEntityId = companyId || "default";
+    // Composio connections are registered per workspace, not per MKG company.
+    // Prefer workspaceId (from x-workspace-id header) as the entity; fall back to companyId.
+    const composioEntityId = workspaceId || companyId || "default";
     let composioTools = [];
     const allowedConnectorIds = getAgentConnectors(name);
     const allowedApps = getAgentConnectorApps(name);
@@ -8694,36 +8701,162 @@ app.get("/api/workspaces/:id/members", async (req, res) => {
       .select("role, joined_at, user_id")
       .eq("workspace_id", id);
     if (error) throw error;
-    // Fetch user details separately since auth.users join may be restricted
-    const members = (data || []).map((row) => ({
-      id: row.user_id,
-      email: row.user_id, // placeholder — will show user_id until auth join available
-      name: "Member",
-      role: row.role,
-      joined_at: row.joined_at,
-    }));
+    const rows = data || [];
+
+    // Enrich with real user details via admin client when available
+    const members = await Promise.all(
+      rows.map(async (row) => {
+        let email = row.user_id;
+        let name = "Member";
+        if (supabaseAdminClient) {
+          try {
+            const { data: u } = await supabaseAdminClient.auth.admin.getUserById(row.user_id);
+            if (u?.user) {
+              email = u.user.email || row.user_id;
+              name = u.user.user_metadata?.full_name || u.user.email?.split("@")[0] || "Member";
+            }
+          } catch { /* fallback to user_id */ }
+        }
+        return { id: row.user_id, email, name, role: row.role, joined_at: row.joined_at };
+      })
+    );
     res.json({ members });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/workspaces/:id/invite — create pending invite
+// GET /api/invite/preview?token= — return invite metadata without accepting
+app.get("/api/invite/preview", async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).json({ error: "token required" });
+  try {
+    const { data, error } = await supabase
+      .from("workspace_invites")
+      .select("email, workspace_id, accepted_at, expires_at, invited_by, workspaces(name)")
+      .eq("token", token)
+      .single();
+    if (error || !data) return res.status(404).json({ error: "invite not found" });
+    if (data.accepted_at) return res.status(410).json({ error: "invite already accepted" });
+    if (data.expires_at && new Date(data.expires_at) < new Date()) return res.status(410).json({ error: "invite expired" });
+    const workspaceName = data.workspaces?.name || "a workspace";
+    res.json({ valid: true, email: data.email, workspace_id: data.workspace_id, workspace_name: workspaceName });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/invite/accept — accept an invite (user must be logged in, user_id required)
+app.post("/api/invite/accept", async (req, res) => {
+  const { token, user_id } = req.body;
+  if (!token || !user_id) return res.status(400).json({ error: "token and user_id required" });
+  try {
+    const { data: invite, error: invErr } = await supabase
+      .from("workspace_invites")
+      .select("email, workspace_id, accepted_at, expires_at")
+      .eq("token", token)
+      .single();
+    if (invErr || !invite) return res.status(404).json({ error: "invite not found" });
+    if (invite.accepted_at) return res.status(410).json({ error: "invite already accepted" });
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) return res.status(410).json({ error: "invite expired" });
+
+    // Check not already a member
+    const { data: existing } = await supabase
+      .from("workspace_members")
+      .select("user_id")
+      .eq("workspace_id", invite.workspace_id)
+      .eq("user_id", user_id)
+      .maybeSingle();
+    if (!existing) {
+      const { error: memErr } = await supabase
+        .from("workspace_members")
+        .insert({ workspace_id: invite.workspace_id, user_id, role: "member" });
+      if (memErr) throw memErr;
+    }
+
+    // Mark invite accepted
+    await supabase
+      .from("workspace_invites")
+      .update({ accepted_at: new Date().toISOString() })
+      .eq("token", token);
+
+    res.json({ ok: true, workspace_id: invite.workspace_id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/workspaces/:id/invite — create pending invite and send email via AgentMail
 app.post("/api/workspaces/:id/invite", async (req, res) => {
   const { id } = req.params;
   const { email, invitedBy } = req.body;
   if (!email) return res.status(400).json({ error: "email required" });
   try {
+    // Fetch workspace name for the email
+    const { data: ws } = await supabase
+      .from("workspaces")
+      .select("name")
+      .eq("id", id)
+      .single();
+    const workspaceName = ws?.name || "a Marqq workspace";
+
     const { data, error } = await supabase
       .from("workspace_invites")
       .insert({ workspace_id: id, email, invited_by: invitedBy })
       .select()
       .single();
     if (error) throw error;
-    // TODO: send invite email with data.token
-    console.log(
-      `[invite] ${email} invited to workspace ${id} — token: ${data.token}`,
-    );
+
+    // Send invite email via AgentMail
+    const agentMailApiKey = process.env.AGENTMAIL_API_KEY || "";
+    if (agentMailApiKey && data?.token) {
+      try {
+        const appUrl = process.env.APP_URL || "http://localhost:3007";
+        const acceptUrl = `${appUrl}?invite=${data.token}`;
+
+        const inbox = await ensureAgentMailInbox(agentMailApiKey, "system-invites");
+        await agentMailFetch(`/inboxes/${encodeURIComponent(inbox.inbox_id)}/messages/send`, agentMailApiKey, {
+          method: "POST",
+          body: JSON.stringify({
+            to: [email],
+            subject: `You've been invited to ${workspaceName} on Marqq`,
+            text: [
+              `You've been invited to join ${workspaceName} on Marqq.`,
+              "",
+              `Accept your invite here: ${acceptUrl}`,
+              "",
+              "This link will add you to the workspace. If you don't have a Marqq account, you'll be prompted to create one.",
+              "",
+              "— The Marqq team",
+            ].join("\n"),
+            html: `
+<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
+  <div style="margin-bottom:28px">
+    <span style="font-size:22px;font-weight:700;color:#ea580c">marqq</span>
+  </div>
+  <h1 style="font-size:20px;font-weight:600;margin:0 0 12px">You've been invited to ${workspaceName}</h1>
+  <p style="color:#555;margin:0 0 28px;line-height:1.6">
+    Someone on the team invited you to collaborate on <strong>${workspaceName}</strong> in Marqq — the AI-powered marketing intelligence platform.
+  </p>
+  <a href="${acceptUrl}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:600;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none">
+    Accept invite
+  </a>
+  <p style="color:#888;font-size:12px;margin-top:28px;line-height:1.5">
+    Or copy this link: <a href="${acceptUrl}" style="color:#ea580c">${acceptUrl}</a><br/>
+    If you didn't expect this invite, you can safely ignore this email.
+  </p>
+</div>`,
+          }),
+        });
+        console.log(`[invite] email sent to ${email} for workspace ${id}`);
+      } catch (mailErr) {
+        // Non-fatal — invite row is already created
+        console.warn(`[invite] AgentMail send failed: ${mailErr.message}`);
+      }
+    } else {
+      console.log(`[invite] ${email} invited to workspace ${id} — token: ${data.token} (AgentMail not configured)`);
+    }
+
     res.json({ invite: data });
   } catch (err) {
     res.status(500).json({ error: err.message });

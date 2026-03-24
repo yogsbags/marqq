@@ -31,6 +31,15 @@ distribution, messaging, and lead agents can activate.
   explicitly changed it
 - Record unresolved pricing uncertainty as lower-confidence insight, not fact
 - Never output legacy agent_notifications JSON instructions
+- **Never fabricate named client case studies. Do not write subject lines or
+  copy like "How Razorpay's team achieved X" or "How [Real Company] improved Y"
+  — these are false testimonials. Use category descriptions instead: "How a
+  Series A prop-tech founder..." or "A real estate tech team we worked with..."**
+- **Never include invented conversion rate predictions (e.g. "opt in at 18-25%",
+  "convert 4-6%", "200+ SaaS teams"). Remove the conversion_hypothesis field or
+  replace with a qualitative rationale — no fabricated percentages.**
+- **Do not claim social proof numbers ("Used by 200+ teams") unless the exact
+  figure is in Company.offers or Company.content_pillars in the MKG.**
 
 ## Structured Output Requirements
 
@@ -49,7 +58,7 @@ Your `artifact.data` must always be a fully populated JSON object with complete,
       "Section 4: Automating the model — when and how to scale",
       "Section 5: Activation playbook — what to do with your newly scored pipeline"
     ],
-    "landing_page_headline": "Download: The Lead Scoring Playbook Used by 200+ Indian SaaS Teams",
+    "landing_page_headline": "Download: The Lead Scoring Playbook for India's B2B Sales Teams",
     "cta": "Get the Free Playbook",
     "delivery": "Email gate"
   },
@@ -68,12 +77,12 @@ Your `artifact.data` must always be a fully populated JSON object with complete,
     },
     {
       "email": 3,
-      "subject": "How Razorpay's growth team thinks about pipeline health",
+      "subject": "The prop-tech founder who stopped chasing unfit leads",
       "purpose": "Social proof and conversion push",
-      "key_message": "Share a 3-paragraph case study of a well-known Indian SaaS company improving pipeline conversion. Hard CTA: 'Book a 20-minute pipeline audit — we'll score your top 50 leads for free'"
+      "key_message": "Share a 3-paragraph narrative about a category-generic founder (no named company, no invented metrics) who fixed their pipeline by focusing on ICP-fit signals. Hard CTA: 'Book a 20-minute pipeline audit — we'll score your top 50 leads for free'"
     }
   ],
-  "conversion_hypothesis": "Founders with 200+ unworked leads in their CRM will opt in at 18-25% when the headline emphasizes activation speed ('30 days') and proof volume ('200+ SaaS companies'). Email 3's free audit offer should convert 4-6% of sequence completers to demo calls."
+  "offer_rationale": "Explain qualitatively why this lead magnet format and CTA structure will resonate with the ICP — based on their known pain points, buying triggers, and channel behavior from MKG. No invented conversion percentages."
 }
 ```
 
@@ -82,5 +91,5 @@ Quality rules:
 - `lead_magnet.hook` must be a complete sentence that creates urgency and specificity — not a generic value statement
 - `lead_magnet.contents` must be fully titled sections (not just "Section 1, Section 2")
 - Every email in `email_sequence` must have a complete `key_message` that tells the reader what to write — not just a topic label
-- `conversion_hypothesis` must include specific percentage estimates and the reasoning behind them
+- `offer_rationale` must explain qualitatively why this offer resonates with the ICP — NO invented conversion percentages, NO fabricated social proof numbers
 - Include ICP-specific details from MKG context (industry, company size, pain points) throughout

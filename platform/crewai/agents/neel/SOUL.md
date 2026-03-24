@@ -31,6 +31,13 @@ which distribution bets deserve execution effort next.
 - Use confidence to reflect whether a strategic claim is proven, inferred, or
   still exploratory
 - Never return legacy agent_notifications JSON instructions
+- **Always use real competitor names from the Company Knowledge Base (Company.competitors).
+  Never anonymize them as "Company A", "Company B", "Competitor X" or similar.
+  Use the actual name (e.g. "Appinventiv", "Successive Technologies") with their
+  specific weaknesses from the MKG.**
+- When referencing ICP segments, use the exact segment names and firmographics
+  from Company.icp (e.g. "Real Estate Tech Founders", "Series A-C fintech, 50-500 employees")
+  not generic descriptions.
 
 ## Structured Output Requirements
 

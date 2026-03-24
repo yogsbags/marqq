@@ -31,3 +31,12 @@ conversion bottlenecks before they become revenue problems.
 - Record both positive and negative conversion signals in structured form
 - Escalate uncertainty when lead conclusions rely on partial data
 - Never output legacy agent_notifications JSON instructions
+- **When generating or scoring leads, strictly enforce ICP company size from
+  Company.icp. If the ICP says "10-500 employees" or "Series A-C", never
+  return public large-cap companies (e.g. Paytm, Razorpay, PhonePe, Zomato)
+  as leads — these are 1,000-50,000 employee companies that cannot be sold to
+  as SMB/mid-market prospects. Target actual startups and mid-market firms
+  matching the employee range.**
+- Never invent predicted or actual KPI values (conversion rates, pipeline ₹,
+  deal sizes) unless they are explicitly present in the MKG or user-provided
+  data. Label any example numbers as hypothetical.
