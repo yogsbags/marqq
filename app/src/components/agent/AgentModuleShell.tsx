@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Play, TrendingUp } from 'lucide-react'
+import { ChevronDown, Play, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAgentRun } from '@/hooks/useAgentRun'
@@ -149,6 +149,7 @@ function SingleAgentCard({
             <button
               type="button"
               onClick={() => setChainExpanded(p => !p)}
+              aria-label={chainExpanded ? "Collapse injected context" : "Expand injected context"}
               className="flex-1 text-left text-muted-foreground hover:text-foreground transition-colors"
             >
               {chainExpanded
@@ -159,6 +160,7 @@ function SingleAgentCard({
               <button
                 type="button"
                 onClick={() => setChainExpanded(p => !p)}
+                aria-label={chainExpanded ? "Show less context" : "Show full context"}
                 className="shrink-0 underline underline-offset-2 hover:text-foreground transition-colors"
               >
                 {chainExpanded ? 'Less' : 'More'}
@@ -181,7 +183,7 @@ function SingleAgentCard({
           {/* Fix 1: textarea visible when idle; collapsed read-only summary after run starts */}
           {isIdle ? (
             <Textarea
-              className="min-h-[140px] whitespace-pre-wrap break-words text-sm leading-6 resize-y"
+              className="min-h-[80px] sm:min-h-[140px] whitespace-pre-wrap break-words text-sm leading-6 resize-y"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder={cfg.placeholder}
@@ -267,6 +269,8 @@ export function AgentModuleShell({
   const [chainedContext, setChainedContext] = useState<string | null>(null)
   const [intelRefreshing, setIntelRefreshing] = useState(false)
   const [intelMeta, setIntelMeta] = useState<{ generated_at: string; source?: string; search_query?: string } | null>(null)
+  const [optionalContextOpen, setOptionalContextOpen] = useState(false)
+  const [secondaryOpen, setSecondaryOpen] = useState(false)
 
   // Read the last 6 messages from the most recent chat conversation so agents have context
   const conversationHistory = useMemo(() => getRecentConversation(), [])
@@ -362,55 +366,65 @@ export function AgentModuleShell({
           </Card>
         ) : null}
         {(collapseSetupControls || activeWorkspace) ? (
-          <details className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-3">
-            <summary className="cursor-pointer list-none text-sm font-medium text-foreground">
-              Optional context
-            </summary>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Add business context only if it will materially improve the result.
-            </div>
-            <div className="mt-3 space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <OfferSelector
-                    companyId={companyId}
-                    value={selectedOffer?.name ?? ''}
-                    onChange={(_name, offer) => setSelectedOffer(offer)}
-                  />
+          <div className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-3">
+            <button
+              type="button"
+              aria-expanded={optionalContextOpen}
+              onClick={() => setOptionalContextOpen(p => !p)}
+              className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-foreground/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded"
+            >
+              <span>Optional context</span>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${optionalContextOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {optionalContextOpen && (
+              <>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Add business context only if it will materially improve the result.
                 </div>
-                {!hideMarketSignals && <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={refreshIndustryIntel}
-                  disabled={intelRefreshing || !companyId}
-                  title={intelMeta
-                    ? `Agents have market context from ${new Date(intelMeta.generated_at).toLocaleString()} · source: ${intelMeta.source ?? 'unknown'}${intelMeta.search_query ? ` · "${intelMeta.search_query}"` : ''}\nClick to pull fresh signals from Reddit, YouTube & HN`
-                    : 'Give agents fresh market context — pulls last-30-day signals from Reddit, YouTube & HN and injects them into every agent run'}
-                  className="shrink-0"
-                >
-                  <TrendingUp className={`h-3.5 w-3.5 mr-1.5 ${intelRefreshing ? 'animate-pulse' : ''}`} />
-                  {intelRefreshing ? 'Pulling signals…' : intelMeta ? 'Refresh market context' : 'Add market context'}
-                  {intelMeta && !intelRefreshing && (
-                    <span
-                      aria-label={intelMeta.source === 'last30days' ? 'Fresh signals — agents have live context' : 'Stale — refresh for latest signals'}
-                      className={`ml-1.5 text-xs ${intelMeta.source === 'last30days' ? 'text-green-500' : 'text-amber-500'}`}
-                    >●</span>
-                  )}
-                </Button>}
-              </div>
-              {resourceContextLabel && resourceContextPlacement !== 'primary' ? (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-foreground">{resourceContextLabel}</div>
-                  <Input
-                    value={resourceContext}
-                    onChange={(event) => setResourceContext(event.target.value)}
-                    placeholder={resourceContextPlaceholder}
-                  />
-                  {resourceContextHint ? <div className="text-xs text-muted-foreground">{resourceContextHint}</div> : null}
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <OfferSelector
+                        companyId={companyId}
+                        value={selectedOffer?.name ?? ''}
+                        onChange={(_name, offer) => setSelectedOffer(offer)}
+                      />
+                    </div>
+                    {!hideMarketSignals && <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={refreshIndustryIntel}
+                      disabled={intelRefreshing || !companyId}
+                      title={intelMeta
+                        ? `Agents have market context from ${new Date(intelMeta.generated_at).toLocaleString()} · source: ${intelMeta.source ?? 'unknown'}${intelMeta.search_query ? ` · "${intelMeta.search_query}"` : ''}\nClick to pull fresh signals from Reddit, YouTube & HN`
+                        : 'Give agents fresh market context — pulls last-30-day signals from Reddit, YouTube & HN and injects them into every agent run'}
+                      className="shrink-0"
+                    >
+                      <TrendingUp className={`h-3.5 w-3.5 mr-1.5 ${intelRefreshing ? 'animate-pulse' : ''}`} />
+                      {intelRefreshing ? 'Pulling signals…' : intelMeta ? 'Refresh market context' : 'Add market context'}
+                      {intelMeta && !intelRefreshing && (
+                        <span
+                          aria-label={intelMeta.source === 'last30days' ? 'Fresh signals — agents have live context' : 'Stale — refresh for latest signals'}
+                          className={`ml-1.5 text-xs ${intelMeta.source === 'last30days' ? 'text-green-500' : 'text-amber-500'}`}
+                        >●</span>
+                      )}
+                    </Button>}
+                  </div>
+                  {resourceContextLabel && resourceContextPlacement !== 'primary' ? (
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-foreground">{resourceContextLabel}</div>
+                      <Input
+                        value={resourceContext}
+                        onChange={(event) => setResourceContext(event.target.value)}
+                        placeholder={resourceContextPlaceholder}
+                      />
+                      {resourceContextHint ? <div className="text-xs text-muted-foreground">{resourceContextHint}</div> : null}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          </details>
+              </>
+            )}
+          </div>
         ) : null}
       </div>
 
@@ -439,32 +453,40 @@ export function AgentModuleShell({
         ) : null}
         {agents.length > 1 ? (
           secondaryAgentsCollapsed ? (
-            <details className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-3">
-              <summary className="cursor-pointer list-none text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                {secondaryAgentsTitle}
-              </summary>
-              <div className="mt-4 flex flex-col gap-6">
-                {agents.slice(1).map((cfg, idx) => (
-                  <SingleAgentCard
-                    key={cfg.name}
-                    cfg={cfg}
-                    moduleId={moduleId}
-                    companyId={companyId}
-                    selectedOffer={selectedOffer}
-                    renderArtifact={renderArtifact}
-                    shouldAutoRun={autoRunAgentName === cfg.name}
-                    chainedInput={chainedContext}
-                    onOutputReady={idx === 0 && agents.length > 2 ? setChainedContext : undefined}
-                    conversationHistory={conversationHistory}
-                    disabledReason={disabledReason}
-                    resourceContext={resourceContext}
-                    buildResourceContext={buildResourceContext}
-                    enableReportActions={enableReportActions}
-                    moduleTitle={title}
-                  />
-                ))}
-              </div>
-            </details>
+            <div className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-3">
+              <button
+                type="button"
+                aria-expanded={secondaryOpen}
+                onClick={() => setSecondaryOpen(p => !p)}
+                className="flex w-full items-center justify-between text-sm font-semibold text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded"
+              >
+                <span>{secondaryAgentsTitle}</span>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${secondaryOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {secondaryOpen && (
+                <div className="mt-4 flex flex-col gap-6">
+                  {agents.slice(1).map((cfg, idx) => (
+                    <SingleAgentCard
+                      key={cfg.name}
+                      cfg={cfg}
+                      moduleId={moduleId}
+                      companyId={companyId}
+                      selectedOffer={selectedOffer}
+                      renderArtifact={renderArtifact}
+                      shouldAutoRun={autoRunAgentName === cfg.name}
+                      chainedInput={chainedContext}
+                      onOutputReady={idx === 0 && agents.length > 2 ? setChainedContext : undefined}
+                      conversationHistory={conversationHistory}
+                      disabledReason={disabledReason}
+                      resourceContext={resourceContext}
+                      buildResourceContext={buildResourceContext}
+                      enableReportActions={enableReportActions}
+                      moduleTitle={title}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             agents.slice(1).map((cfg, idx) => (
               <SingleAgentCard

@@ -4,7 +4,8 @@ import remarkGfm from 'remark-gfm'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, Bot, CheckCircle, AlertCircle, Copy, ClipboardList, ChevronDown, ChevronRight, Wrench, Brain, Zap, CheckCheck, XCircle, ArrowRight, Sparkles, Bookmark, Download, PanelTopClose } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Loader2, Bot, CheckCircle, AlertCircle, Copy, ClipboardList, ChevronDown, ChevronRight, Wrench, Brain, Zap, CheckCheck, XCircle, ArrowRight, Sparkles, Bookmark, Download, PanelTopClose, Radio, Target, PenLine, FileText, Users, Monitor, Briefcase, Mail, Search, CalendarDays, BadgeDollarSign, TrendingDown, BarChart2, FlaskConical, Send, Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AgentRunResult, ToolCallEvent, ToolResultEvent, ContractTask } from '@/hooks/useAgentRun'
 
@@ -95,14 +96,17 @@ function VideoStatusCard({ vid, v }: { vid: string; v: Record<string, unknown> }
           {vid === 'generate_faceless_video' ? 'Faceless Video · Veo 3.1' : 'Avatar Video · HeyGen'}
         </div>
         {!isDone && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={checkStatus}
             disabled={polling}
-            className="text-[11px] font-medium text-orange-500 hover:text-orange-600 disabled:opacity-50 flex items-center gap-1"
+            aria-label="Check video render status"
+            className="h-7 gap-1 px-2 text-xs text-orange-500 hover:text-orange-600"
           >
             {polling && <span className="inline-block h-3 w-3 rounded-full border-2 border-orange-400 border-t-transparent animate-spin" />}
             {polling ? 'Checking…' : 'Check Status'}
-          </button>
+          </Button>
         )}
       </div>
       {videoUrl ? (
@@ -380,82 +384,82 @@ interface NextAction {
   agentName: string
   label: string
   description: string
-  emoji: string
+  icon: React.ComponentType<{ className?: string }>
 }
 
 const AGENT_NEXT_ACTIONS: Record<string, NextAction[]> = {
   // Context layer
   veena: [
-    { moduleId: 'market-signals',    agentName: 'isha',  label: 'Market Signals',   description: 'Isha scans trends that match your positioning',   emoji: '📡' },
-    { moduleId: 'positioning',       agentName: 'neel',  label: 'Positioning',      description: 'Neel builds your differentiation story',          emoji: '🎯' },
-    { moduleId: 'audience-profiles', agentName: 'isha',  label: 'Audience Profiles',description: 'Isha profiles your ICP segments in depth',         emoji: '👥' },
+    { moduleId: 'market-signals',    agentName: 'isha',  label: 'Market Signals',   description: 'Isha scans trends that match your positioning',   icon: Radio },
+    { moduleId: 'positioning',       agentName: 'neel',  label: 'Positioning',      description: 'Neel builds your differentiation story',          icon: Target },
+    { moduleId: 'audience-profiles', agentName: 'isha',  label: 'Audience Profiles',description: 'Isha profiles your ICP segments in depth',         icon: Users },
   ],
   isha: [
-    { moduleId: 'positioning',       agentName: 'neel',  label: 'Positioning',      description: 'Neel turns market signals into positioning',        emoji: '🎯' },
-    { moduleId: 'messaging',         agentName: 'sam',   label: 'Messaging & Copy', description: 'Sam drafts copy anchored to what the market wants', emoji: '✍️' },
-    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara creates content from these insights',          emoji: '📝' },
+    { moduleId: 'positioning',       agentName: 'neel',  label: 'Positioning',      description: 'Neel turns market signals into positioning',        icon: Target },
+    { moduleId: 'messaging',         agentName: 'sam',   label: 'Messaging & Copy', description: 'Sam drafts copy anchored to what the market wants', icon: PenLine },
+    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara creates content from these insights',          icon: FileText },
   ],
   // Plan layer
   neel: [
-    { moduleId: 'messaging',         agentName: 'sam',   label: 'Messaging & Copy', description: 'Sam writes copy variants from your positioning',    emoji: '✍️' },
-    { moduleId: 'landing-pages',     agentName: 'riya',  label: 'Landing Pages',    description: 'Riya builds landing page copy from this',          emoji: '🖥️' },
-    { moduleId: 'sales-enablement',  agentName: 'sam',   label: 'Sales Enablement', description: 'Sam creates pitch decks and battle cards',          emoji: '💼' },
+    { moduleId: 'messaging',         agentName: 'sam',   label: 'Messaging & Copy', description: 'Sam writes copy variants from your positioning',    icon: PenLine },
+    { moduleId: 'landing-pages',     agentName: 'riya',  label: 'Landing Pages',    description: 'Riya builds landing page copy from this',          icon: Monitor },
+    { moduleId: 'sales-enablement',  agentName: 'sam',   label: 'Sales Enablement', description: 'Sam creates pitch decks and battle cards',          icon: Briefcase },
   ],
   sam: [
-    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara turns messaging into blog posts and scripts',  emoji: '📝' },
-    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya writes nurture sequences from this copy',      emoji: '📧' },
-    { moduleId: 'landing-pages',     agentName: 'riya',  label: 'Landing Pages',    description: 'Riya converts the messaging into page copy',        emoji: '🖥️' },
+    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara turns messaging into blog posts and scripts',  icon: FileText },
+    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya writes nurture sequences from this copy',      icon: Mail },
+    { moduleId: 'landing-pages',     agentName: 'riya',  label: 'Landing Pages',    description: 'Riya converts the messaging into page copy',        icon: Monitor },
   ],
   riya: [
-    { moduleId: 'seo-llmo',          agentName: 'kiran', label: 'SEO / LLMO',       description: 'Kiran optimises pages for search and LLMs',        emoji: '🔍' },
-    { moduleId: 'paid-ads',          agentName: 'arjun', label: 'Paid Ads',         description: 'Arjun runs ads pointing to these pages',           emoji: '💰' },
-    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya writes outbound pointing here',               emoji: '📧' },
+    { moduleId: 'seo-llmo',          agentName: 'kiran', label: 'SEO / LLMO',       description: 'Kiran optimises pages for search and LLMs',        icon: Search },
+    { moduleId: 'paid-ads',          agentName: 'arjun', label: 'Paid Ads',         description: 'Arjun runs ads pointing to these pages',           icon: BadgeDollarSign },
+    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya writes outbound pointing here',               icon: Mail },
   ],
   // Collateral layer
   zara: [
-    { moduleId: 'social-calendar',   agentName: 'zara',  label: 'Social Calendar',  description: 'Schedule this content across platforms',            emoji: '📅' },
-    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya repurposes content into email campaigns',      emoji: '📧' },
-    { moduleId: 'seo-llmo',          agentName: 'kiran', label: 'SEO / LLMO',       description: 'Kiran optimises this for search and LLM visibility', emoji: '🔍' },
+    { moduleId: 'social-calendar',   agentName: 'zara',  label: 'Social Calendar',  description: 'Schedule this content across platforms',            icon: CalendarDays },
+    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya repurposes content into email campaigns',      icon: Mail },
+    { moduleId: 'seo-llmo',          agentName: 'kiran', label: 'SEO / LLMO',       description: 'Kiran optimises this for search and LLM visibility', icon: Search },
   ],
   kiran: [
-    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara creates content for your target keywords',      emoji: '📝' },
-    { moduleId: 'landing-pages',     agentName: 'riya',  label: 'Landing Pages',    description: 'Riya builds SEO-optimised landing pages',           emoji: '🖥️' },
-    { moduleId: 'performance-scorecard', agentName: 'dev', label: 'Performance', description: 'Dev tracks keyword and traffic improvements',         emoji: '📊' },
+    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara creates content for your target keywords',      icon: FileText },
+    { moduleId: 'landing-pages',     agentName: 'riya',  label: 'Landing Pages',    description: 'Riya builds SEO-optimised landing pages',           icon: Monitor },
+    { moduleId: 'performance-scorecard', agentName: 'dev', label: 'Performance', description: 'Dev tracks keyword and traffic improvements',         icon: BarChart2 },
   ],
   priya: [
-    { moduleId: 'lead-intelligence', agentName: 'maya',  label: 'Lead Intelligence',description: 'Maya scores leads for the sequences you created',   emoji: '🎯' },
-    { moduleId: 'cro',               agentName: 'tara',  label: 'CRO',              description: 'Tara A/B tests email subject lines and CTAs',       emoji: '🔬' },
-    { moduleId: 'paid-ads',          agentName: 'arjun', label: 'Paid Ads',         description: 'Arjun runs retargeting to non-openers',             emoji: '💰' },
+    { moduleId: 'lead-intelligence', agentName: 'maya',  label: 'Lead Intelligence',description: 'Maya scores leads for the sequences you created',   icon: Target },
+    { moduleId: 'cro',               agentName: 'tara',  label: 'CRO',              description: 'Tara A/B tests email subject lines and CTAs',       icon: FlaskConical },
+    { moduleId: 'paid-ads',          agentName: 'arjun', label: 'Paid Ads',         description: 'Arjun runs retargeting to non-openers',             icon: BadgeDollarSign },
   ],
   // Execution layer
   maya: [
-    { moduleId: 'lead-outreach',     agentName: 'sam',   label: 'Lead Outreach',    description: 'Sam crafts personalised outreach for these leads',   emoji: '📤' },
-    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya builds nurture flows for qualified leads',      emoji: '📧' },
-    { moduleId: 'sales-enablement',  agentName: 'sam',   label: 'Sales Enablement', description: 'Sam prepares collateral for your sales team',        emoji: '💼' },
+    { moduleId: 'lead-outreach',     agentName: 'sam',   label: 'Lead Outreach',    description: 'Sam crafts personalised outreach for these leads',   icon: Send },
+    { moduleId: 'email-sequence',    agentName: 'priya', label: 'Email Sequences',  description: 'Priya builds nurture flows for qualified leads',      icon: Mail },
+    { moduleId: 'sales-enablement',  agentName: 'sam',   label: 'Sales Enablement', description: 'Sam prepares collateral for your sales team',        icon: Briefcase },
   ],
   arjun: [
-    { moduleId: 'budget-optimization', agentName: 'arjun', label: 'Budget Optimisation', description: 'Arjun optimises your spend across channels',    emoji: '💸' },
-    { moduleId: 'performance-scorecard', agentName: 'dev', label: 'Performance',  description: 'Dev tracks ROAS and conversion performance',          emoji: '📊' },
-    { moduleId: 'cro',               agentName: 'tara',  label: 'CRO',              description: 'Tara improves ad landing page conversion rates',     emoji: '🔬' },
+    { moduleId: 'budget-optimization', agentName: 'arjun', label: 'Budget Optimisation', description: 'Arjun optimises your spend across channels',    icon: TrendingDown },
+    { moduleId: 'performance-scorecard', agentName: 'dev', label: 'Performance',  description: 'Dev tracks ROAS and conversion performance',          icon: BarChart2 },
+    { moduleId: 'cro',               agentName: 'tara',  label: 'CRO',              description: 'Tara improves ad landing page conversion rates',     icon: FlaskConical },
   ],
   // Analytics layer
   tara: [
-    { moduleId: 'budget-optimization', agentName: 'arjun', label: 'Budget Optimisation', description: 'Arjun reallocates spend based on this audit',   emoji: '💸' },
-    { moduleId: 'positioning',       agentName: 'neel',  label: 'Positioning',      description: 'Neel refreshes positioning based on audit findings', emoji: '🎯' },
-    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara fixes content gaps found in the audit',        emoji: '📝' },
+    { moduleId: 'budget-optimization', agentName: 'arjun', label: 'Budget Optimisation', description: 'Arjun reallocates spend based on this audit',   icon: TrendingDown },
+    { moduleId: 'positioning',       agentName: 'neel',  label: 'Positioning',      description: 'Neel refreshes positioning based on audit findings', icon: Target },
+    { moduleId: 'ai-content',        agentName: 'zara',  label: 'AI Content',       description: 'Zara fixes content gaps found in the audit',        icon: FileText },
   ],
   dev: [
-    { moduleId: 'budget-optimization', agentName: 'arjun', label: 'Budget Optimisation', description: 'Arjun reallocates based on performance data',   emoji: '💸' },
-    { moduleId: 'cro',               agentName: 'tara',  label: 'CRO',              description: 'Tara improves conversion on underperforming funnels', emoji: '🔬' },
-    { moduleId: 'channel-health',    agentName: 'dev',   label: 'Channel Health',   description: 'Dev audits each channel for quality and health',     emoji: '🔗' },
+    { moduleId: 'budget-optimization', agentName: 'arjun', label: 'Budget Optimisation', description: 'Arjun reallocates based on performance data',   icon: TrendingDown },
+    { moduleId: 'cro',               agentName: 'tara',  label: 'CRO',              description: 'Tara improves conversion on underperforming funnels', icon: FlaskConical },
+    { moduleId: 'channel-health',    agentName: 'dev',   label: 'Channel Health',   description: 'Dev audits each channel for quality and health',     icon: Link2 },
   ],
 }
 
 // Fallback for any agent not in the map
 const DEFAULT_NEXT_ACTIONS: NextAction[] = [
-  { moduleId: 'messaging',   agentName: 'sam',   label: 'Messaging & Copy', description: 'Sam turns this output into copy and messaging',     emoji: '✍️' },
-  { moduleId: 'ai-content',  agentName: 'zara',  label: 'AI Content',      description: 'Zara creates content from what you just built',      emoji: '📝' },
-  { moduleId: 'action-plan', agentName: 'neel',  label: 'Action Plan',     description: 'Neel turns insights into a prioritised plan',        emoji: '⚡' },
+  { moduleId: 'messaging',   agentName: 'sam',   label: 'Messaging & Copy', description: 'Sam turns this output into copy and messaging',     icon: PenLine },
+  { moduleId: 'ai-content',  agentName: 'zara',  label: 'AI Content',      description: 'Zara creates content from what you just built',      icon: FileText },
+  { moduleId: 'action-plan', agentName: 'neel',  label: 'Action Plan',     description: 'Neel turns insights into a prioritised plan',        icon: Zap },
 ]
 
 function NextActionsSection({
@@ -533,7 +537,7 @@ function NextActionsSection({
             className="group flex flex-col gap-1 px-3 py-3 text-left hover:bg-orange-50/60 dark:hover:bg-orange-950/20 transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <span className="text-base leading-none">{action.emoji}</span>
+              <action.icon className="h-3.5 w-3.5 text-orange-500 shrink-0" />
               <span className="text-xs font-semibold text-foreground group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                 {action.label}
               </span>
@@ -617,7 +621,7 @@ function ThinkingBlock({ thinking, isStreaming }: { thinking: string; isStreamin
       </button>
 
       {open && (
-        <div className="border-t border-violet-200/50 dark:border-violet-800/30 px-3 py-3 max-h-48 overflow-y-auto">
+        <div className="border-t border-violet-200/50 dark:border-violet-800/30 px-3 py-3">
           <p className="text-[11px] leading-relaxed text-violet-800/80 dark:text-violet-300/70 whitespace-pre-wrap font-mono">
             {thinking}
           </p>
@@ -738,7 +742,7 @@ function ToolCallFeed({
                       }
                     } catch { /* not JSON — use as-is but limit length */ }
                     return (
-                      <p className="mt-2 text-[11px] leading-relaxed text-foreground/70 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
+                      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
                         {displayPreview.slice(0, 300)}{displayPreview.length > 300 ? '…' : ''}
                       </p>
                     )
@@ -856,7 +860,7 @@ export function AgentRunPanel({
         {/* Row 1: Status */}
         <div className="flex items-center gap-2 min-w-0">
           <PanelTopClose className="h-4 w-4 text-orange-500 shrink-0" />
-          <span className="truncate text-sm font-semibold">{label ? `${label} brief` : `${agentName} brief`}</span>
+          <span className="truncate text-sm font-semibold">{label ?? agentName}</span>
           {streaming && (() => {
             const hasActiveToolCall = toolCalls.some(tc => tc.result == null)
             const isThinking = thinking && !text
@@ -880,13 +884,18 @@ export function AgentRunPanel({
           <div className="flex items-center gap-1.5 flex-wrap">
             {/* Confidence badge — only shown when the agent actively calibrates (not the 0.75 default) */}
             {!error && confidence !== null && confidence !== 0.75 && (
-              <Badge
-                variant="outline"
-                className="text-xs cursor-help"
-                title="How confident the agent is in this output based on available data quality"
-              >
-                {Math.round(confidence * 100)}% confidence
-              </Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="text-xs cursor-help">
+                      {Math.round(confidence * 100)}% confidence
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-[200px]">How confident the agent is in this output based on available data quality</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {/* Fix 7 + 11: labeled copy buttons with aria-labels */}
             {!error && (
@@ -917,6 +926,7 @@ export function AgentRunPanel({
                     size="sm"
                     onClick={() => onUseAsInput(sanitizeDisplayText(text))}
                     title="Use this output as input for the next agent"
+                    aria-label="Use this output as input for the next agent"
                     className="h-7 px-2 text-xs gap-1 text-orange-600 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/30"
                   >
                     ↓ Use as input
@@ -955,7 +965,7 @@ export function AgentRunPanel({
         )}
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3" aria-live="polite" aria-atomic="false">
         {/* Error block — message sanitized before display */}
         {error && (
           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50/60 dark:border-red-900/40 dark:bg-red-950/20 p-3">
@@ -991,17 +1001,17 @@ export function AgentRunPanel({
         {/* Structured blocks — Fix 8: items rendered with InlineMd to preserve inline formatting */}
         {!shouldPreferMarkdown && (parsed.title || parsed.summary) && (
           <div className="rounded-2xl border border-orange-200/70 bg-white/90 p-4 dark:border-orange-900/30 dark:bg-gray-950/60">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500">Agent Brief</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500" aria-hidden="true">Agent Brief</div>
             {parsed.title ? <div className="mt-1 text-base font-semibold text-foreground">{parsed.title}</div> : null}
             {parsed.summary ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{parsed.summary}</p> : null}
           </div>
         )}
 
         {!shouldPreferMarkdown && parsed.highlights.length > 0 && (
-          <div className="grid gap-2 2xl:grid-cols-2">
+          <div className="grid gap-2 md:grid-cols-2">
             {parsed.highlights.map((item, index) => (
               <div key={`${stripInlineMarkdown(item)}-${index}`} className="rounded-xl border border-border/70 bg-background/85 p-3 shadow-sm">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500" aria-hidden="true">
                   Key Insight {index + 1}
                 </div>
                 <div className="mt-1 text-sm leading-6 text-foreground">
@@ -1013,10 +1023,10 @@ export function AgentRunPanel({
         )}
 
         {!shouldPreferMarkdown && parsed.sections.length > 0 && (
-          <div className="grid gap-3 2xl:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             {parsed.sections.map((section) => (
               <div key={section.heading} className="rounded-xl border border-border/70 bg-background/85 p-3 shadow-sm">
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground" aria-hidden="true">
                   {section.heading}
                 </div>
                 <div className="mt-2 space-y-2">
@@ -1036,7 +1046,7 @@ export function AgentRunPanel({
 
         {!shouldPreferMarkdown && parsed.actions.length > 0 && (
           <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 p-4 dark:border-emerald-900/30 dark:bg-emerald-950/20">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400" aria-hidden="true">
               Recommended Actions
             </div>
             <div className="mt-2 space-y-2">
@@ -1058,7 +1068,7 @@ export function AgentRunPanel({
         {!shouldPreferMarkdown && hasStructuredBlocks && displayText && !streaming && (
           <button
             onClick={() => setShowFull((p) => !p)}
-            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors min-h-[44px] px-1 py-2 inline-flex items-center"
           >
             {showFull ? 'Hide full output' : 'Show full output'}
           </button>
@@ -1066,10 +1076,10 @@ export function AgentRunPanel({
 
         {/* Artifact entries grid */}
         {artifactEntries.length > 0 && !renderArtifact && (
-          <div className="grid gap-2 2xl:grid-cols-2">
+          <div className="grid gap-2 md:grid-cols-2">
             {artifactEntries.map(([key, value]) => (
               <div key={key} className="rounded-xl border border-border/70 bg-background/85 p-3 shadow-sm">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground" aria-hidden="true">
                   {key.replace(/_/g, ' ')}
                 </div>
                 <div className="mt-1 text-sm leading-6 text-foreground break-words">
@@ -1083,7 +1093,7 @@ export function AgentRunPanel({
                       ))}
                     </div>
                   ) : (
-                    String(value)
+                    <p className="line-clamp-3 break-words">{String(value)}</p>
                   )}
                 </div>
               </div>
@@ -1100,7 +1110,7 @@ export function AgentRunPanel({
             cards.push(
               <div key="social-image" className="rounded-xl border border-border/70 bg-background/85 p-3 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Generated Image</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground" aria-hidden="true">Generated Image</div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -1145,7 +1155,7 @@ export function AgentRunPanel({
             cards.push(
               <div key="email-html" className="rounded-xl border border-border/70 bg-background/85 p-3 shadow-sm space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground" aria-hidden="true">
                     Email Newsletter{email.subject ? ` — ${email.subject}` : ''}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1191,7 +1201,7 @@ export function AgentRunPanel({
             cards.push(
               <div key="seo-article" className="rounded-xl border border-border/70 bg-background/85 p-3 shadow-sm space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground" aria-hidden="true">
                     Blog Article{seo.title ? ` — ${seo.title}` : ''}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

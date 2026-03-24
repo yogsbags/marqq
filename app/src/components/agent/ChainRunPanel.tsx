@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -137,12 +139,18 @@ export function ChainRunPanel({ workflowName, steps, companyId, onClose }: Chain
   void currentStep
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={handleClose}>
-      <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4" onClick={handleClose}>
+      <Card
+        className="w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chain-panel-title"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h3 className="font-semibold text-sm">{workflowName}</h3>
+            <h3 className="font-semibold text-sm" id="chain-panel-title">{workflowName}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               {done ? `Completed ${completedCount} of ${steps.length} steps` :
                running ? `Running step ${completedCount + 1} of ${steps.length}` :
@@ -151,7 +159,7 @@ export function ChainRunPanel({ workflowName, steps, companyId, onClose }: Chain
           </div>
           <div className="flex items-center gap-2">
             {running && <Loader2 className="h-4 w-4 animate-spin text-orange-500" />}
-            <Button variant="ghost" size="sm" className="text-xs" onClick={handleClose}>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={handleClose} aria-label="Close workflow panel">
               <X className="h-4 w-4 mr-1" />
               Close
             </Button>
@@ -186,14 +194,29 @@ export function ChainRunPanel({ workflowName, steps, companyId, onClose }: Chain
                 </div>
 
                 {step.text && (
-                  <p className="text-xs text-foreground/70 leading-relaxed line-clamp-4 ml-6">
-                    {step.text.slice(0, 600)}{step.text.length > 600 ? '…' : ''}
-                  </p>
+                  <div className="text-xs text-muted-foreground leading-relaxed line-clamp-4 ml-6 prose prose-xs dark:prose-invert max-w-none [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0 [&_li]:m-0">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <span>{children}</span>,
+                        strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                        em: ({ children }) => <em>{children}</em>,
+                        code: ({ children }) => <code className="font-mono bg-muted px-0.5 rounded">{children}</code>,
+                        a: ({ children }) => <>{children}</>,
+                        ul: ({ children }) => <>{children}</>,
+                        ol: ({ children }) => <>{children}</>,
+                        li: ({ children }) => <span className="block">• {children}</span>,
+                      }}
+                    >
+                      {step.text.slice(0, 400)}
+                    </ReactMarkdown>
+                    {step.text.length > 400 && <span className="text-muted-foreground/60">…</span>}
+                  </div>
                 )}
 
                 {step.handoffNotes && step.status === 'done' && (
-                  <div className="ml-6 mt-2 p-2 rounded bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50">
-                    <p className="text-xs text-green-700 dark:text-green-400">{step.handoffNotes}</p>
+                  <div className="ml-6 mt-2 p-2 rounded bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-800/50">
+                    <p className="text-xs text-green-800 dark:text-green-400">{step.handoffNotes}</p>
                   </div>
                 )}
               </div>
