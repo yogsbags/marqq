@@ -254,7 +254,12 @@ function Dashboard({ onHomeTourComplete }: { onHomeTourComplete?: () => void }) 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const [isOnboarded, setIsOnboarded] = useState(() => localStorage.getItem('marqq_onboarded') === '1');
-  const [showTour, setShowTour] = useState(() => localStorage.getItem('marqq_tour_done') !== '1');
+  const [showTour, setShowTour] = useState(() => {
+    if (localStorage.getItem('marqq_tour_done') === '1') return false;
+    // Don't start ProductTour until the home spotlight tour has finished first
+    if (localStorage.getItem('marqq_home_tour_done') !== '1') return false;
+    return true;
+  });
 
   // Invite token from URL (?invite=<token>) or session (stored before login)
   const [inviteToken, setInviteToken] = useState<string | null>(() => {
