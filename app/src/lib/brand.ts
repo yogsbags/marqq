@@ -1,4 +1,3 @@
-import elevateLogo from '@/assets/elevate-logo.svg';
 import torqqLogo from '@/assets/torqq-logo.svg';
 
 export type BrandConfig = {
@@ -33,15 +32,16 @@ export const BRANDS = {
     faviconSrc: torqqLogo,
     wordmarkFontClass: 'font-brand',
   },
+  /** Legacy key; same public branding as Marqq (avoid Elevate AI in titles/UI). */
   elevate: {
-    name: 'Elevate AI',
-    shortName: 'Elevate',
-    supportEmail: 'support@elevate.ai',
-    titleSuffix: 'Elevate AI',
+    name: 'Marqq AI',
+    shortName: 'Marqq',
+    supportEmail: 'support@marqq.ai',
+    titleSuffix: 'Marqq AI',
     platformTagline: 'Marketing Intelligence Platform',
-    logoSrc: elevateLogo,
-    faviconSrc: elevateLogo,
-    wordmarkFontClass: 'font-brand',
+    logoSrc: torqqLogo,
+    faviconSrc: torqqLogo,
+    wordmarkFontClass: 'font-brand-amplitude',
   },
 } as const satisfies Record<string, BrandConfig>;
 
