@@ -13,15 +13,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  HiPaperAirplane as Send,
-  HiChat as Bot,
-  HiUser as User,
-  HiDocumentText as FileText,
-  HiPhotograph as Image,
-  HiTable as FileSpreadsheet,
-  HiX as X
-} from 'react-icons/hi';
 import { cn } from '@/lib/utils';
 import { askVeena, GroqService, ChatMessage, type VeenaResponse } from '@/services/groqService';
 import { toast } from 'sonner';
@@ -30,7 +21,20 @@ import type { Message, Conversation } from '@/types/chat';
 
 import { markdownToRichText } from '@/lib/markdown';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { Map, DollarSign, PenLine, Target, Paperclip } from 'lucide-react';
+import {
+  Send,
+  MessageSquare as Bot,
+  User,
+  FileText,
+  Image,
+  Table as FileSpreadsheet,
+  X,
+  Map,
+  DollarSign,
+  PenLine,
+  Target,
+  Paperclip,
+} from 'lucide-react';
 import { buildAgentHeaders, buildAgentPlanPayload, buildAgentRunPayload, getActiveAgentContext } from '@/lib/agentContext';
 
 // -- localStorage helpers

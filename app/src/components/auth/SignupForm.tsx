@@ -59,7 +59,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
       
       <Card className="animate-in fade-in-50 slide-in-from-bottom-5 duration-700">
       <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
+        <CardTitle className="text-2xl font-bold text-foreground">
           Get Started
         </CardTitle>
         <CardDescription>
@@ -72,10 +72,10 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
             <Label htmlFor="name">Full Name</Label>
             <Input
               id="name"
-              placeholder="John Doe"
+              placeholder="Arjun Mehta"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="transition-all duration-200 focus:scale-[1.01]"
+              className="transition-all duration-200"
               required
             />
           </div>
@@ -84,10 +84,10 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
             <Input
               id="email"
               type="email"
-              placeholder="john@example.com"
+              placeholder="arjun@company.com"
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              className="transition-all duration-200 focus:scale-[1.01]"
+              className="transition-all duration-200"
               required
             />
           </div>
@@ -99,7 +99,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
               placeholder="••••••••"
               value={formData.password}
               onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-              className="transition-all duration-200 focus:scale-[1.01]"
+              className="transition-all duration-200"
               required
             />
           </div>
@@ -111,7 +111,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
               placeholder="••••••••"
               value={formData.confirmPassword}
               onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-              className="transition-all duration-200 focus:scale-[1.01]"
+              className="transition-all duration-200"
               required
             />
           </div>

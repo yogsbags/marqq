@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useAuth } from '@/contexts/AuthContext'
 import { BRAND } from '@/lib/brand'
+import { PartyPopper } from 'lucide-react'
 
 const BACKEND_URL = (import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3008'
 
@@ -157,7 +158,7 @@ export function InviteAccept({ token, onDone }: InviteAcceptProps) {
 
           {accepted && (
             <div className="text-center space-y-3 py-4">
-              <div className="text-3xl">🎉</div>
+              <div className="flex justify-center"><PartyPopper className="h-8 w-8 text-orange-500" /></div>
               <p className="font-medium text-foreground">You've joined {preview?.workspace_name}!</p>
               <p className="text-sm text-muted-foreground">Taking you to the workspace…</p>
             </div>

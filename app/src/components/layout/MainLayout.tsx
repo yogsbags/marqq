@@ -35,7 +35,7 @@ export function MainLayout({
   const isHomeView = !selectedModule || selectedModule === 'home';
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex min-h-[100dvh] bg-background overflow-hidden">
       {/* Left: Sidebar */}
       <Sidebar
         selectedModule={selectedModule}

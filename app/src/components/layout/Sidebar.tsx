@@ -4,32 +4,33 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { BRAND } from '@/lib/brand';
 import { useEffect, useState } from 'react';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import {
-  HiChat as Bot,
-  HiChevronDown,
-  HiChevronRight,
-  HiCurrencyDollar as DollarSign,
-  HiEye as Eye,
-  HiHome as Home,
-  HiLightningBolt as LightningBolt,
-  HiQuestionMarkCircle as HelpCircle,
-  HiPencil as PenTool,
-  HiCog as Settings,
-  HiSpeakerphone as Speakerphone,
-  HiChartBar as Target,
-  HiTag as Tag,
-  HiTrendingUp as TrendingUp,
-  HiUserGroup as UserGroup,
-  HiUsers as Users,
-  HiViewGrid as LayoutDashboard,
-  HiMap as MapIcon,
-  HiRefresh as RefreshIcon,
-  HiDownload as DownloadIcon,
-  HiUserAdd as UserAddIcon,
-  HiCursorClick as CursorClickIcon,
-  HiShieldCheck as ShieldCheckIcon,
-} from 'react-icons/hi';
+  PanelLeftClose,
+  PanelLeftOpen,
+  MessageSquare as Bot,
+  ChevronDown,
+  ChevronRight,
+  DollarSign,
+  Eye,
+  Home,
+  Zap as LightningBolt,
+  HelpCircle,
+  Pen as PenTool,
+  Settings,
+  Megaphone as Speakerphone,
+  BarChart2 as Target,
+  Tag,
+  TrendingUp,
+  Users as UserGroup,
+  Users2 as Users,
+  LayoutDashboard,
+  Map as MapIcon,
+  RefreshCw as RefreshIcon,
+  Download as DownloadIcon,
+  UserPlus as UserAddIcon,
+  MousePointerClick as CursorClickIcon,
+  ShieldCheck as ShieldCheckIcon,
+} from 'lucide-react';
 import type { Conversation } from '@/types/chat';
 
 interface SidebarProps {
@@ -272,8 +273,8 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
                   >
                     {section.label}
                     {isOpen
-                      ? <HiChevronDown className="h-3 w-3" />
-                      : <HiChevronRight className="h-3 w-3" />
+                      ? <ChevronDown className="h-3 w-3" />
+                      : <ChevronRight className="h-3 w-3" />
                     }
                   </button>
                 ) : (
