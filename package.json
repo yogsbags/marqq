@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "start": "node server.js",
     "screenshots:marketing": "playwright test -c app/playwright.config.ts marketing-screenshots",
-    "screenshots:marketing:node": "node ./scripts/capture-marketing-screenshots.mjs"
+    "screenshots:marketing:node": "node ./scripts/capture-marketing-screenshots.mjs",
+    "verify:rls-browser": "node --env-file=.env scripts/verify-browser-rls.mjs"
   },
   "dependencies": {
     "@deepgram/sdk": "^4.0.0",

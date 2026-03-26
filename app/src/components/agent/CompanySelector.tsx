@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { COMPANY_INTEL_LIST_UPDATED_EVENT } from '@/lib/companyIntelEvents'
 import { clearActiveCompanyContext, persistActiveCompanyContext } from '@/lib/agentContext'
+import { getWorkspaceHeaders } from '@/lib/workspaceHeaders'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const NO_COMPANY_VALUE = '__no_company__'
@@ -18,7 +19,7 @@ export function CompanySelector({ value, onChange }: CompanySelectorProps) {
 
   useEffect(() => {
     const loadCompanies = () => {
-      fetch('/api/company-intel/companies')
+      fetch('/api/company-intel/companies', { headers: getWorkspaceHeaders() })
         .then(r => r.json())
         .then(d => {
           const list: Company[] = d.companies || []

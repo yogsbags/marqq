@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Pencil, Check, X, Sparkles } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getWorkspaceHeaders } from '@/lib/workspaceHeaders'
 
 const ALL_PRODUCTS_VALUE = '__all_products__'
 
@@ -28,7 +29,7 @@ export function OfferSelector({ companyId, value, onChange }: OfferSelectorProps
 
     Promise.all([
       fetch(`/api/mkg/${companyId}`).then(r => r.json()).catch(() => null),
-      fetch(`/api/company-intel/companies`).then(r => r.json()).catch(() => null),
+      fetch(`/api/company-intel/companies`, { headers: getWorkspaceHeaders() }).then(r => r.json()).catch(() => null),
     ]).then(([mkgData, companiesData]) => {
       const mkgOffers: Offer[] | null = Array.isArray(mkgData?.mkg?.offers?.value)
         ? mkgData.mkg.offers.value

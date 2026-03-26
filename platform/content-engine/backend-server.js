@@ -1189,7 +1189,7 @@ ${successfulToolContext}`;
     const { upsertScheduledAutomation } = await import('./automations/registry.js');
     for (const trigger of rawContract.scheduled_automations) {
       try {
-        await upsertScheduledAutomation(companyId, trigger, rawContract.agent, supabase);
+        await upsertScheduledAutomation(companyId, trigger, rawContract.agent, supabaseForServerData());
         console.info('[automations] Scheduled automation upserted:', trigger.automation_id, trigger.cron);
       } catch (e) {
         console.warn('[automations] Failed to upsert scheduled automation:', e.message);
@@ -1205,7 +1205,7 @@ ${successfulToolContext}`;
         : String(rawContract.triggers_agents).split(',').map(s => s.trim()).filter(Boolean);
 
       const validTriggers = triggerList.filter(a => VALID_AGENTS.has(a));
-      if (validTriggers.length && supabase) {
+      if (validTriggers.length && supabaseForServerData()) {
         const chainBaseTime = Date.now();
         const chainRows = validTriggers.map((agentName, index) => ({
           agent: agentName,
@@ -1219,7 +1219,7 @@ ${successfulToolContext}`;
           trigger_id: runId,
           status: 'pending',
         }));
-        const { error: chainErr } = await supabase.from('agent_tasks').insert(chainRows);
+        const { error: chainErr } = await supabaseForServerData().from('agent_tasks').insert(chainRows);
         if (chainErr) console.warn('[triggers_agents] Failed to queue chain:', chainErr.message);
         else console.log(`[triggers_agents] Queued ${validTriggers.join(', ')} for ${companyId}`);
       }
@@ -1262,6 +1262,11 @@ const supabaseAdminClient =
         auth: { autoRefreshToken: false, persistSession: false },
       })
     : null;
+
+/** Server routes must not use the anon client for RLS tables — there is no end-user JWT here. */
+function supabaseForServerData() {
+  return supabaseAdminClient || supabase;
+}
 
 function defaultHeartbeatState() {
   return {
@@ -3159,9 +3164,10 @@ async function assembleMarketingContext({ userId = "", workspaceId = "", company
   let companyArtifacts = {};
   let knowledgeBase = [];
 
-  if (workspaceId && supabase) {
+  const wsClient = workspaceId ? supabaseForServerData() : null;
+  if (wsClient) {
     try {
-      const { data } = await supabase
+      const { data } = await wsClient
         .from("workspaces")
         .select("id,name,website_url")
         .eq("id", workspaceId)
@@ -3302,7 +3308,7 @@ function computeOutcomeAccuracy(variancePct) {
   return Number(Math.max(0, accuracy).toFixed(2));
 }
 
-async function listOutcomeLedgerRows(companyId, { days, client = supabase } = {}) {
+async function listOutcomeLedgerRows(companyId, { days, client = supabaseForServerData() } = {}) {
   if (!client) {
     throw new Error("Outcome ledger reads require a Supabase client.");
   }
@@ -3331,7 +3337,7 @@ export function createOutcomesRouteHandler(dependencies = {}) {
   const listOutcomeRowsImpl = dependencies.listOutcomeRowsImpl
     || ((companyId, options) => listOutcomeLedgerRows(
       companyId,
-      { ...options, client: dependencies.client || supabase },
+      { ...options, client: dependencies.client || supabaseForServerData() },
     ));
 
   return async function handleGetOutcomes(req, res) {
@@ -3574,7 +3580,10 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/api/kpis/:companyId", createKpiRouteHandler());
-app.get("/api/outcomes/:companyId", createOutcomesRouteHandler());
+app.get(
+  "/api/outcomes/:companyId",
+  createOutcomesRouteHandler({ client: supabaseForServerData() }),
+);
 
 // ── GET /api/agents/status ─────────────────────────────────────────────────────
 // Returns heartbeat/status.json (updated by Python scheduler after each run).
@@ -4524,22 +4533,25 @@ async function runAgentForArtifact(agentName, query, companyId, taskType) {
     } catch {}
   }
 
-  // Fetch recent automation results for this company
+  // Fetch recent automation results for this company (service role if RLS on automation_runs)
   let recentAutomationData = '';
   if (companyId) {
     try {
-      const { data: recentRuns } = await supabase
-        .from('automation_runs')
-        .select('automation_name, result, created_at')
-        .eq('company_id', companyId)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      if (recentRuns?.length) {
-        const lines = recentRuns.map(r =>
-          `- ${r.automation_name} (${new Date(r.created_at).toLocaleDateString()}): ${JSON.stringify(r.result).slice(0, 400)}`
-        ).join('\n');
-        recentAutomationData = `\n\n## Recent Automation Data\nThe following connector data was automatically fetched for this company and is available for your analysis:\n${lines}`;
+      const autoRunClient = supabaseForServerData();
+      if (autoRunClient) {
+        const { data: recentRuns } = await autoRunClient
+          .from('automation_runs')
+          .select('automation_name, result, created_at')
+          .eq('company_id', companyId)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (recentRuns?.length) {
+          const lines = recentRuns.map(r =>
+            `- ${r.automation_name} (${new Date(r.created_at).toLocaleDateString()}): ${JSON.stringify(r.result).slice(0, 400)}`
+          ).join('\n');
+          recentAutomationData = `\n\n## Recent Automation Data\nThe following connector data was automatically fetched for this company and is available for your analysis:\n${lines}`;
+        }
       }
     } catch { /* non-blocking */ }
   }
@@ -4652,7 +4664,7 @@ Replace ALL placeholder values with your actual outputs.
     const { upsertScheduledAutomation } = await import('./automations/registry.js');
     for (const trigger of contract.scheduled_automations) {
       try {
-        await upsertScheduledAutomation(companyId, trigger, contract.agent, supabase);
+        await upsertScheduledAutomation(companyId, trigger, contract.agent, supabaseForServerData());
         console.info('[automations] Scheduled automation upserted:', trigger.automation_id, trigger.cron);
       } catch (e) {
         console.warn('[automations] Failed to upsert scheduled automation:', e.message);
@@ -4775,9 +4787,10 @@ app.post("/api/agents/veena/onboard", async (req, res) => {
 
   const companyId = company_id.trim();
 
-  if (supabase) {
+  const taskClient = supabaseForServerData();
+  if (taskClient) {
     try {
-      const { data: existing } = await supabase
+      const { data: existing } = await taskClient
         .from("agent_tasks")
         .select("triggered_by_run_id, status")
         .eq("company_id", companyId)
@@ -4961,7 +4974,7 @@ async function buildIndustryContext(companyId) {
     }
   } catch {}
   try {
-    const { data: co } = await (supabase?.from('companies').select('name,company_name').eq('id', companyId).single() ?? {});
+    const { data: co } = await (supabaseForServerData()?.from('companies').select('name,company_name').eq('id', companyId).single() ?? {});
     companyName = co?.company_name || co?.name || null;
   } catch {}
   return { companyName, positioning, icp, competitors };
@@ -5393,12 +5406,13 @@ app.post("/api/agents/:name/run", async (req, res) => {
   // Plan for module-access gating comes from user_plans; workspace plan is fallback.
   if (workspaceId || headerUserId) {
     try {
+      const pdb = supabaseForServerData();
       // Resolve userId: prefer explicit header, fall back to workspace owner_id
       let userId = headerUserId;
       let workspacePlan = "growth";
 
       if (workspaceId) {
-        const { data: ws } = await supabase
+        const { data: ws } = await pdb
           .from("workspaces")
           .select("plan, owner_id")
           .eq("id", workspaceId)
@@ -5411,7 +5425,7 @@ app.post("/api/agents/:name/run", async (req, res) => {
 
       if (userId) {
         // Look up user-level plan record
-        let { data: up } = await supabase
+        let { data: up } = await pdb
           .from("user_plans")
           .select("plan, credits_remaining, credits_total, credits_reset_at")
           .eq("user_id", userId)
@@ -5420,7 +5434,7 @@ app.post("/api/agents/:name/run", async (req, res) => {
         // Seed a record if none exists yet
         if (!up) {
           const seedTotal = PLAN_CREDITS[workspacePlan] ?? 500;
-          const { data: inserted } = await supabase
+          const { data: inserted } = await pdb
             .from("user_plans")
             .insert({
               user_id: userId,
@@ -5441,7 +5455,7 @@ app.post("/api/agents/:name/run", async (req, res) => {
           const resetAt = up.credits_reset_at ? new Date(up.credits_reset_at) : null;
           if (resetAt && new Date() > resetAt) {
             const newTotal = PLAN_CREDITS[plan] ?? 500;
-            await supabase
+            await pdb
               .from("user_plans")
               .update({
                 credits_remaining: newTotal,
@@ -5477,7 +5491,7 @@ app.post("/api/agents/:name/run", async (req, res) => {
 
           // Deduct credit immediately (optimistic deduction)
           if (up.credits_remaining !== -1) {
-            await supabase
+            await pdb
               .from("user_plans")
               .update({
                 credits_remaining: up.credits_remaining - creditCost,
@@ -5702,22 +5716,25 @@ app.post("/api/agents/:name/run", async (req, res) => {
     : "";
   const runContextBlock = `\n\n## Run Context\ncompany_id: ${companyId ?? "unknown"}\nrun_id: ${runId}\n${triggerContextBlock}${offerFocusBlock}`;
 
-  // Fetch recent automation results for this company
+  // Fetch recent automation results for this company (service role if RLS on automation_runs)
   let recentAutomationData = '';
   if (companyId) {
     try {
-      const { data: recentRuns } = await supabase
-        .from('automation_runs')
-        .select('automation_name, result, created_at')
-        .eq('company_id', companyId)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      if (recentRuns?.length) {
-        const lines = recentRuns.map(r =>
-          `- ${r.automation_name} (${new Date(r.created_at).toLocaleDateString()}): ${JSON.stringify(r.result).slice(0, 400)}`
-        ).join('\n');
-        recentAutomationData = `\n\n## Recent Automation Data\nThe following connector data was automatically fetched for this company and is available for your analysis:\n${lines}`;
+      const autoRunClient = supabaseForServerData();
+      if (autoRunClient) {
+        const { data: recentRuns } = await autoRunClient
+          .from('automation_runs')
+          .select('automation_name, result, created_at')
+          .eq('company_id', companyId)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (recentRuns?.length) {
+          const lines = recentRuns.map(r =>
+            `- ${r.automation_name} (${new Date(r.created_at).toLocaleDateString()}): ${JSON.stringify(r.result).slice(0, 400)}`
+          ).join('\n');
+          recentAutomationData = `\n\n## Recent Automation Data\nThe following connector data was automatically fetched for this company and is available for your analysis:\n${lines}`;
+        }
       }
     } catch { /* non-blocking */ }
   }
@@ -6214,7 +6231,7 @@ app.post('/api/automations/run-due', async (req, res) => {
   }
   try {
     const { runDueScheduledAutomations } = await import('./automations/registry.js');
-    const results = await runDueScheduledAutomations(supabase);
+    const results = await runDueScheduledAutomations(supabaseForServerData());
     res.json({ ran: results.length, results });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -6269,9 +6286,10 @@ app.post('/api/ads-intel/:companyId/analyze', async (req, res) => {
 app.get('/api/ads-intel/:companyId/analysis', async (req, res) => {
   const { companyId } = req.params;
 
-  // Try Supabase first
-  if (supabase) {
-    const { data } = await supabase
+  // Try Supabase first (service role: RLS + no browser session on this route)
+  const artClient = getSupabaseReadClient() || supabaseForServerData();
+  if (artClient) {
+    const { data } = await artClient
       .from('company_artifacts')
       .select('data, updated_at')
       .eq('company_id', companyId)
@@ -6805,7 +6823,7 @@ export async function dispatchHookRun(
   batch,
   {
     fetchImpl = fetch,
-    supabaseClient = supabase,
+    supabaseClient = supabaseForServerData(),
     baseUrl = `http://127.0.0.1:${PORT}`,
   } = {},
 ) {
@@ -7971,7 +7989,8 @@ app.get(
   async (req, res) => {
     const entry = await ensureCompanyEntry(req.params.id);
     if (!entry) return res.status(404).json({ error: "Company not found" });
-    if (!supabase) {
+    const intelRead = getSupabaseReadClient() || supabaseForServerData();
+    if (!intelRead) {
       const completed = Object.keys(entry.artifacts).length;
       const failed = entry.failedArtifacts ? entry.failedArtifacts.size : 0;
       const total = COMPANY_INTEL_ARTIFACT_TYPES.length;
@@ -7987,11 +8006,11 @@ app.get(
     try {
       const [{ data, error }, { data: artifactRows, error: artifactError }] =
         await Promise.all([
-          supabase
+          intelRead
             .from("generation_jobs")
             .select("artifact_type,status")
             .eq("company_id", req.params.id),
-          supabase
+          intelRead
             .from("company_artifacts")
             .select("artifact_type")
             .eq("company_id", req.params.id),
@@ -8503,13 +8522,30 @@ Respond with ONLY valid JSON (no markdown, no fences) matching this schema:
 });
 
 // ─── Workspace routes ─────────────────────────────────────────────────────
+// Use service-role client: RLS on workspace_* tables scopes by auth.uid(), but this API is
+// called from the browser without forwarding the user's JWT — anon client would see zero rows.
+
+function workspaceDbOr503(res) {
+  if (!supabaseAdminClient) {
+    res
+      .status(503)
+      .json({
+        error:
+          "Workspace API requires SUPABASE_SERVICE_ROLE_KEY on the content-engine server",
+      });
+    return null;
+  }
+  return supabaseAdminClient;
+}
 
 // GET /api/workspaces?userId=xxx — list workspaces for a user (auto-provisions default)
 app.get("/api/workspaces", async (req, res) => {
   const { userId } = req.query;
   if (!userId) return res.status(400).json({ error: "userId required" });
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
-    let { data, error } = await supabase
+    let { data, error } = await db
       .from("workspace_members")
       .select("role, workspace:workspaces(id, name, website_url, created_at)")
       .eq("user_id", userId);
@@ -8517,13 +8553,13 @@ app.get("/api/workspaces", async (req, res) => {
 
     // Auto-provision default workspace for new users
     if (!data || data.length === 0) {
-      const { data: ws, error: wsErr } = await supabase
+      const { data: ws, error: wsErr } = await db
         .from("workspaces")
         .insert({ name: "My workspace", owner_id: userId })
         .select()
         .single();
       if (wsErr) throw wsErr;
-      const { error: memErr } = await supabase
+      const { error: memErr } = await db
         .from("workspace_members")
         .insert({ workspace_id: ws.id, user_id: userId, role: "owner" });
       if (memErr) throw memErr;
@@ -8545,14 +8581,16 @@ app.post("/api/workspaces", async (req, res) => {
   const { userId, name } = req.body;
   if (!userId || !name)
     return res.status(400).json({ error: "userId and name required" });
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
-    const { data: ws, error: wsErr } = await supabase
+    const { data: ws, error: wsErr } = await db
       .from("workspaces")
       .insert({ name, owner_id: userId })
       .select()
       .single();
     if (wsErr) throw wsErr;
-    const { error: memErr } = await supabase
+    const { error: memErr } = await db
       .from("workspace_members")
       .insert({ workspace_id: ws.id, user_id: userId, role: "owner" });
     if (memErr) throw memErr;
@@ -8567,11 +8605,13 @@ app.patch("/api/workspaces/:id", async (req, res) => {
   const { id } = req.params;
   const { name, website_url, userId } = req.body;
   if (!userId) return res.status(400).json({ error: "userId required" });
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (website_url !== undefined) updates.website_url = website_url;
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("workspaces")
       .update(updates)
       .eq("id", id)
@@ -8589,9 +8629,11 @@ app.patch("/api/workspaces/:id", async (req, res) => {
 app.get("/api/workspaces/:id/plan", async (req, res) => {
   const { id } = req.params;
   const queryUserId = typeof req.query.userId === "string" ? req.query.userId.trim() : null;
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
     // Get workspace for plan + owner_id fallback
-    const { data: ws, error: wsErr } = await supabase
+    const { data: ws, error: wsErr } = await db
       .from("workspaces")
       .select("plan, owner_id")
       .eq("id", id)
@@ -8612,7 +8654,7 @@ app.get("/api/workspaces/:id/plan", async (req, res) => {
     }
 
     // Look up user-level plan record
-    let { data: up } = await supabase
+    let { data: up } = await db
       .from("user_plans")
       .select("plan, credits_remaining, credits_total, credits_reset_at")
       .eq("user_id", userId)
@@ -8621,7 +8663,7 @@ app.get("/api/workspaces/:id/plan", async (req, res) => {
     // Seed record if missing
     if (!up) {
       const seedTotal = PLAN_CREDITS[workspacePlan] ?? 500;
-      const { data: inserted } = await supabase
+      const { data: inserted } = await db
         .from("user_plans")
         .insert({
           user_id: userId,
@@ -8645,7 +8687,7 @@ app.get("/api/workspaces/:id/plan", async (req, res) => {
     if (resetAt && new Date() > resetAt) {
       const newTotal = PLAN_CREDITS[plan] ?? 500;
       const newResetAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      await supabase
+      await db
         .from("user_plans")
         .update({ credits_remaining: newTotal, credits_total: newTotal, credits_reset_at: newResetAt, updated_at: new Date().toISOString() })
         .eq("user_id", userId);
@@ -8672,9 +8714,11 @@ app.patch("/api/workspaces/:id/plan", async (req, res) => {
   if (!plan || !["growth", "scale", "agency"].includes(plan)) {
     return res.status(400).json({ error: "plan must be growth | scale | agency" });
   }
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
     const newTotal = PLAN_CREDITS[plan] === -1 ? -1 : (PLAN_CREDITS[plan] ?? 500);
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("workspaces")
       .update({
         plan,
@@ -8695,8 +8739,10 @@ app.patch("/api/workspaces/:id/plan", async (req, res) => {
 // GET /api/workspaces/:id/members — list members
 app.get("/api/workspaces/:id/members", async (req, res) => {
   const { id } = req.params;
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("workspace_members")
       .select("role, joined_at, user_id")
       .eq("workspace_id", id);
@@ -8730,8 +8776,10 @@ app.get("/api/workspaces/:id/members", async (req, res) => {
 app.get("/api/invite/preview", async (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).json({ error: "token required" });
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("workspace_invites")
       .select("email, workspace_id, accepted_at, expires_at, invited_by, workspaces(name)")
       .eq("token", token)
@@ -8750,8 +8798,10 @@ app.get("/api/invite/preview", async (req, res) => {
 app.post("/api/invite/accept", async (req, res) => {
   const { token, user_id } = req.body;
   if (!token || !user_id) return res.status(400).json({ error: "token and user_id required" });
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
-    const { data: invite, error: invErr } = await supabase
+    const { data: invite, error: invErr } = await db
       .from("workspace_invites")
       .select("email, workspace_id, accepted_at, expires_at")
       .eq("token", token)
@@ -8761,21 +8811,21 @@ app.post("/api/invite/accept", async (req, res) => {
     if (invite.expires_at && new Date(invite.expires_at) < new Date()) return res.status(410).json({ error: "invite expired" });
 
     // Check not already a member
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from("workspace_members")
       .select("user_id")
       .eq("workspace_id", invite.workspace_id)
       .eq("user_id", user_id)
       .maybeSingle();
     if (!existing) {
-      const { error: memErr } = await supabase
+      const { error: memErr } = await db
         .from("workspace_members")
         .insert({ workspace_id: invite.workspace_id, user_id, role: "member" });
       if (memErr) throw memErr;
     }
 
     // Mark invite accepted
-    await supabase
+    await db
       .from("workspace_invites")
       .update({ accepted_at: new Date().toISOString() })
       .eq("token", token);
@@ -8791,16 +8841,18 @@ app.post("/api/workspaces/:id/invite", async (req, res) => {
   const { id } = req.params;
   const { email, invitedBy } = req.body;
   if (!email) return res.status(400).json({ error: "email required" });
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
     // Fetch workspace name for the email
-    const { data: ws } = await supabase
+    const { data: ws } = await db
       .from("workspaces")
       .select("name")
       .eq("id", id)
       .single();
     const workspaceName = ws?.name || "a Marqq workspace";
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("workspace_invites")
       .insert({ workspace_id: id, email, invited_by: invitedBy })
       .select()
@@ -8866,8 +8918,10 @@ app.post("/api/workspaces/:id/invite", async (req, res) => {
 // DELETE /api/workspaces/:id/members/:userId — remove member (cannot remove owner)
 app.delete("/api/workspaces/:id/members/:userId", async (req, res) => {
   const { id, userId } = req.params;
+  const db = workspaceDbOr503(res);
+  if (!db) return;
   try {
-    const { error } = await supabase
+    const { error } = await db
       .from("workspace_members")
       .delete()
       .eq("workspace_id", id)

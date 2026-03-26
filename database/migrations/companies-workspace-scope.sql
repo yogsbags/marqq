@@ -1,6 +1,10 @@
 -- database/migrations/companies-workspace-scope.sql
 -- Run in Supabase Dashboard → SQL Editor
 -- Scopes companies (and their artifacts) to workspaces.
+--
+-- If companies vanish for logged-in users after enabling RLS, run
+-- workspace-rls-policies.sql so workspace_members / workspaces are readable
+-- in policy subqueries (auth.uid() context).
 
 -- 1. Add workspace_id to companies (nullable = backward compat with existing rows)
 ALTER TABLE public.companies
