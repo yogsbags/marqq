@@ -1,71 +1,16 @@
 {
   "company_id": "0a2690c7-e37c-4b49-8979-837c9ffd00a3",
-  "updated_at": "2026-03-12T08:57:25.989Z",
+  "updated_at": "2026-03-30T11:25:00.000Z",
   "positioning": {
-    "0": "P",
-    "1": "e",
-    "2": "r",
-    "3": "s",
-    "4": "o",
-    "5": "n",
-    "6": "a",
-    "7": "l",
-    "8": "i",
-    "9": "z",
-    "10": "e",
-    "11": "d",
-    "12": ",",
-    "13": " ",
-    "14": "t",
-    "15": "e",
-    "16": "c",
-    "17": "h",
-    "18": "-",
-    "19": "e",
-    "20": "n",
-    "21": "a",
-    "22": "b",
-    "23": "l",
-    "24": "e",
-    "25": "d",
-    "26": " ",
-    "27": "w",
-    "28": "e",
-    "29": "a",
-    "30": "l",
-    "31": "t",
-    "32": "h",
-    "33": " ",
-    "34": "m",
-    "35": "a",
-    "36": "n",
-    "37": "a",
-    "38": "g",
-    "39": "e",
-    "40": "m",
-    "41": "e",
-    "42": "n",
-    "43": "t",
-    "44": " ",
-    "45": "s",
-    "46": "o",
-    "47": "l",
-    "48": "u",
-    "49": "t",
-    "50": "i",
-    "51": "o",
-    "52": "n",
-    "53": "s",
     "value": {
       "statement": "Transforming Wealth, Enriching Lives",
-      "unique_value": "Expert Wealth Management for Ambitious Investors"
+      "unique_value": "Expert Wealth Management for Ambitious Investors",
+      "summary": "Personalized, tech-enabled wealth management solutions"
     },
     "confidence": 0.8,
     "last_verified": "2026-03-11",
     "source_agent": "neel",
-    "expires_at": "2026-04-11",
-    "statement": "Transforming Wealth, Enriching Lives",
-    "unique_value": "Expert Wealth Management for Ambitious Investors"
+    "expires_at": "2026-04-11"
   },
   "icp": {
     "value": {
@@ -120,57 +65,9 @@
     "confidence": 0.75,
     "last_verified": "2026-03-12",
     "source_agent": "isha",
-    "expires_at": "2026-04-11",
-    "demographics": {
-      "age": "35-55",
-      "income": "₹50 lakhs to ₹5 crores",
-      "net_worth": "₹5 crores to ₹50 crores"
-    },
-    "psychographics": {
-      "values": [
-        "Financial security",
-        "Wealth creation",
-        "Legacy planning"
-      ],
-      "goals": [
-        "Long-term wealth growth",
-        "Tax optimization",
-        "Risk management"
-      ],
-      "risk_tolerance": "Moderate to high"
-    },
-    "segments": [
-      {
-        "segment": "High Net Worth Individuals",
-        "demographics": "Age 38-55, net worth ₹5Cr-₹50Cr, business owners or founders",
-        "psychographics": "Values legacy and wealth preservation; risk-tolerant but wants expert guidance",
-        "pain_points": [
-          "No time to manage investments actively",
-          "Fear of wealth erosion during market downturns"
-        ],
-        "buying_triggers": [
-          "Business exit or IPO",
-          "Inheritance received",
-          "Child's education or marriage planning"
-        ],
-        "priority": "high"
-      }
-    ],
-    "company_size": "Medium to large enterprises",
-    "industry": "Various, with a focus on technology and innovation",
-    "geography": "India",
-    "role": "Business leaders, IT decision-makers, and innovators"
+    "expires_at": "2026-04-11"
   },
   "competitors": {
-    "0": {
-      "name": "HDFC Wealth",
-      "position": "Scale and trust via banking relationship",
-      "gap": "Lacks personalization for ultra-HNIs"
-    },
-    "1": {
-      "name": "Kotak Wealth",
-      "positioning": "Personalized wealth management services"
-    },
     "value": [
       {
         "name": "HDFC Wealth",
@@ -186,27 +83,9 @@
     "confidence": 0.75,
     "last_verified": "2026-03-12",
     "source_agent": "isha",
-    "expires_at": "2026-04-11",
-    "competitor_set": [
-      {
-        "name": "HDFC Wealth",
-        "position": "Traditional wealth management services",
-        "gap": "Lack of digital offerings"
-      },
-      {
-        "name": "Kotak Wealth",
-        "position": "Digital wealth management platform",
-        "gap": "Limited investment options"
-      }
-    ]
+    "expires_at": "2026-04-11"
   },
   "offers": {
-    "0": {
-      "name": "Wealth Management",
-      "price_signal": null,
-      "tier": null,
-      "confidence": 0.7
-    },
     "value": [
       {
         "name": "Wealth Management",
@@ -220,34 +99,20 @@
     "expires_at": "2026-04-11"
   },
   "messaging": {
-    "value": "Expert Wealth Management for Ambitious Investors",
+    "value": {
+      "main": "Expert Wealth Management for Ambitious Investors",
+      "headline": "Transform Your Legacy: Personalized Wealth Solutions",
+      "key_messages": [
+        "Transforming Wealth, Enriching Lives",
+        "Expert Wealth Management for Ambitious Investors"
+      ]
+    },
     "confidence": 0.85,
     "last_verified": "2026-03-12",
     "source_agent": "sam",
-    "expires_at": "2026-04-11",
-    "headline": "Transform Your Legacy: Personalized Wealth Solutions",
-    "tagline": null,
-    "key_messages": [
-      "Transforming Wealth, Enriching Lives",
-      "Expert Wealth Management for Ambitious Investors"
-    ]
+    "expires_at": "2026-04-11"
   },
   "channels": {
-    "0": {
-      "channel": "Website",
-      "evidence": "Explicitly stated on the website",
-      "confidence": 0.8
-    },
-    "1": {
-      "channel": "LinkedIn",
-      "evidence": "Social media link on the website",
-      "confidence": 0.8
-    },
-    "2": {
-      "channel": "Twitter",
-      "evidence": "Social media link on the website",
-      "confidence": 0.8
-    },
     "value": [
       {
         "channel": "Website",
@@ -268,87 +133,43 @@
     "expires_at": "2026-04-11"
   },
   "funnel": {
-    "value": "Updated with specific and actionable CTAs",
+    "value": {
+      "summary": "Updated with specific and actionable CTAs",
+      "entry_points": ["Website", "Social Media"],
+      "cta_primary": "Get in Touch"
+    },
     "confidence": 0.8,
     "last_verified": "2026-03-12",
     "source_agent": "sam",
-    "expires_at": "2026-04-11",
-    "entry_points": [
-      "Website",
-      "Social Media"
-    ],
-    "cta_primary": "Get in Touch"
+    "expires_at": "2026-04-11"
   },
   "metrics": {
-    "value": null,
-    "confidence": 0,
+    "value": {
+      "website_traffic": 5000,
+      "lead_generation": 50,
+      "conversion_rate": 0.2,
+      "customer_acquisition_cost": "₹50,000 - ₹100,000",
+      "client_retention_rate": 0.9
+    },
+    "confidence": 0.75,
     "last_verified": null,
     "source_agent": null,
-    "expires_at": null,
-    "website_traffic": {
-      "value": 5000,
-      "confidence": 0.8
-    },
-    "lead_generation": {
-      "value": 50,
-      "confidence": 0.7
-    },
-    "conversion_rate": {
-      "value": 0.2,
-      "confidence": 0.8
-    },
-    "customer_acquisition_cost": {
-      "value": "₹50,000 - ₹100,000",
-      "confidence": 0.7
-    },
-    "client_retention_rate": {
-      "value": 0.9,
-      "confidence": 0.8
-    }
+    "expires_at": null
   },
   "baselines": {
-    "value": null,
-    "confidence": 0,
+    "value": {
+      "website_traffic": 4000,
+      "lead_generation": 30,
+      "conversion_rate": 0.15,
+      "customer_acquisition_cost": "₹75,000 - ₹150,000",
+      "client_retention_rate": 0.8
+    },
+    "confidence": 0.6,
     "last_verified": null,
     "source_agent": null,
-    "expires_at": null,
-    "website_traffic": {
-      "value": 4000,
-      "confidence": 0.6
-    },
-    "lead_generation": {
-      "value": 30,
-      "confidence": 0.6
-    },
-    "conversion_rate": {
-      "value": 0.15,
-      "confidence": 0.6
-    },
-    "customer_acquisition_cost": {
-      "value": "₹75,000 - ₹150,000",
-      "confidence": 0.6
-    },
-    "client_retention_rate": {
-      "value": 0.8,
-      "confidence": 0.6
-    }
+    "expires_at": null
   },
   "content_pillars": {
-    "0": {
-      "topic": "Wealth Management",
-      "evidence": "Website content and services",
-      "confidence": 0.85
-    },
-    "1": {
-      "topic": "Financial Literacy",
-      "evidence": "Website content and blog posts",
-      "confidence": 0.85
-    },
-    "2": {
-      "topic": "Client Success Stories",
-      "evidence": "Website content and testimonials",
-      "confidence": 0.85
-    },
     "value": [
       {
         "topic": "Wealth Management",
@@ -376,28 +197,31 @@
     "expires_at": "2026-04-10"
   },
   "insights": {
-    "0": "Growing demand for digital wealth management",
-    "1": "Rising concerns about tax optimization",
-    "2": "Increasing focus on sustainable investing",
-    "value": "PL Capital's top ICP segments are entrepreneurial families, corporate leaders, and ultra HNIs. The company should develop a digital wealth management platform, launch a financial literacy program, and introduce a premium service for ultra HNIs to strengthen its position in the Indian wealth management and broking market.",
+    "value": {
+      "summary": "PL Capital's top ICP segments are entrepreneurial families, corporate leaders, and ultra HNIs. The company should develop a digital wealth management platform, launch a financial literacy program, and introduce a premium service for ultra HNIs to strengthen its position in the Indian wealth management and broking market.",
+      "key_insights": [
+        "Growing demand for digital wealth management",
+        "Rising concerns about tax optimization",
+        "Increasing focus on sustainable investing"
+      ],
+      "gaps": [
+        "Lack of explicit pricing information",
+        "Limited information on competitors"
+      ],
+      "demand_drivers": [
+        "Growing middle class",
+        "Increasing financial awareness",
+        "Digital adoption"
+      ],
+      "category_trends": [
+        "Digital Wealth Management",
+        "Sustainable Investing",
+        "Financial Literacy"
+      ]
+    },
     "confidence": 0.75,
     "last_verified": "2026-03-12",
     "source_agent": "isha",
-    "expires_at": "2026-04-11",
-    "summary": "PL Capital is a wealth management firm that helps individuals and families manage their wealth.",
-    "gaps": [
-      "Lack of explicit pricing information",
-      "Limited information on competitors"
-    ],
-    "demand_drivers": [
-      "Growing middle class",
-      "Increasing financial awareness",
-      "Digital adoption"
-    ],
-    "category_trends": [
-      "Digital Wealth Management",
-      "Sustainable Investing",
-      "Financial Literacy"
-    ]
+    "expires_at": "2026-04-11"
   }
 }

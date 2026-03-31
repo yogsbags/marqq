@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Loader2, Bot, CheckCircle, AlertCircle, Copy, ClipboardList, ChevronDown, ChevronRight, Wrench, Brain, Zap, CheckCheck, XCircle, ArrowRight, Sparkles, Bookmark, Download, PanelTopClose, Radio, Target, PenLine, FileText, Users, Monitor, Briefcase, Mail, Search, CalendarDays, BadgeDollarSign, TrendingDown, BarChart2, FlaskConical, Send, Link2, Hash, Type, AlignLeft, Globe, Image as ImageIcon, Film } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AgentRunResult, ToolCallEvent, ToolResultEvent, ContractTask } from '@/hooks/useAgentRun'
 import { saveLibraryArtifact } from '@/lib/persistence'
+import { markdownToRichText } from '@/lib/markdown'
 
 interface AgentRunPanelProps extends AgentRunResult {
   agentName: string
@@ -125,7 +127,7 @@ function VideoStatusCard({ vid, v }: { vid: string; v: Record<string, unknown> }
               {polling ? 'Checking…' : 'Check Status'}
             </Button>
           )}
-          {videoUrl && (
+          {Boolean(videoUrl) && (
             <>
               <Button
                 variant="outline"
@@ -443,7 +445,183 @@ function PlatformBadge({ value }: { value: string }) {
   )
 }
 
-function ContentPostCard({ artifact }: { artifact: Record<string, unknown> }) {
+function normalizeDistributionTarget(value: string) {
+  const key = value.toLowerCase().replace(/\s+/g, '_')
+  if (key === 'linkedin') {
+    return {
+      platform: 'linkedin',
+      label: 'LinkedIn',
+      primaryLabel: 'Save LinkedIn draft',
+      secondaryLabel: 'Schedule draft review',
+      supportsSchedule: true,
+    }
+  }
+  if (['facebook_instagram', 'instagram_facebook', 'facebook', 'instagram'].includes(key)) {
+    return {
+      platform: 'facebook_instagram',
+      label: 'Facebook Page',
+      primaryLabel: 'Save Facebook draft',
+      secondaryLabel: 'Schedule draft review',
+      supportsSchedule: true,
+    }
+  }
+  if (['website_blog', 'blog_article', 'landing_page'].includes(key)) {
+    return {
+      platform: 'website_blog',
+      label: 'Google Docs',
+      primaryLabel: 'Save as draft doc',
+      secondaryLabel: '',
+      supportsSchedule: false,
+    }
+  }
+  return null
+}
+
+function ContentDistributionActions({
+  companyId,
+  platform,
+  payload,
+}: {
+  companyId?: string | null
+  platform: string
+  payload: Record<string, unknown>
+}) {
+  const target = normalizeDistributionTarget(platform)
+  const [submitting, setSubmitting] = useState<'publish' | 'schedule' | null>(null)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [scheduleAt, setScheduleAt] = useState(() => {
+    const nextHour = new Date(Date.now() + 60 * 60 * 1000)
+    const timezoneOffset = nextHour.getTimezoneOffset() * 60 * 1000
+    return new Date(nextHour.getTime() - timezoneOffset).toISOString().slice(0, 16)
+  })
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  if (!target || !companyId) return null
+
+  const openAccounts = () => {
+    window.dispatchEvent(new CustomEvent('marqq:navigate', { detail: { moduleId: 'settings-accounts' } }))
+  }
+
+  const runAction = async (mode: 'publish' | 'schedule') => {
+    setSubmitting(mode)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+    try {
+      const response = await fetch('/api/content-studio/distribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          mode,
+          platform: target.platform,
+          publishAt: mode === 'schedule' ? new Date(scheduleAt).toISOString() : undefined,
+          payload,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(typeof data?.error === 'string' ? data.error : 'Distribution failed')
+      }
+      setSuccessMessage(typeof data?.summary === 'string' ? data.summary : mode === 'schedule' ? 'Draft review scheduled' : 'Draft saved')
+      if (mode === 'schedule') setScheduleOpen(false)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Distribution failed')
+    } finally {
+      setSubmitting(null)
+    }
+  }
+
+  const connectNeeded = errorMessage?.toLowerCase().includes('connect it in settings') || errorMessage?.toLowerCase().includes('no active')
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/80 px-3 py-3 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Distribution
+        </div>
+        <PlatformBadge value={target.label} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          className="h-8 gap-1 px-3 text-xs"
+          disabled={submitting !== null}
+          onClick={() => { void runAction('publish') }}
+        >
+          <Send className="h-3 w-3" />
+          {submitting === 'publish' ? 'Working…' : target.primaryLabel}
+        </Button>
+        {target.supportsSchedule ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1 px-3 text-xs"
+            disabled={submitting !== null}
+            onClick={() => setScheduleOpen((current) => !current)}
+          >
+            <CalendarDays className="h-3 w-3" />
+            {target.secondaryLabel}
+          </Button>
+        ) : null}
+      </div>
+      {scheduleOpen ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+          <label className="text-xs font-medium text-foreground" htmlFor={`schedule-${target.platform}`}>
+            Review time
+          </label>
+          <Input
+            id={`schedule-${target.platform}`}
+            type="datetime-local"
+            value={scheduleAt}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => setScheduleAt(event.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              className="h-8 gap-1 px-3 text-xs"
+              disabled={submitting !== null || !scheduleAt}
+              onClick={() => { void runAction('schedule') }}
+            >
+              <CalendarDays className="h-3 w-3" />
+              {submitting === 'schedule' ? 'Scheduling…' : 'Schedule draft'}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-3 text-xs"
+              disabled={submitting !== null}
+              onClick={() => setScheduleOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {successMessage ? (
+        <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
+          {successMessage}
+        </div>
+      ) : null}
+      {errorMessage ? (
+        <div className="rounded-lg border border-amber-200/70 bg-amber-50/70 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+          {errorMessage}
+          {connectNeeded ? (
+            <button
+              type="button"
+              className="ml-1 font-semibold underline underline-offset-4"
+              onClick={openAccounts}
+            >
+              Connect the account
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ContentPostCard({ artifact, companyId }: { artifact: Record<string, unknown>; companyId?: string | null }) {
   const post       = typeof artifact['post']       === 'string' ? artifact['post']       : ''
   const hook       = typeof artifact['hook']       === 'string' ? artifact['hook']       : ''
   const cta        = typeof artifact['cta']        === 'string' ? artifact['cta']        : ''
@@ -465,6 +643,13 @@ function ContentPostCard({ artifact }: { artifact: Record<string, unknown> }) {
     hashtags.length ? '\n' + hashtags.join(' ') : '',
     cta ? '\nCTA: ' + cta : '',
   ].filter(Boolean).join('\n').trim()
+  const distributionPayload = {
+    title: hook || platform || 'Content Draft',
+    post,
+    cta,
+    hashtags,
+    platform,
+  }
 
   return (
     <div className="rounded-xl border border-border/70 bg-background/90 shadow-sm overflow-hidden">
@@ -580,6 +765,12 @@ ${ctaHtml}
         <div className="rounded-lg border border-border/50 bg-muted/10 px-4 py-4">
           <p className="text-sm leading-7 text-foreground whitespace-pre-wrap">{post}</p>
         </div>
+
+        <ContentDistributionActions
+          companyId={companyId}
+          platform={platform}
+          payload={distributionPayload}
+        />
 
         {hashtags.length > 0 && (
           <div className="space-y-1.5">
@@ -955,7 +1146,9 @@ function StrategyCard({ artifact }: { artifact: Record<string, unknown> }) {
 function CalendarCard({ artifact }: { artifact: Record<string, unknown> }) {
   const calendar   = Array.isArray(artifact['calendar']) ? artifact['calendar'] as Record<string, unknown>[] : []
   const themes     = Array.isArray(artifact['content_themes']) ? artifact['content_themes'] as unknown[] : []
-  const strategy   = artifact['platform_strategy']
+  const strategyObject = artifact['platform_strategy'] && typeof artifact['platform_strategy'] === 'object'
+    ? artifact['platform_strategy'] as Record<string, unknown>
+    : null
 
   return (
     <div className="rounded-xl border border-border/70 bg-background/90 shadow-sm overflow-hidden">
@@ -1015,11 +1208,11 @@ function CalendarCard({ artifact }: { artifact: Record<string, unknown> }) {
             )
           })}
         </div>
-        {strategy && typeof strategy === 'object' && Object.keys(strategy).length > 0 && (
+        {strategyObject && Object.keys(strategyObject).length > 0 && (
           <div className="space-y-1">
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">Platform Strategy</div>
             <div className="grid gap-2 md:grid-cols-2">
-              {Object.entries(strategy as Record<string, unknown>).map(([k, v]) => (
+              {Object.entries(strategyObject).map(([k, v]) => (
                 <div key={k} className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2.5">
                   <div className="text-[10px] font-semibold text-muted-foreground mb-0.5">{k.replace(/_/g,' ')}</div>
                   <p className="text-xs text-foreground">{String(v)}</p>
@@ -1112,7 +1305,7 @@ function ProposalCard({ artifact }: { artifact: Record<string, unknown> }) {
               {pricingTiers.map((tier, i) => (
                 <div key={i} className="rounded-lg border border-border/50 bg-muted/10 px-3 py-3 space-y-1">
                   <div className="text-sm font-bold text-foreground">{String(tier['name'] ?? '')}</div>
-                  {tier['price_signal'] && <div className="text-xs font-semibold text-orange-600">{String(tier['price_signal'])}</div>}
+                  {Boolean(tier['price_signal']) && <div className="text-xs font-semibold text-orange-600">{String(tier['price_signal'])}</div>}
                   {Array.isArray(tier['whats_included']) && (
                     <div className="space-y-0.5 pt-1">
                       {(tier['whats_included'] as string[]).map((item, j) => (
@@ -1738,6 +1931,8 @@ export function AgentRunPanel({
 
   const displayText = sanitizeDisplayText(text)
   const shouldPreferMarkdown = containsMarkdownTable(displayText)
+  const richTextHtml = displayText ? markdownToRichText(displayText) : ''
+  const showMarkdownFallback = shouldPreferMarkdown || showFull
   const parsed = parseResult(displayText)
   const artifactEntries = artifact ? flattenArtifactEntries(artifact) : []
   // Only suppress text when we have real structured data (not just automation sub-results)
@@ -1945,12 +2140,12 @@ export function AgentRunPanel({
         )}
 
         {/* "Show full output" only relevant for text-only outputs (artifact cards are the primary output) */}
-        {!shouldPreferMarkdown && !hasArtifactCards && hasStructuredBlocks && displayText && !streaming && (
+        {!showMarkdownFallback && !hasArtifactCards && hasStructuredBlocks && displayText && !streaming && (
           <button
             onClick={() => setShowFull((p) => !p)}
             className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors min-h-[44px] px-1 py-2 inline-flex items-center"
           >
-            {showFull ? 'Hide full output' : 'Show full output'}
+            {showFull ? 'Hide raw output' : 'Show raw output'}
           </button>
         )}
 
@@ -1958,7 +2153,7 @@ export function AgentRunPanel({
         {artifact && !renderArtifact && (() => {
           // Social/text post
           if (typeof artifact['post'] === 'string' && artifact['post']) {
-            return <ContentPostCard artifact={artifact} />
+            return <ContentPostCard artifact={artifact} companyId={companyId} />
           }
           // Email draft (body without html — html is handled below)
           if (typeof artifact['body'] === 'string' && artifact['body'] && !artifact['generate_email_html']) {
@@ -2257,7 +2452,19 @@ export function AgentRunPanel({
         })()}
 
         {/* Raw markdown: shown when no artifact cards + (no structured blocks, prefers markdown, or showFull) */}
-        {displayText && !hasArtifactCards && (!hasStructuredBlocks || shouldPreferMarkdown || showFull) && (
+        {displayText && !hasArtifactCards && !showMarkdownFallback && (
+          <div
+            ref={scrollRef}
+            className="overflow-x-auto rounded-xl border border-border/60 bg-background/70 p-3 text-sm text-foreground leading-relaxed"
+          >
+            <div dangerouslySetInnerHTML={{ __html: richTextHtml }} />
+            {streaming && (
+              <span className="inline-block w-1 h-3 bg-orange-400 animate-pulse ml-0.5 align-middle" />
+            )}
+          </div>
+        )}
+
+        {displayText && !hasArtifactCards && showMarkdownFallback && (
           <div
             ref={scrollRef}
             className="overflow-x-auto rounded-xl border border-border/60 bg-background/70 p-3 text-sm text-muted-foreground leading-relaxed"

@@ -2584,7 +2584,11 @@ function RoutingTab({
                 <Card className="border-border/70 shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">
-                      {CHANNEL_META[selected]?.icon} {CHANNEL_META[selected]?.label} Leads ({routeGroups[selected].length})
+                      {(() => {
+                        const ChannelIcon = CHANNEL_META[selected]?.icon
+                        return ChannelIcon ? <ChannelIcon className="mr-1 inline h-4 w-4" /> : null
+                      })()}
+                      {CHANNEL_META[selected]?.label} Leads ({routeGroups[selected].length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

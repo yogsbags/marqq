@@ -1,6 +1,6 @@
 {
   "company_id": "acme",
-  "updated_at": "2026-03-10T15:22:44.596Z",
+  "updated_at": "2026-03-26T08:10:03.721Z",
   "positioning": {
     "value": null,
     "confidence": 0,
@@ -15,9 +15,9 @@
       "query": "Summarize the current market context."
     },
     "confidence": 0.8,
-    "last_verified": "2026-03-10",
+    "last_verified": "2026-03-26",
     "source_agent": "isha",
-    "expires_at": "2026-03-10"
+    "expires_at": "2026-03-26"
   },
   "competitors": {
     "value": null,
@@ -33,9 +33,9 @@
       "query": "Execute hook task \"traffic_drop_recovery_plan\" for company acme.\nHook id: traffic-drop-20pct-7d\nTriggered by: signal\nSignal type: traffic_drop_20pct_7d\nCurrent value: 80\nBaseline value: 100\nDelta pct: -20"
     },
     "confidence": 0.8,
-    "last_verified": "2026-03-10",
+    "last_verified": "2026-03-26",
     "source_agent": "tara",
-    "expires_at": "2026-03-10"
+    "expires_at": "2026-03-26"
   },
   "messaging": {
     "value": null,
@@ -86,9 +86,9 @@
       "query": "Execute hook task \"traffic_drop_social_response\" for company acme.\nHook id: traffic-drop-20pct-7d\nTriggered by: signal\nSignal type: traffic_drop_20pct_7d\nCurrent value: 80\nBaseline value: 100\nDelta pct: -20"
     },
     "confidence": 0.8,
-    "last_verified": "2026-03-10",
+    "last_verified": "2026-03-26",
     "source_agent": "kiran",
-    "expires_at": "2026-03-10"
+    "expires_at": "2026-03-26"
   },
   "insights": {
     "value": {

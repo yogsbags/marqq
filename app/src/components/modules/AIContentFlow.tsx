@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AgentModuleShell, type AgentConfig } from '@/components/agent/AgentModuleShell'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useWorkspace } from '@/contexts/WorkspaceContext'
@@ -469,27 +470,47 @@ export function AIContentFlow({
   }>>([])
   const [heygenAvatarId, setHeygenAvatarId] = useState('')
   const [heygenVoiceId, setHeygenVoiceId] = useState('')
+  const [heygenLoading, setHeygenLoading] = useState(false)
+  const [heygenLoadError, setHeygenLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (initialContentType) setContentType(initialContentType)
   }, [initialContentType])
 
   useEffect(() => {
-    if (contentType !== 'video-avatar' || !activeWorkspace?.id) return
+    if (contentType !== 'video-avatar' || !activeWorkspace?.id) {
+      setHeygenLoading(false)
+      setHeygenLoadError(null)
+      return
+    }
     let cancelled = false
 
     const loadHeyGenAssets = async () => {
+      setHeygenLoading(true)
+      setHeygenLoadError(null)
       try {
         const [avatarResponse, voiceResponse] = await Promise.all([
           fetch(`/api/heygen/avatars?companyId=${encodeURIComponent(activeWorkspace.id)}`),
           fetch(`/api/heygen/voices?companyId=${encodeURIComponent(activeWorkspace.id)}`),
         ])
-        if (!avatarResponse.ok) throw new Error('Failed to load HeyGen avatars')
-        if (!voiceResponse.ok) throw new Error('Failed to load HeyGen voices')
-        const avatarData = await avatarResponse.json()
-        const voiceData = await voiceResponse.json()
-        const avatars = Array.isArray(avatarData?.avatars) ? avatarData.avatars : []
-        const voices = Array.isArray(voiceData?.voices) ? voiceData.voices : []
+        const avatarData = await avatarResponse.json().catch(() => null)
+        const voiceData = await voiceResponse.json().catch(() => null)
+        if (!avatarResponse.ok) {
+          throw new Error(avatarData?.error || 'Failed to load HeyGen avatars')
+        }
+        if (!voiceResponse.ok) {
+          throw new Error(voiceData?.error || 'Failed to load HeyGen voices')
+        }
+        const avatars = Array.isArray(avatarData?.data?.avatars)
+          ? avatarData.data.avatars
+          : Array.isArray(avatarData?.avatars)
+            ? avatarData.avatars
+            : []
+        const voices = Array.isArray(voiceData?.data?.voices)
+          ? voiceData.data.voices
+          : Array.isArray(voiceData?.voices)
+            ? voiceData.voices
+            : []
         if (cancelled) return
         setHeygenAvatars(avatars)
         setHeygenVoices(voices)
@@ -503,12 +524,19 @@ export function AIContentFlow({
             ? current
             : ''
         )
-      } catch {
+      } catch (error) {
         if (cancelled) return
         setHeygenAvatars([])
         setHeygenVoices([])
         setHeygenAvatarId('')
         setHeygenVoiceId('')
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Unable to load HeyGen avatars and voices'
+        setHeygenLoadError(message)
+      } finally {
+        if (!cancelled) setHeygenLoading(false)
       }
     }
 
@@ -554,6 +582,11 @@ export function AIContentFlow({
     [heygenVoices, heygenVoiceId]
   )
   const hasRequiredHeyGenSelection = contentType !== 'video-avatar' || (Boolean(selectedHeyGenAvatar) && Boolean(selectedHeyGenVoice))
+  const heygenAssetsEmpty = !heygenLoading && !heygenLoadError && heygenAvatars.length === 0 && heygenVoices.length === 0
+  const openHeyGenAccounts = () => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent('marqq:navigate', { detail: { moduleId: 'settings-accounts' } }))
+  }
   const avatarInstruction = contentType === 'video-avatar' && selectedHeyGenAvatar
     ? ` Use this exact HeyGen avatar_id: ${selectedHeyGenAvatar.avatar_id}${selectedHeyGenAvatar.avatar_name ? ` (${selectedHeyGenAvatar.avatar_name})` : ''}.`
     : ''
@@ -817,45 +850,75 @@ export function AIContentFlow({
               ) : (
                 <option value="">Select a HeyGen avatar</option>
               )}
-              {heygenAvatars.map((avatar) => (
-                <option key={avatar.avatar_id} value={avatar.avatar_id}>
-                  {avatar.avatar_name || avatar.avatar_id}{avatar.premium ? ' · Premium' : ''}
-                </option>
-              ))}
-            </select>
-            {selectedHeyGenAvatar?.preview_image_url ? (
-              <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-background px-3 py-3">
-                <img
-                  src={selectedHeyGenAvatar.preview_image_url}
-                  alt={selectedHeyGenAvatar.avatar_name || selectedHeyGenAvatar.avatar_id}
-                  className="h-16 w-16 rounded-lg object-cover"
-                />
-                <div className="min-w-0">
-                  <div className="font-medium">{selectedHeyGenAvatar.avatar_name || selectedHeyGenAvatar.avatar_id}</div>
-                  <div className="text-xs text-muted-foreground break-all">{selectedHeyGenAvatar.avatar_id}</div>
-                </div>
+            {heygenAvatars.map((avatar) => (
+              <option key={avatar.avatar_id} value={avatar.avatar_id}>
+                {avatar.avatar_name || avatar.avatar_id}{avatar.premium ? ' · Premium' : ''}
+              </option>
+            ))}
+          </select>
+          {selectedHeyGenAvatar?.preview_image_url ? (
+            <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-background px-3 py-3">
+              <img
+                src={selectedHeyGenAvatar.preview_image_url}
+                alt={selectedHeyGenAvatar.avatar_name || selectedHeyGenAvatar.avatar_id}
+                className="h-16 w-16 rounded-lg object-cover"
+              />
+              <div className="min-w-0">
+                <div className="font-medium">{selectedHeyGenAvatar.avatar_name || selectedHeyGenAvatar.avatar_id}</div>
+                <div className="text-xs text-muted-foreground break-all">{selectedHeyGenAvatar.avatar_id}</div>
               </div>
-            ) : null}
-            <select
-              value={heygenVoiceId}
-              onChange={(event) => setHeygenVoiceId(event.target.value)}
-              className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm"
-            >
-              {heygenVoices.length === 0 ? (
-                <option value="">No HeyGen voices available</option>
-              ) : (
-                <option value="">Select a HeyGen voice</option>
-              )}
-              {heygenVoices.map((voice) => (
-                <option key={voice.voice_id} value={voice.voice_id}>
-                  {voice.name || voice.voice_id}{voice.language ? ` · ${voice.language}` : ''}{voice.gender ? ` · ${voice.gender}` : ''}
-                </option>
-              ))}
-            </select>
-            {!hasRequiredHeyGenSelection ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
-                Select both a HeyGen avatar and a voice before generating an avatar video.
-              </div>
+            </div>
+          ) : null}
+          <select
+            value={heygenVoiceId}
+            onChange={(event) => setHeygenVoiceId(event.target.value)}
+            className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm"
+          >
+            {heygenVoices.length === 0 ? (
+              <option value="">No HeyGen voices available</option>
+            ) : (
+              <option value="">Select a HeyGen voice</option>
+            )}
+            {heygenVoices.map((voice) => (
+              <option key={voice.voice_id} value={voice.voice_id}>
+                {voice.name || voice.voice_id}{voice.language ? ` · ${voice.language}` : ''}{voice.gender ? ` · ${voice.gender}` : ''}
+              </option>
+            ))}
+          </select>
+          {heygenAssetsEmpty ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              HeyGen avatars and voices will appear after the workspace connects to HeyGen.
+              <button
+                type="button"
+                onClick={openHeyGenAccounts}
+                className="font-semibold text-orange-600 underline-offset-4 hover:underline"
+              >
+                Connect HeyGen via Settings → Accounts
+              </button>
+            </div>
+          ) : null}
+          {heygenLoadError ? (
+            <Alert variant="destructive" className="mt-3 space-y-2">
+              <AlertTitle>HeyGen data unavailable</AlertTitle>
+              <AlertDescription>
+                <p>{heygenLoadError}</p>
+                <p className="text-xs text-muted-foreground">
+                  Ensure HeyGen is connected for this workspace and try again.
+                  <button
+                    type="button"
+                    onClick={openHeyGenAccounts}
+                    className="ml-1 text-orange-600 underline-offset-4 hover:underline"
+                  >
+                    Open Settings → Accounts
+                  </button>
+                </p>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {!hasRequiredHeyGenSelection ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+              Select both a HeyGen avatar and a voice before generating an avatar video.
+            </div>
             ) : null}
           </CardContent>
         </Card>

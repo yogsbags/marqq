@@ -64,7 +64,12 @@ export async function listHeyGenAvatars(apiKey) {
       method: 'GET',
       headers: { 'X-Api-Key': apiKey },
     });
-    return Array.isArray(resp?.data?.avatars) ? resp.data.avatars : [];
+    const avatars = Array.isArray(resp?.data?.avatars)
+      ? resp.data.avatars
+      : Array.isArray(resp?.avatars)
+        ? resp.avatars
+        : [];
+    return avatars;
   } catch (e) {
     console.warn('[heygen] Failed to list avatars:', e.message);
     return [];
@@ -78,7 +83,12 @@ export async function listHeyGenVoices(apiKey) {
       method: 'GET',
       headers: { 'X-Api-Key': apiKey },
     });
-    return Array.isArray(resp?.data?.voices) ? resp.data.voices : [];
+    const voices = Array.isArray(resp?.data?.voices)
+      ? resp.data.voices
+      : Array.isArray(resp?.voices)
+        ? resp.voices
+        : [];
+    return voices;
   } catch (e) {
     console.warn('[heygen] Failed to list voices:', e.message);
     return [];

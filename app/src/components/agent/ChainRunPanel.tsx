@@ -89,7 +89,7 @@ export function ChainRunPanel({ workflowName, steps, companyId, onClose }: Chain
               setStepStates(prev => {
                 const runningStep = prev.find(s => s.status === 'running')
                 if (!runningStep) return prev
-                const updated = s => {
+                const updated = (s: StepState) => {
                   if (s.order !== runningStep.order) return s
                   const raw = s.text + event.text
                   const cut = raw.indexOf('---CONTRACT---')
