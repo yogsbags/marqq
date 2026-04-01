@@ -1,5 +1,7 @@
 import { Sidebar } from './Sidebar';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { ChannelHeader } from './ChannelHeader';
+import { RightPanel } from './RightPanel';
 import { ChatDrawer } from '@/components/chat/ChatDrawer';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -18,6 +20,13 @@ interface MainLayoutProps {
   firstSessionBanner?: React.ReactNode;
 }
 
+const CHANNEL_NAMES: Record<string, { name: string; description: string }> = {
+  home: { name: 'main', description: 'Your autonomous AI marketing team' },
+  main: { name: 'main', description: 'Your autonomous AI marketing team' },
+  'performance-scorecard': { name: 'performance', description: 'Analytics & KPI tracking' },
+  'channel-health': { name: 'daily-brief', description: 'Daily marketing intelligence brief' },
+};
+
 export function MainLayout({
   children,
   selectedModule,
@@ -32,10 +41,13 @@ export function MainLayout({
 }: MainLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const isHomeView = !selectedModule || selectedModule === 'home';
+  // Chat/channel view = home, main, performance-scorecard, channel-health
+  const isChatView = !selectedModule || selectedModule === 'home' || selectedModule === 'main';
+
+  const channelInfo = CHANNEL_NAMES[selectedModule ?? 'home'] ?? { name: selectedModule ?? 'main', description: '' };
 
   return (
-    <div className="flex min-h-[100dvh] bg-background overflow-hidden">
+    <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Left: Sidebar */}
       <Sidebar
         selectedModule={selectedModule}
@@ -47,39 +59,57 @@ export function MainLayout({
         onConversationSelect={onConversationSelect}
       />
 
-      {/* Center: Main content — margin tracks sidebar width only */}
+      {/* Center + Right panes */}
       <div className={cn(
-        "flex-1 flex flex-col overflow-hidden transition-[margin-left] duration-300 ease-in-out",
+        "flex-1 flex overflow-hidden transition-[margin-left] duration-300 ease-in-out",
         sidebarCollapsed ? "ml-14" : "ml-60"
       )}>
-        <DashboardHeader
-          selectedModule={selectedModule}
-          onModuleSelect={onModuleSelect}
-          onOpenChat={() => onChatOpenChange(true)}
-        />
+        {/* Center pane */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {isChatView ? (
+            <ChannelHeader
+              channelName={channelInfo.name}
+              description={channelInfo.description}
+              onModuleSelect={onModuleSelect}
+            />
+          ) : (
+            <DashboardHeader
+              selectedModule={selectedModule}
+              onModuleSelect={onModuleSelect}
+              onOpenChat={() => onChatOpenChange(true)}
+            />
+          )}
 
-        <main className="flex-1 overflow-auto pt-4">
-          {firstSessionBanner}
-          {/* key forces remount on route change → triggers enter animation */}
-          <div
-            key={selectedModule ?? 'home'}
-            className={cn(
-              "h-full page-enter page-enter-soft",
-              !isHomeView && "w-full px-6 pb-8"
-            )}
-          >
-            {children}
-          </div>
-        </main>
+          <main className={cn(
+            "flex-1 overflow-hidden",
+            !isChatView && "overflow-auto pt-4"
+          )}>
+            {firstSessionBanner}
+            <div
+              key={selectedModule ?? 'home'}
+              className={cn(
+                "h-full",
+                isChatView ? "" : "page-enter page-enter-soft w-full px-6 pb-8"
+              )}
+            >
+              {children}
+            </div>
+          </main>
+        </div>
+
+        {/* Right panel — only in chat/home view */}
+        {isChatView && <RightPanel />}
       </div>
 
-      {/* Right: Chat Drawer (persistent, mounted always) */}
-      <ChatDrawer
-        open={chatOpen}
-        onOpenChange={onChatOpenChange}
-        onModuleSelect={onModuleSelect}
-        onConversationsChange={onConversationsChange}
-      />
+      {/* Chat Drawer — only shown for module pages (not when chat is the primary view) */}
+      {!isChatView && (
+        <ChatDrawer
+          open={chatOpen}
+          onOpenChange={onChatOpenChange}
+          onModuleSelect={onModuleSelect}
+          onConversationsChange={onConversationsChange}
+        />
+      )}
     </div>
   );
 }

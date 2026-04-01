@@ -517,11 +517,12 @@ interface ChatHomeProps {
   onModuleSelect?: (moduleId: string | null) => void;
   activeConversationId?: string | null;
   onConversationsChange?: () => void;
+  hideHeader?: boolean;
 }
 
 // -- Component
 
-export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConversationsChange }: ChatHomeProps) {
+export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConversationsChange, hideHeader }: ChatHomeProps) {
   const { activeWorkspace, clearWebsiteUrl } = useWorkspace();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
