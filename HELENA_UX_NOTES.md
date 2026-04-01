@@ -321,20 +321,20 @@ Each task: [Edit] [Pause] [Delete] buttons
 - Right panel with collapsible sections
 - Agent in DM section (Marqq AI)
 
-### 🔧 Gaps to close:
+### ✅ All actionable gaps closed (2026-04-01):
 
-1. **Right panel sections should be collapsible** — Helena uses Collapse/Expand per section, Marqq uses static tabs
-2. **Channels section in right panel** — Helena shows "Autopilot" toggle + "Add channel" CTA; Marqq doesn't have this
-3. **Right panel width** — Helena is 483px; Marqq is 288px (w-72). Should be wider (~400px)
-4. **Input placeholder hint** — Helena shows "Plain language works best. Type '/' to jump somewhere or '@name' to reach a specialist." — Marqq should add this
-5. **Tool-use inline** — Helena shows "Working on getWebsiteContent" during AI execution; Marqq should show agent tool calls inline
-6. **File artifact cards** — Helena renders `📄 filename.md | File | Saved` as distinct cards in chat; Marqq should do the same
-7. **Hire CTA strip** — Helena shows upgrade strip above input bar for free users; Marqq could show plan upgrade strip
-8. **Chat History in sidebar** — Helena shows last 2 conversations with preview text right in sidebar; Marqq has conversation list but without text previews
-9. **Scheduled Tasks section in right panel** — Helena shows upcoming recurring tasks; Marqq's Tasks tab shows static mock data
-10. **Brand KB auto-generation** — Helena auto-creates brand-guidelines.md, business-profile.md etc. on first chat; Marqq Brand KB tab is static
-11. **Performance page** — Helena has a proper analytics page with GA connect CTA + date range picker + chart; Marqq routes to PerformanceScorecard module
-12. **Calendar page** — Helena has week/month calendar view with "Add Content" per day; Marqq doesn't have this route yet
-13. **Workspace Files page** — Helena has dedicated file browser; Marqq has Library but not surfaced in sidebar
-14. **DM "+ New" button** — Helena has a "+ New" button right next to the agent name to start a fresh chat; Marqq doesn't have this inline
-15. **Agent status "AI Digital Marketer"** — Helena shows agent's role subtitle under name; Marqq shows "online" badge but no role text (in collapsed sidebar icons)
+1. ✅ **Right panel collapsible sections** — Rewritten to stacked collapsible Section components
+2. ✅ **Channels section + Autopilot toggle** — ChannelsSection with interactive toggle + Add channel CTA
+3. ✅ **Right panel width ~400px** — w-[380px] (compromise, Helena 483px)
+4. ✅ **Input placeholder hint** — "Plain language works best. Type `/`..." already present
+5. ✅ **Tool-use inline typing** — Typing indicator rotates through 7 "Working on..." labels
+6. ✅ **File artifact cards** — FormattedMessage extracts .md/.pdf/.csv refs → orange artifact card chips with View → workspace-files
+7. ✅ **Upgrade CTA strip** — Shows above input when credits < 20% remaining
+8. ✅ **Chat History with previews** — Last 2 conversations + truncated last message in sidebar
+9. ✅ **Scheduled Tasks real data** — TasksSection fetches agent-deployments API, falls back to mock
+10. ⏭️ **Brand KB auto-generation** — Backend pipeline change; deferred
+11. ⏭️ **Performance page GA CTA** — PerformanceScorecard module already covers this
+12. ✅ **Calendar page** — MarketingCalendarPage: day picker, scheduled deployments, festival events
+13. ✅ **Workspace Files in sidebar** — "Files" workspace item → LibraryView
+14. ✅ **DM "+ New" button** — "+ New" button next to Veena in DM section
+15. ✅ **Agent role subtitle** — "AI Marketing OS" shown under Veena name in expanded sidebar
