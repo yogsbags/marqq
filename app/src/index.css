@@ -70,7 +70,7 @@ button:focus-visible {
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 254 81% 62%;
+    --primary: 24 100% 50%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
@@ -82,7 +82,7 @@ button:focus-visible {
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 254 81% 62%;
+    --ring: 24 100% 50%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -91,7 +91,7 @@ button:focus-visible {
     --radius: 0.9rem;
     --scrollbar-track: 0 0% 96.1%;
     --scrollbar-thumb: 0 0% 80%;
-    --scrollbar-thumb-hover: 254 81% 62%;
+    --scrollbar-thumb-hover: 24 100% 50%;
   }
   .dark {
     --background: 0 0% 6%;
@@ -100,7 +100,7 @@ button:focus-visible {
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 8%;
     --popover-foreground: 0 0% 98%;
-    --primary: 254 81% 62%;
+    --primary: 24 100% 50%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 98%;
@@ -112,7 +112,7 @@ button:focus-visible {
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 15%;
     --input: 0 0% 15%;
-    --ring: 254 81% 62%;
+    --ring: 24 100% 50%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -120,7 +120,7 @@ button:focus-visible {
     --chart-5: 340 75% 55%;
     --scrollbar-track: 0 0% 10%;
     --scrollbar-thumb: 0 0% 24%;
-    --scrollbar-thumb-hover: 254 81% 62%;
+    --scrollbar-thumb-hover: 24 100% 50%;
   }
 }
 
@@ -131,21 +131,21 @@ button:focus-visible {
   body {
     @apply bg-background text-foreground font-sans;
     background-image:
-      radial-gradient(circle at top left, rgba(107, 79, 235, 0.08), transparent 28%),
-      radial-gradient(circle at top right, rgba(107, 79, 235, 0.05), transparent 24%),
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 28%),
+      radial-gradient(circle at top right, rgba(251, 191, 36, 0.08), transparent 24%),
       linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.94));
     background-attachment: fixed;
   }
 
   .dark body {
     background-image:
-      radial-gradient(circle at top left, rgba(107, 79, 235, 0.12), transparent 24%),
-      radial-gradient(circle at top right, rgba(107, 79, 235, 0.06), transparent 18%),
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.12), transparent 24%),
+      radial-gradient(circle at top right, rgba(251, 191, 36, 0.08), transparent 18%),
       linear-gradient(180deg, rgba(10,10,10,0.98), rgba(10,10,10,0.96));
   }
 
   ::selection {
-    background: rgba(107, 79, 235, 0.22);
+    background: rgba(249, 115, 22, 0.22);
     color: hsl(var(--foreground));
   }
 }

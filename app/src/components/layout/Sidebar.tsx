@@ -218,7 +218,7 @@ export function Sidebar({
                   'w-full flex items-center rounded-md transition-all duration-150 text-left',
                   collapsed ? 'p-2 justify-center' : 'gap-2 px-2 py-1.5',
                   active
-                    ? 'bg-[#6B4FEB]/20 text-white'
+                    ? 'bg-[#F97316]/20 text-white'
                     : 'text-white/50 hover:text-white/85 hover:bg-white/[0.07]',
                 )}
               >
@@ -227,11 +227,11 @@ export function Sidebar({
                 ) : (
                   <>
                     <ch.icon
-                      className={cn('h-3.5 w-3.5 flex-shrink-0', active ? 'text-[#a78bfa]' : 'text-white/35')}
+                      className={cn('h-3.5 w-3.5 flex-shrink-0', active ? 'text-[#fb923c]' : 'text-white/35')}
                     />
                     <span className="text-sm font-medium truncate">{ch.title}</span>
                     {active && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#a78bfa] flex-shrink-0" />
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#fb923c] flex-shrink-0" />
                     )}
                   </>
                 )}
@@ -255,7 +255,7 @@ export function Sidebar({
               'w-full flex items-center rounded-md transition-all duration-150 text-left',
               collapsed ? 'p-2 justify-center' : 'gap-2.5 px-2 py-1.5',
               selectedModule === 'dashboard'
-                ? 'bg-[#6B4FEB]/20 text-white'
+                ? 'bg-[#F97316]/20 text-white'
                 : 'text-white/50 hover:text-white/85 hover:bg-white/[0.07]',
             )}
           >
@@ -264,7 +264,7 @@ export function Sidebar({
             ) : (
               <>
                 <div className="relative flex-shrink-0">
-                  <div className="h-5 w-5 rounded-full bg-gradient-to-br from-[#6B4FEB] to-violet-500 flex items-center justify-center text-white text-[9px] font-bold">
+                  <div className="h-5 w-5 rounded-full bg-gradient-to-br from-[#F97316] to-violet-500 flex items-center justify-center text-white text-[9px] font-bold">
                     M
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 border-[1.5px] border-[#1A1A2E]" />
@@ -297,7 +297,7 @@ export function Sidebar({
                       aria-expanded={isOpen}
                       className={cn(
                         'w-full flex items-center justify-between px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-[0.13em] transition-colors select-none',
-                        hasActive ? 'text-[#a78bfa]' : 'text-white/30 hover:text-white/55',
+                        hasActive ? 'text-[#fb923c]' : 'text-white/30 hover:text-white/55',
                       )}
                     >
                       <span>{section.label}</span>
@@ -324,14 +324,14 @@ export function Sidebar({
                               className={cn(
                                 'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all duration-150 text-left',
                                 isSelected
-                                  ? 'bg-[#6B4FEB]/20 text-white font-medium'
+                                  ? 'bg-[#F97316]/20 text-white font-medium'
                                   : 'text-white/45 hover:text-white/80 hover:bg-white/[0.06]',
                               )}
                             >
                               <item.icon
                                 className={cn(
                                   'h-3.5 w-3.5 flex-shrink-0',
-                                  isSelected ? 'text-[#a78bfa]' : 'text-white/30',
+                                  isSelected ? 'text-[#fb923c]' : 'text-white/30',
                                 )}
                               />
                               <span className="truncate">{item.title}</span>
@@ -356,7 +356,7 @@ export function Sidebar({
                           className={cn(
                             'w-full flex items-center justify-center p-2 rounded-md transition-all duration-150',
                             isSelected
-                              ? 'bg-[#6B4FEB]/25 text-[#a78bfa]'
+                              ? 'bg-[#F97316]/25 text-[#fb923c]'
                               : 'text-white/35 hover:text-white/80 hover:bg-white/[0.07]',
                           )}
                         >
@@ -391,14 +391,14 @@ export function Sidebar({
                   'w-full flex items-center rounded-md transition-all duration-150 text-left',
                   collapsed ? 'p-2 justify-center' : 'gap-2 px-2 py-1.5',
                   isSelected
-                    ? 'bg-[#6B4FEB]/20 text-white'
+                    ? 'bg-[#F97316]/20 text-white'
                     : 'text-white/45 hover:text-white/80 hover:bg-white/[0.07]',
                 )}
               >
                 <item.icon
                   className={cn(
                     'h-3.5 w-3.5 flex-shrink-0',
-                    isSelected ? 'text-[#a78bfa]' : 'text-white/30',
+                    isSelected ? 'text-[#fb923c]' : 'text-white/30',
                   )}
                 />
                 {!collapsed && <span className="text-sm truncate">{item.title}</span>}

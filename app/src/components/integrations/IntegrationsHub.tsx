@@ -130,7 +130,7 @@ export function IntegrationsHub() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search integrations..."
-              className="pl-9 border-gray-200 dark:border-gray-700 focus:border-[#6B4FEB] focus:ring-[#6B4FEB]"
+              className="pl-9 border-gray-200 dark:border-gray-700 focus:border-[#F97316] focus:ring-[#F97316]"
             />
           </div>
         </div>
@@ -154,7 +154,7 @@ export function IntegrationsHub() {
                     className={cn(
                       'group relative flex items-start gap-3 rounded-xl border bg-white dark:bg-gray-900 p-4 transition-all duration-200',
                       isConnected
-                        ? 'border-[#6B4FEB]/30 shadow-sm shadow-[#6B4FEB]/10'
+                        ? 'border-[#F97316]/30 shadow-sm shadow-[#F97316]/10'
                         : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md hover:shadow-black/5',
                     )}
                   >
@@ -190,7 +190,7 @@ export function IntegrationsHub() {
                         ) : (
                           <button
                             onClick={() => handleToggle(item.id, item.name)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#6B4FEB] hover:text-[#5a3fd4] border border-[#6B4FEB]/30 hover:border-[#6B4FEB] rounded-md px-2.5 py-1 transition-all duration-150 hover:bg-[#6B4FEB]/5"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#F97316] hover:text-[#ea6f0e] border border-[#F97316]/30 hover:border-[#F97316] rounded-md px-2.5 py-1 transition-all duration-150 hover:bg-[#F97316]/5"
                           >
                             <Plus className="h-3 w-3" />
                             Connect
@@ -204,9 +204,9 @@ export function IntegrationsHub() {
 
               {/* Request integration card */}
               {category === 'analytics' && (
-                <div className="flex items-start gap-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-transparent p-4 hover:border-[#6B4FEB]/40 hover:bg-[#6B4FEB]/3 transition-all duration-200 cursor-pointer group">
+                <div className="flex items-start gap-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-transparent p-4 hover:border-[#F97316]/40 hover:bg-[#F97316]/3 transition-all duration-200 cursor-pointer group">
                   <div className="h-10 w-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                    <Plus className="h-5 w-5 text-gray-400 group-hover:text-[#6B4FEB] transition-colors" />
+                    <Plus className="h-5 w-5 text-gray-400 group-hover:text-[#F97316] transition-colors" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground/70 group-hover:text-foreground transition-colors">
@@ -216,7 +216,7 @@ export function IntegrationsHub() {
                       Don't see your tool? Vote for it on our public roadmap.
                     </p>
                     <div className="mt-3">
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-[#6B4FEB] transition-colors">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-[#F97316] transition-colors">
                         Submit request <ExternalLink className="h-3 w-3" />
                       </span>
                     </div>

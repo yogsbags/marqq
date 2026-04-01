@@ -143,7 +143,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
           </div>
           <Button
             type="submit"
-            className="w-full bg-[#6B4FEB] hover:bg-[#5a3fd4] transition-colors duration-200"
+            className="w-full bg-orange-500 hover:bg-orange-600 transition-colors duration-200"
             disabled={isLoading}
           >
             {isLoading ? <LoadingSpinner size="sm" /> : 'Create Account'}
@@ -155,7 +155,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
 
         <div className="text-center text-sm">
           <span className="text-muted-foreground">Already have an account? </span>
-          <Button variant="link" className="p-0 h-auto text-purple-600 hover:text-purple-700" onClick={onToggleMode}>
+          <Button variant="link" className="p-0 h-auto text-orange-600 hover:text-orange-700" onClick={onToggleMode}>
             Sign in
           </Button>
         </div>
