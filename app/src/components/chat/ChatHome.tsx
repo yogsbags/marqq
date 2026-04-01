@@ -320,8 +320,8 @@ function AgentResponseBlocks({
   return (
     <div className="space-y-3">
       {parsed.title ? (
-        <div className="rounded-2xl border border-orange-200/70 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-4 dark:border-orange-900/30 dark:from-orange-950/30 dark:via-gray-950 dark:to-amber-950/20">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500">Veena Brief</div>
+        <div className="rounded-2xl border border-purple-200/70 bg-gradient-to-br from-purple-50 via-white to-violet-50 p-4 dark:border-purple-900/30 dark:from-purple-950/30 dark:via-gray-950 dark:to-violet-950/20">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-purple-600">Veena Brief</div>
           <div className="mt-1 text-base font-semibold text-foreground">{parsed.title}</div>
           {parsed.summary ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{parsed.summary}</p> : null}
           {parsed.moduleShortcut && onModuleSelect ? (
@@ -329,7 +329,7 @@ function AgentResponseBlocks({
               type="button"
               variant="outline"
               size="sm"
-              className="mt-3 rounded-full border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/30"
+              className="mt-3 rounded-full border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-950/30"
               onClick={() => onModuleSelect(parsed.moduleShortcut!.moduleId)}
             >
               {parsed.moduleShortcut.label}
@@ -345,7 +345,7 @@ function AgentResponseBlocks({
               key={`${item}-${index}`}
               className="rounded-xl border border-border/70 bg-background/80 p-3 text-sm leading-6 shadow-sm"
             >
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Insight {index + 1}</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-purple-600">Insight {index + 1}</div>
               <div className="mt-1 text-foreground">{item}</div>
             </div>
           ))}
@@ -358,7 +358,7 @@ function AgentResponseBlocks({
           <div className="mt-2 space-y-2">
             {section.items.slice(0, 4).map((item, index) => (
               <div key={`${section.heading}-${index}`} className="flex items-start gap-2 text-sm">
-                <div className="mt-1 h-2 w-2 rounded-full bg-orange-500" />
+                <div className="mt-1 h-2 w-2 rounded-full bg-purple-600" />
                 <div className="leading-6 text-foreground">{item}</div>
               </div>
             ))}
@@ -1317,7 +1317,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
         <div className="border-b border-border/70 px-4 py-3">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1.5">
-              <div className="inline-flex items-center rounded-full border border-orange-200/80 bg-orange-50/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-300">
+              <div className="inline-flex items-center rounded-full border border-purple-200/80 bg-purple-50/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-purple-700 dark:border-purple-900/40 dark:bg-purple-950/20 dark:text-purple-300">
                 Veena
               </div>
               <div className="space-y-1">
@@ -1351,22 +1351,20 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                   message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : 'justify-start'
                 )}
               >
-                <Avatar className="h-8 w-8">
-                  {message.sender === 'ai' ? (
-                    <AvatarFallback className="bg-orange-100 text-orange-600 dark:bg-orange-950/30 dark:text-orange-300">
-                      <Bot className="h-4 w-4" />
-                    </AvatarFallback>
-                  ) : (
-                    <AvatarFallback className="bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300">
-                      <User className="h-4 w-4" />
-                    </AvatarFallback>
-                  )}
-                </Avatar>
+                {message.sender === 'ai' ? (
+                  <div className="h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold" style={{ background: 'linear-gradient(135deg, #6B4FEB, #8B5CF6)' }}>
+                    M
+                  </div>
+                ) : (
+                  <div className="h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    <User className="h-4 w-4" />
+                  </div>
+                )}
                 <Card
                   className={cn(
                     'max-w-[78%] rounded-2xl border p-3',
                     message.sender === 'user'
-                      ? 'border-orange-500/70 bg-orange-500 text-white'
+                      ? 'border-purple-500/70 bg-purple-600 text-white'
                       : 'border-border/70 bg-background/90 text-left'
                   )}
                 >
@@ -1375,7 +1373,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                       className={cn(
                         'flex items-center space-x-2 p-2 rounded mb-2 border',
                         message.sender === 'user'
-                          ? 'bg-orange-400 border-orange-300'
+                          ? 'bg-purple-500 border-purple-300'
                           : 'bg-background border-border'
                       )}
                     >
@@ -1384,7 +1382,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                         <div
                           className={cn(
                             'text-xs font-medium truncate',
-                            message.sender === 'user' ? 'text-orange-100' : 'text-foreground'
+                            message.sender === 'user' ? 'text-purple-100' : 'text-foreground'
                           )}
                         >
                           {message.file.name}
@@ -1392,7 +1390,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                         <div
                           className={cn(
                             'text-xs opacity-70',
-                            message.sender === 'user' ? 'text-orange-200' : 'text-muted-foreground'
+                            message.sender === 'user' ? 'text-purple-200' : 'text-muted-foreground'
                           )}
                         >
                           {formatFileSize(message.file.size)}
@@ -1417,7 +1415,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                   <p
                     className={cn(
                       'text-xs mt-1 opacity-70',
-                      message.sender === 'user' ? 'text-orange-100' : 'text-muted-foreground'
+                      message.sender === 'user' ? 'text-purple-100' : 'text-muted-foreground'
                     )}
                   >
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1440,7 +1438,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                     <button
                       key={label}
                       onClick={() => sendQuickMessage(prompt)}
-                      className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:border-orange-300 hover:bg-orange-50/70 dark:hover:bg-orange-950/20"
+                      className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:border-purple-300 hover:bg-purple-50/70 dark:hover:bg-purple-950/20"
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />
                       <span className="min-w-0 break-words leading-5">{label}</span>
@@ -1454,7 +1452,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
             {isTyping && (
               <div className="flex items-start space-x-3 justify-start">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-orange-100 text-orange-600">
+                  <AvatarFallback className="bg-purple-100 text-purple-600">
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
@@ -1481,8 +1479,8 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                 onClick={() => handleSuggestionClick(cmd.command)}
               >
                 <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
-                    <span className="text-orange-600 font-mono text-sm">/</span>
+                  <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
+                    <span className="text-purple-600 font-mono text-sm">/</span>
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1502,7 +1500,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                 className="flex items-center space-x-3 p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
                 onClick={() => handleAgentSuggestionClick(agent.name)}
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-sm font-semibold text-orange-600 dark:bg-orange-900/20 dark:text-orange-300">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-semibold text-purple-600 dark:bg-purple-900/20 dark:text-purple-300">
                   @{agent.label.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1554,7 +1552,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
               variant="default"
               size="icon"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 border-0 bg-transparent p-0 text-orange-500 shadow-none hover:bg-transparent hover:text-orange-600 dark:text-orange-300 dark:hover:text-orange-200"
+              className="flex-shrink-0 border-0 bg-transparent p-0 text-purple-600 shadow-none hover:bg-transparent hover:text-purple-600 dark:text-purple-300 dark:hover:text-purple-200"
               title="Upload file (CSV, PDF, Images)"
             >
               <Paperclip className="h-5 w-5" strokeWidth={2.2} />
@@ -1581,7 +1579,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
             <Button
               onClick={handleSendMessage}
               disabled={(!inputValue.trim() && !selectedFile) || isTyping}
-              className="rounded-xl bg-orange-500 hover:bg-orange-600"
+              className="rounded-xl bg-purple-600 hover:bg-purple-700"
             >
               <Send className="h-4 w-4 text-white" />
             </Button>
@@ -1643,7 +1641,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
               <Button
                 onClick={createAgentTaskPlan}
                 disabled={isPlanningTask || !taskDraft.trim()}
-                className="bg-orange-500 hover:bg-orange-600"
+                className="bg-purple-600 hover:bg-purple-700"
               >
                 {isPlanningTask ? 'Creating Plan...' : 'Create Plan'}
               </Button>
@@ -1651,7 +1649,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
           </div>
 
           {planPreview && (
-            <div className="space-y-4 rounded-2xl border border-orange-200/70 bg-orange-50/60 p-4 dark:border-orange-500/20 dark:bg-orange-950/15">
+            <div className="space-y-4 rounded-2xl border border-purple-200/70 bg-purple-50/60 p-4 dark:border-orange-500/20 dark:bg-purple-950/15">
               <div>
                 <div className="text-sm font-semibold text-foreground">Execution Plan</div>
                 <p className="mt-1 text-sm text-muted-foreground">{planPreview.summary}</p>
@@ -1673,7 +1671,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button onClick={approveAgentTaskPlan} className="bg-orange-500 hover:bg-orange-600">
+                <Button onClick={approveAgentTaskPlan} className="bg-purple-600 hover:bg-purple-700">
                   Run Now
                 </Button>
               </div>

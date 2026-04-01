@@ -111,8 +111,8 @@ function markdownToRichText(markdown: string): string {
   html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
   html = html.replace(/_(.*?)_/g, '<em class="italic">$1</em>');
 
-  // Links [text](url)
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-orange-600 dark:text-orange-400 hover:underline">$1</a>');
+  // Links [text](url) — purple instead of orange
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-purple-600 dark:text-purple-400 hover:underline">$1</a>');
 
   // Unordered lists (- item or * item)
   html = html.replace(/^[*+-]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
@@ -490,7 +490,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
   const handleClearChat = () => {
     const welcomeMessage: Message = {
       id: '1',
-      content: "Hi, I'm Veena. What are you working on?",
+      content: "Hi, I'm Marqq AI. What are you working on?",
       sender: 'ai',
       timestamp: new Date(),
     };
@@ -578,36 +578,43 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
         "fixed top-0 right-0 h-full w-96 bg-background border-l shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "translate-x-full"
       )}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white">
-              <Bot className="h-5 w-5" style={{ display: 'block', color: '#ffffff' }} />
+        {/* Header — clean minimal style with green online dot */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+          <div className="flex items-center gap-3">
+            {/* Purple gradient avatar */}
+            <div className="relative h-9 w-9 flex-shrink-0">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-sm">
+                <span className="text-sm font-bold text-white">M</span>
+              </div>
+              {/* Green online dot */}
+              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background" />
             </div>
             <div>
-              <h3 className="font-semibold">Veena</h3>
+              <h3 className="text-sm font-semibold text-foreground">Marqq AI</h3>
+              <div className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                <span className="text-[11px] text-muted-foreground">Online</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="icon"
               onClick={handleClearChat}
-              className="h-8 w-8 bg-white/10 hover:bg-white/30 border border-white/40 hover:border-white/60 transition-colors"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
               title="Clear chat"
-              style={{ color: '#ffffff' }}
             >
-              <Trash2 className="h-4 w-4" style={{ display: 'block', color: '#ffffff' }} />
+              <Trash2 className="h-4 w-4" style={{ display: 'block' }} />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="h-8 w-8 bg-white/10 hover:bg-white/30 border border-white/40 hover:border-white/60 transition-colors"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
               title="Close chat"
-              style={{ color: '#ffffff' }}
             >
-              <X className="h-4 w-4" style={{ display: 'block', color: '#ffffff' }} />
+              <X className="h-4 w-4" style={{ display: 'block' }} />
             </Button>
           </div>
         </div>
@@ -619,91 +626,93 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
               <div
                 key={message.id}
                 className={cn(
-                  "flex items-start space-x-3",
-                  message.sender === 'user' ? "flex-row-reverse space-x-reverse" : "justify-start"
+                  "flex items-end gap-2",
+                  message.sender === 'user' ? "flex-row-reverse" : "flex-row"
                 )}
               >
-                <Avatar className="h-8 w-8">
-                  {message.sender === 'ai' ? (
-                    <AvatarFallback className="bg-orange-100 text-orange-600">
-                      <Bot className="h-4 w-4" />
-                    </AvatarFallback>
-                  ) : (
-                    <AvatarFallback className="bg-blue-100 text-blue-600">
-                      <User className="h-4 w-4" />
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                <Card className={cn(
-                  "p-3 max-w-[280px]",
-                  message.sender === 'user'
-                    ? "bg-orange-500 text-white"
-                    : "bg-muted text-left"
+                {/* Avatar — only for AI messages */}
+                {message.sender === 'ai' && (
+                  <div className="h-7 w-7 flex-shrink-0 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-sm">
+                    <span className="text-[11px] font-bold text-white">M</span>
+                  </div>
+                )}
+
+                <div className={cn(
+                  "group flex flex-col max-w-[80%]",
+                  message.sender === 'user' ? "items-end" : "items-start"
                 )}>
-                  {/* File attachment display */}
-                  {message.file && (
-                    <div className={cn(
-                      "flex items-center space-x-2 p-2 rounded mb-2 border",
-                      message.sender === 'user'
-                        ? "bg-orange-400 border-orange-300"
-                        : "bg-background border-border"
-                    )}>
-                      {getFileIcon(message.file.type)}
-                      <div className="flex-1 min-w-0">
-                        <div className={cn(
-                          "text-xs font-medium truncate",
-                          message.sender === 'user' ? "text-orange-100" : "text-foreground"
-                        )}>
-                          {message.file.name}
+                  {/* Bubble */}
+                  <div className={cn(
+                    "px-3 py-2.5 text-sm shadow-sm",
+                    message.sender === 'user'
+                      ? "bg-purple-600 text-white rounded-2xl rounded-tr-sm"
+                      : "bg-purple-50 dark:bg-purple-950/20 text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-sm border border-purple-100 dark:border-purple-900/30"
+                  )}>
+                    {/* File attachment display */}
+                    {message.file && (
+                      <div className={cn(
+                        "flex items-center space-x-2 p-2 rounded mb-2 border",
+                        message.sender === 'user'
+                          ? "bg-purple-500 border-purple-400"
+                          : "bg-background border-border"
+                      )}>
+                        {getFileIcon(message.file.type)}
+                        <div className="flex-1 min-w-0">
+                          <div className={cn(
+                            "text-xs font-medium truncate",
+                            message.sender === 'user' ? "text-purple-100" : "text-foreground"
+                          )}>
+                            {message.file.name}
+                          </div>
+                          <div className={cn(
+                            "text-xs opacity-70",
+                            message.sender === 'user' ? "text-purple-200" : "text-muted-foreground"
+                          )}>
+                            {formatFileSize(message.file.size)}
+                          </div>
                         </div>
-                        <div className={cn(
-                          "text-xs opacity-70",
-                          message.sender === 'user' ? "text-orange-200" : "text-muted-foreground"
-                        )}>
-                          {formatFileSize(message.file.size)}
-                        </div>
+                        {message.file.url && message.file.type.includes('image') && (
+                          <img
+                            src={message.file.url}
+                            alt={message.file.name}
+                            className="w-8 h-8 object-cover rounded"
+                          />
+                        )}
                       </div>
-                      {message.file.url && message.file.type.includes('image') && (
-                        <img
-                          src={message.file.url}
-                          alt={message.file.name}
-                          className="w-8 h-8 object-cover rounded"
-                        />
-                      )}
-                    </div>
-                  )}
-                  <FormattedMessage
-                    content={message.content}
-                    isAI={message.sender === 'ai'}
-                  />
+                    )}
+                    <FormattedMessage
+                      content={message.content}
+                      isAI={message.sender === 'ai'}
+                    />
+                  </div>
+
+                  {/* Timestamp — visible on hover */}
                   <p className={cn(
-                    "text-xs mt-1 opacity-70",
-                    message.sender === 'user' ? "text-orange-100" : "text-muted-foreground"
+                    "text-[10px] mt-1 px-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150",
+                    message.sender === 'user' ? "text-right" : "text-left"
                   )}>
                     {message.timestamp.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit'
                     })}
                   </p>
-                </Card>
+                </div>
               </div>
             ))}
 
-            {/* Typing Indicator */}
+            {/* Typing Indicator — animated bouncing dots */}
             {isTyping && (
-              <div className="flex items-start space-x-3 justify-start">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-orange-100 text-orange-600">
-                    <Bot className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <Card className="p-3 bg-muted text-left">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+              <div className="flex items-end gap-2">
+                <div className="h-7 w-7 flex-shrink-0 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-sm">
+                  <span className="text-[11px] font-bold text-white">M</span>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-2xl rounded-tl-sm px-4 py-3">
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
                   </div>
-                </Card>
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -711,10 +720,10 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
         </ScrollArea>
 
         {/* Input */}
-        <div className="p-4 border-t bg-muted/30">
+        <div className="p-4 border-t bg-background">
           {/* Selected File Preview */}
           {selectedFile && (
-            <div className="mb-3 p-3 bg-background border rounded-lg">
+            <div className="mb-3 p-3 bg-muted/50 border border-border/70 rounded-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   {getFileIcon(selectedFile.type)}
@@ -744,7 +753,7 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
 
           {/* Slash Command Suggestions */}
           {showSuggestions && filteredCommands.length > 0 && (
-            <div className="mb-3 border rounded-lg bg-background shadow-lg max-h-48 overflow-y-auto">
+            <div className="mb-3 border border-border/70 rounded-2xl bg-background shadow-lg max-h-48 overflow-y-auto">
               {filteredCommands.map((cmd, index) => (
                 <div
                   key={cmd.command}
@@ -752,8 +761,8 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
                   onClick={() => handleSuggestionClick(cmd.command)}
                 >
                   <div className="flex-shrink-0">
-                    <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
-                      <span className="text-orange-600 font-mono text-sm">/</span>
+                    <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
+                      <span className="text-purple-600 font-mono text-sm">/</span>
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -765,17 +774,17 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
             </div>
           )}
 
-          <div className="flex space-x-2">
+          {/* Full-width pill input bar */}
+          <div className="flex items-center gap-2 rounded-full border border-border/70 bg-muted/30 px-3 py-1.5 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-500/20 transition-all">
             {/* File Upload Button */}
-            <Button
-              variant="outline"
-              size="icon"
+            <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 hover:bg-orange-50 hover:border-orange-200 bg-white border-gray-300 text-gray-700"
+              className="flex-shrink-0 p-1 text-muted-foreground hover:text-purple-600 transition-colors"
               title="Upload file (CSV, PDF, Images)"
             >
-              <Paperclip className="h-4 w-4 text-gray-700" style={{ display: 'block' }} />
-            </Button>
+              <Paperclip className="h-4 w-4" style={{ display: 'block' }} />
+            </button>
 
             {/* Hidden File Input */}
             <input
@@ -786,22 +795,27 @@ export function ChatPanel({ isOpen, onClose, messages, onMessagesChange, onModul
               className="hidden"
             />
 
-            <Input
+            <input
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={selectedFile ? "Add a message (optional)..." : "What are you working on?"}
-              className="flex-1"
+              onKeyDown={handleKeyPress}
+              placeholder={selectedFile ? "Add a message (optional)..." : "Message Marqq AI..."}
               disabled={isTyping}
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
             />
-            <Button
+
+            {/* Send button */}
+            <button
+              type="button"
               onClick={handleSendMessage}
               disabled={(!inputValue.trim() && !selectedFile) || isTyping}
-              className="bg-orange-500 hover:bg-orange-600"
+              className="flex-shrink-0 p-1.5 rounded-full bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Send"
             >
-              <Send className="h-4 w-4 text-white" />
-            </Button>
+              <Send className="h-3.5 w-3.5 text-white" style={{ display: 'block' }} />
+            </button>
           </div>
+
           <p className="text-xs text-muted-foreground mt-2 text-center">
             Plain language works best. Type `/` to jump somewhere or `@name` to reach a specialist.
           </p>
