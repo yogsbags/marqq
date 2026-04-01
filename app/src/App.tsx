@@ -1,4 +1,5 @@
 import { AgentDashboard } from '@/components/agents/AgentDashboard';
+import { IntegrationsHub } from '@/components/integrations/IntegrationsHub';
 import { HomePostOnboardingTour } from '@/components/tour/HomePostOnboardingTour';
 import { InviteAccept } from '@/components/auth/InviteAccept';
 import { LoginForm } from '@/components/auth/LoginForm';
@@ -72,7 +73,7 @@ function AuthScreen() {
   const [isSignup, setIsSignup] = useState(false);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.1),transparent_22%),linear-gradient(180deg,rgba(255,251,245,0.98),rgba(255,255,255,0.94))] p-4 dark:bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.08),transparent_18%),linear-gradient(180deg,rgba(10,10,10,0.98),rgba(10,10,10,0.96))]">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(107,79,235,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(107,79,235,0.07),transparent_22%),linear-gradient(180deg,rgba(255,251,255,0.98),rgba(255,255,255,0.94))] p-4 dark:bg-[radial-gradient(circle_at_top_left,rgba(107,79,235,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(107,79,235,0.08),transparent_18%),linear-gradient(180deg,rgba(10,10,10,0.98),rgba(10,10,10,0.96))]">
       {isSignup ? (
         <SignupForm onToggleMode={() => setIsSignup(false)} />
       ) : (
@@ -197,6 +198,7 @@ function Dashboard() {
       );
     }
 
+    if (selectedModule === 'integrations') return <IntegrationsHub />;
     if (selectedModule === 'settings') return <SettingsPanel />;
     if (selectedModule === 'settings-accounts') return <SettingsPanel initialTab="accounts" />;
     if (selectedModule === 'help') return <HelpPanel />;

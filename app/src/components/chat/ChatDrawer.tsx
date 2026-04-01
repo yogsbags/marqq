@@ -113,11 +113,11 @@ export function ChatDrawer({ open, onOpenChange, onModuleSelect, onConversations
           onMouseDown={onDragHandleMouseDown}
           className="absolute left-0 top-0 h-full w-2 cursor-ew-resize group z-50 flex items-center justify-center"
         >
-          <div className="h-full w-full group-hover:bg-orange-400/30 transition-colors duration-150" />
+          <div className="h-full w-full group-hover:bg-purple-400/30 transition-colors duration-150" />
           <div className="absolute flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            <div className="w-1 h-1 rounded-full bg-orange-500" />
-            <div className="w-1 h-1 rounded-full bg-orange-500" />
-            <div className="w-1 h-1 rounded-full bg-orange-500" />
+            <div className="w-1 h-1 rounded-full bg-purple-500" />
+            <div className="w-1 h-1 rounded-full bg-purple-500" />
+            <div className="w-1 h-1 rounded-full bg-purple-500" />
           </div>
         </div>
 

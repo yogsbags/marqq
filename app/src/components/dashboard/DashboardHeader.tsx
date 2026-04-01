@@ -36,7 +36,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
     ? Math.round((creditsRemaining / creditsTotal) * 100)
     : 100;
   const creditColor = creditPct > 50 ? 'text-green-600 dark:text-green-400'
-    : creditPct > 20 ? 'text-orange-500 dark:text-orange-400'
+    : creditPct > 20 ? 'text-purple-500 dark:text-purple-400'
     : 'text-red-500 dark:text-red-400';
   const PLAN_LABELS: Record<string, string> = { growth: 'Growth', scale: 'Scale', agency: 'Agency' };
 
@@ -55,7 +55,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onModuleSelect('settings')}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border/60 bg-background/80 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border/60 bg-background/80 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
                 >
                   <Zap className={`h-3 w-3 ${creditColor}`} />
                   <span className={`text-xs font-semibold tabular-nums ${creditColor}`}>
@@ -83,7 +83,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
               size="sm"
               onClick={onOpenChat}
               data-tour="header-ask-ai"
-              className="gap-1.5 text-xs font-medium rounded-full border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+              className="gap-1.5 text-xs font-medium rounded-full border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 dark:text-purple-400"
             >
               <MessageSquare className="h-3.5 w-3.5" />
               Ask AI
@@ -95,7 +95,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
             size="sm"
             aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            className="rounded-full transition-colors duration-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
+            className="rounded-full transition-colors duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
           >
             {theme === 'light' ? <Moon className="h-4 w-4 text-gray-900 dark:text-gray-100" /> : <Sun className="h-4 w-4 text-gray-900 dark:text-gray-100" />}
           </Button>
@@ -105,7 +105,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
             size="sm"
             aria-label="Open agent schedule"
             onClick={() => { setCalendarOpen(!calendarOpen); setNotificationsOpen(false); }}
-            className="rounded-full transition-colors duration-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
+            className="rounded-full transition-colors duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
           >
             <CalendarDays className="h-4 w-4 text-gray-900 dark:text-gray-100" />
           </Button>
@@ -115,10 +115,10 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
             size="sm"
             aria-label="Open notifications"
             onClick={() => { setNotificationsOpen(!notificationsOpen); setCalendarOpen(false); }}
-            className="relative rounded-full transition-colors duration-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
+            className="relative rounded-full transition-colors duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-600 dark:text-gray-300 bg-transparent"
           >
             <Bell className="h-4 w-4 text-gray-900 dark:text-gray-100" />
-            <span aria-hidden="true" className="absolute -top-1 -right-1 h-3 w-3 bg-orange-500 rounded-full motion-reduce:animate-none animate-pulse" />
+            <span aria-hidden="true" className="absolute -top-1 -right-1 h-3 w-3 bg-purple-500 rounded-full motion-reduce:animate-none animate-pulse" />
             <span className="sr-only">You have unread notifications</span>
           </Button>
 
@@ -128,7 +128,7 @@ export function DashboardHeader({ selectedModule, onModuleSelect, onOpenChat }: 
                 variant="ghost"
                 size="sm"
                 aria-label="Open user menu"
-                className="relative rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-200 text-gray-600 dark:text-gray-300 bg-transparent"
+                className="relative rounded-full hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-200 text-gray-600 dark:text-gray-300 bg-transparent"
               >
                 <User className="h-4 w-4 text-gray-900 dark:text-gray-100" />
               </Button>

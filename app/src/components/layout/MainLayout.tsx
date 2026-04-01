@@ -50,7 +50,7 @@ export function MainLayout({
       {/* Center: Main content — margin tracks sidebar width only */}
       <div className={cn(
         "flex-1 flex flex-col overflow-hidden transition-[margin-left] duration-300 ease-in-out",
-        sidebarCollapsed ? "ml-16" : "ml-72"
+        sidebarCollapsed ? "ml-14" : "ml-60"
       )}>
         <DashboardHeader
           selectedModule={selectedModule}

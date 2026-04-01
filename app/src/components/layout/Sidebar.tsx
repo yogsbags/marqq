@@ -1,19 +1,16 @@
-import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { BRAND } from '@/lib/brand';
 import { useEffect, useState } from 'react';
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  MessageSquare as Bot,
+  Hash,
+  MessageSquare,
   ChevronDown,
   ChevronRight,
   DollarSign,
   Eye,
-  Home,
   Zap as LightningBolt,
   HelpCircle,
   Pen as PenTool,
@@ -31,6 +28,8 @@ import {
   UserPlus as UserAddIcon,
   MousePointerClick as CursorClickIcon,
   ShieldCheck as ShieldCheckIcon,
+  Puzzle,
+  BookOpen,
 } from 'lucide-react';
 import type { Conversation } from '@/types/chat';
 
@@ -44,7 +43,6 @@ interface SidebarProps {
   onConversationSelect?: (id: string) => void;
 }
 
-/** Default hash when opening CI from sidebar so horizontal tabs + flow stay in sync */
 function ensureCompanyIntelHash() {
   const raw = window.location.hash || '';
   const value = raw.startsWith('#') ? raw.slice(1) : raw;
@@ -63,9 +61,10 @@ interface NavSection {
   items: NavItem[];
 }
 
-const topItems: NavItem[] = [
-  { id: 'home',      title: 'Home',    icon: Home },
-  { id: 'dashboard', title: 'AI Team', icon: LayoutDashboard },
+const channels: NavItem[] = [
+  { id: 'home',                  title: 'main',        icon: Hash },
+  { id: 'performance-scorecard', title: 'performance', icon: Hash },
+  { id: 'channel-health',        title: 'daily-brief', icon: Hash },
 ];
 
 const navSections: NavSection[] = [
@@ -86,17 +85,15 @@ const navSections: NavSection[] = [
       { id: 'lead-intelligence', title: 'Lead Engine',      icon: Users },
       { id: 'paid-ads',          title: 'Paid Ads',         icon: DollarSign },
       { id: 'ai-content',        title: 'Content Studio',   icon: PenTool },
-      { id: 'ai-voice-bot',      title: 'Voice Campaigns',  icon: Bot },
+      { id: 'ai-voice-bot',      title: 'Voice Campaigns',  icon: MessageSquare },
       { id: 'referral-program',  title: 'Referral Program', icon: UserAddIcon },
     ],
   },
   {
     label: 'Measure',
     items: [
-      { id: 'performance-scorecard', title: 'Performance',         icon: TrendingUp },
-      { id: 'budget-optimization',   title: 'Budget Optimization', icon: DollarSign },
-      { id: 'cro',                   title: 'Conversion',          icon: CursorClickIcon },
-      { id: 'channel-health',        title: 'Daily Brief',         icon: LightningBolt },
+      { id: 'budget-optimization', title: 'Budget Optimization', icon: DollarSign },
+      { id: 'cro',                 title: 'Conversion',          icon: CursorClickIcon },
     ],
   },
   {
@@ -117,154 +114,176 @@ function sectionContaining(moduleId: string | null): string | null {
   return null;
 }
 
-const bottomItems = [
-  { id: 'library',  title: 'Library',        icon: DownloadIcon }, // TODO: library module
-  { id: 'settings', title: 'Settings',       icon: Settings },
-  { id: 'help',     title: 'Help & Support', icon: HelpCircle },
+const workspaceItems: NavItem[] = [
+  { id: 'integrations', title: 'Integrations', icon: Puzzle },
+  { id: 'library',      title: 'Library',      icon: BookOpen },
+  { id: 'settings',     title: 'Settings',     icon: Settings },
+  { id: 'help',         title: 'Help',         icon: HelpCircle },
 ];
 
-export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCollapse, conversations, activeConversationId, onConversationSelect }: SidebarProps) {
-  const homeButtonSelected = !selectedModule || selectedModule === 'home';
+export function Sidebar({
+  selectedModule,
+  onModuleSelect,
+  collapsed,
+  onToggleCollapse,
+}: SidebarProps) {
+  const homeActive = !selectedModule || selectedModule === 'home';
 
-  // Sections open state — default all collapsed; auto-open section of active module
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const active = sectionContaining(selectedModule);
     return Object.fromEntries(navSections.map(s => [s.label, s.label === active]));
   });
 
   useEffect(() => {
-    // Auto-expand section containing newly selected module
     const active = sectionContaining(selectedModule);
     if (active) {
       setOpenSections(prev => (prev[active] ? prev : { ...prev, [active]: true }));
     }
-  }, [collapsed, selectedModule]);
+  }, [selectedModule]);
 
   const toggleSection = (label: string) => {
     setOpenSections(prev => ({ ...prev, [label]: !prev[label] }));
   };
 
-  const renderNavItem = (item: NavItem) => {
-    const isSelected = selectedModule === item.id;
-
-    return (
-      <motion.div
-        key={item.id}
-        className="space-y-1"
-        whileHover={{ x: 2 }}
-        whileTap={{ scale: 0.97 }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      >
-        <Button
-          variant={isSelected ? "default" : "ghost"}
-          className={cn(
-            "w-full justify-start transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1",
-            collapsed ? "px-2" : "px-3 py-2.5",
-            isSelected
-              ? "bg-orange-500 text-white hover:bg-orange-600"
-              : "bg-transparent text-foreground/70 hover:bg-orange-500/10 hover:text-orange-500"
-          )}
-          onClick={() => {
-            if (item.id === 'company-intelligence') {
-              ensureCompanyIntelHash();
-              onModuleSelect('company-intelligence');
-              return;
-            }
-            onModuleSelect(item.id);
-          }}
-          data-tour={
-            item.id === 'home'
-              ? 'nav-home'
-              : item.id === 'company-intelligence'
-                ? 'nav-company-intel'
-                : item.id === 'dashboard'
-                  ? 'nav-dashboard'
-                  : undefined
-          }
-        >
-          <item.icon className={cn("h-5 w-5", collapsed ? "" : "mr-2")} />
-          {!collapsed && <span className="font-medium text-base text-left">{item.title}</span>}
-        </Button>
-      </motion.div>
-    );
-  };
+  const isChannelActive = (id: string) => (id === 'home' ? homeActive : selectedModule === id);
 
   return (
-    <div className={cn(
-      "fixed left-0 top-0 z-30 flex flex-col h-full bg-white/88 dark:bg-gray-950/92 border-r border-border/70 backdrop-blur-xl transition-[width] duration-300 ease-in-out",
-      collapsed ? "w-16" : "w-72"
-    )}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border/70">
+    <div
+      className={cn(
+        'fixed left-0 top-0 z-30 flex flex-col h-full transition-[width] duration-300 ease-in-out',
+        'bg-[#1A1A2E] border-r border-white/[0.08]',
+        collapsed ? 'w-14' : 'w-60',
+      )}
+    >
+      {/* ── Logo header ─────────────────────────────────────────── */}
+      <div
+        className={cn(
+          'flex items-center border-b border-white/[0.08]',
+          collapsed ? 'flex-col justify-center gap-2 py-3 px-2' : 'justify-between px-4 py-3',
+        )}
+      >
         {collapsed ? (
-          <div className="flex items-center justify-between flex-1 gap-2">
-            <div className="flex items-center justify-center flex-1">
-              <img src={BRAND.logoSrc} alt={`${BRAND.name} logo`} className="block h-9 w-9 rounded-md" />
-            </div>
+          <>
+            <img src={BRAND.logoSrc} alt={BRAND.name} className="h-8 w-8 rounded-lg" />
             <button
               onClick={onToggleCollapse}
               aria-label="Expand sidebar"
-              className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              className="p-1 text-white/40 hover:text-white/80 transition-colors rounded"
             >
-              <PanelLeftOpen className="h-4 w-4" />
+              <PanelLeftOpen className="h-3.5 w-3.5" />
             </button>
-          </div>
+          </>
         ) : (
           <>
-            <div className="flex items-center space-x-3 flex-1 min-w-0">
-              <img src={BRAND.logoSrc} alt={`${BRAND.name} logo`} className="block h-11 w-11 rounded-md flex-shrink-0" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img src={BRAND.logoSrc} alt={BRAND.name} className="h-8 w-8 rounded-lg flex-shrink-0" />
               <div className="min-w-0">
-                <div className={`${BRAND.wordmarkFontClass} text-2xl font-bold uppercase bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent truncate`}>
-                  {BRAND.name.toUpperCase()}
+                <div className={`${BRAND.wordmarkFontClass} text-sm font-bold uppercase tracking-wider text-white truncate`}>
+                  {BRAND.name}
                 </div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Marketing Intelligence OS
+                <div className="text-[9px] font-medium uppercase tracking-[0.13em] text-white/40 truncate">
+                  Marketing OS
                 </div>
               </div>
             </div>
             <button
               onClick={onToggleCollapse}
               aria-label="Collapse sidebar"
-              className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              className="p-1.5 text-white/40 hover:text-white/80 transition-colors rounded flex-shrink-0"
             >
-              <PanelLeftClose className="h-4 w-4" />
+              <PanelLeftClose className="h-3.5 w-3.5" />
             </button>
           </>
         )}
       </div>
 
-      {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-4">
-        <div className="space-y-1">
-          {/* Home */}
-          <motion.div
-            className="space-y-1 mb-1"
-            whileHover={{ x: 2 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          >
-            <Button
-              variant={homeButtonSelected ? "default" : "ghost"}
-              className={cn(
-                "w-full justify-start rounded-2xl transition-colors duration-200",
-                collapsed ? "px-2" : "px-3 py-2.5",
-                homeButtonSelected
-                  ? "bg-orange-500 text-white hover:bg-orange-600"
-                  : "bg-transparent text-foreground/70 hover:bg-orange-500/10 hover:text-orange-500"
-              )}
-              onClick={() => onModuleSelect('home')}
-            >
-              <Home className={cn("h-5 w-5", collapsed ? "" : "mr-2")} />
-              {!collapsed && <span className="font-medium text-base text-left">Home</span>}
-            </Button>
-          </motion.div>
+      {/* ── Scrollable nav ──────────────────────────────────────── */}
+      <ScrollArea className="flex-1 py-3">
 
-          {/* AI Team */}
-          {renderNavItem({ id: 'dashboard', title: 'AI Team', icon: LayoutDashboard })}
+        {/* CHANNELS */}
+        {!collapsed && (
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35 px-5 mb-1">
+            Channels
+          </p>
+        )}
+        <div className={cn('space-y-0.5', collapsed ? 'px-2' : 'px-3')}>
+          {channels.map((ch) => {
+            const active = isChannelActive(ch.id);
+            return (
+              <button
+                key={ch.id}
+                onClick={() => onModuleSelect(ch.id === 'home' ? null : ch.id)}
+                data-tour={ch.id === 'home' ? 'nav-home' : undefined}
+                className={cn(
+                  'w-full flex items-center rounded-md transition-all duration-150 text-left',
+                  collapsed ? 'p-2 justify-center' : 'gap-2 px-2 py-1.5',
+                  active
+                    ? 'bg-[#6B4FEB]/20 text-white'
+                    : 'text-white/50 hover:text-white/85 hover:bg-white/[0.07]',
+                )}
+              >
+                {collapsed ? (
+                  <ch.icon className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <>
+                    <ch.icon
+                      className={cn('h-3.5 w-3.5 flex-shrink-0', active ? 'text-[#a78bfa]' : 'text-white/35')}
+                    />
+                    <span className="text-sm font-medium truncate">{ch.title}</span>
+                    {active && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#a78bfa] flex-shrink-0" />
+                    )}
+                  </>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Collapsible sections */}
-        <div className="mt-3 space-y-1">
+        {/* DIRECT MESSAGES */}
+        {!collapsed && (
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35 px-5 mt-4 mb-1">
+            Direct Messages
+          </p>
+        )}
+        {collapsed && <div className="mx-2 mt-4 mb-2 h-px bg-white/[0.08]" />}
+        <div className={cn('space-y-0.5 mt-1', collapsed ? 'px-2' : 'px-3')}>
+          <button
+            onClick={() => onModuleSelect('dashboard')}
+            data-tour="nav-dashboard"
+            className={cn(
+              'w-full flex items-center rounded-md transition-all duration-150 text-left',
+              collapsed ? 'p-2 justify-center' : 'gap-2.5 px-2 py-1.5',
+              selectedModule === 'dashboard'
+                ? 'bg-[#6B4FEB]/20 text-white'
+                : 'text-white/50 hover:text-white/85 hover:bg-white/[0.07]',
+            )}
+          >
+            {collapsed ? (
+              <LayoutDashboard className="h-4 w-4" />
+            ) : (
+              <>
+                <div className="relative flex-shrink-0">
+                  <div className="h-5 w-5 rounded-full bg-gradient-to-br from-[#6B4FEB] to-violet-500 flex items-center justify-center text-white text-[9px] font-bold">
+                    M
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 border-[1.5px] border-[#1A1A2E]" />
+                </div>
+                <span className="text-sm font-medium truncate">Marqq AI</span>
+                <span className="ml-auto text-[10px] text-green-400 font-medium flex-shrink-0">online</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* INTELLIGENCE sections */}
+        {!collapsed && (
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35 px-5 mt-4 mb-1">
+            Intelligence
+          </p>
+        )}
+        {collapsed && <div className="mx-2 mt-4 mb-2 h-px bg-white/[0.08]" />}
+        <div className={cn('mt-1 space-y-0.5', collapsed ? 'px-2' : 'px-3')}>
           {navSections.map((section) => {
             const isOpen = openSections[section.label];
             const hasActive = section.items.some(i => i.id === selectedModule);
@@ -272,30 +291,79 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
             return (
               <div key={section.label}>
                 {!collapsed ? (
-                  <button
-                    onClick={() => toggleSection(section.label)}
-                    aria-expanded={isOpen}
-                    aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${section.label} section`}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-                      hasActive
-                        ? "text-orange-500 hover:text-orange-600"
-                        : "text-muted-foreground/60 hover:text-muted-foreground"
+                  <>
+                    <button
+                      onClick={() => toggleSection(section.label)}
+                      aria-expanded={isOpen}
+                      className={cn(
+                        'w-full flex items-center justify-between px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-[0.13em] transition-colors select-none',
+                        hasActive ? 'text-[#a78bfa]' : 'text-white/30 hover:text-white/55',
+                      )}
+                    >
+                      <span>{section.label}</span>
+                      {isOpen ? (
+                        <ChevronDown className="h-3 w-3" />
+                      ) : (
+                        <ChevronRight className="h-3 w-3" />
+                      )}
+                    </button>
+                    {isOpen && (
+                      <div className="space-y-0.5 mt-0.5 mb-1">
+                        {section.items.map((item) => {
+                          const isSelected = selectedModule === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                if (item.id === 'company-intelligence') ensureCompanyIntelHash();
+                                onModuleSelect(item.id);
+                              }}
+                              data-tour={
+                                item.id === 'company-intelligence' ? 'nav-company-intel' : undefined
+                              }
+                              className={cn(
+                                'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all duration-150 text-left',
+                                isSelected
+                                  ? 'bg-[#6B4FEB]/20 text-white font-medium'
+                                  : 'text-white/45 hover:text-white/80 hover:bg-white/[0.06]',
+                              )}
+                            >
+                              <item.icon
+                                className={cn(
+                                  'h-3.5 w-3.5 flex-shrink-0',
+                                  isSelected ? 'text-[#a78bfa]' : 'text-white/30',
+                                )}
+                              />
+                              <span className="truncate">{item.title}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
-                  >
-                    {section.label}
-                    {isOpen
-                      ? <ChevronDown className="h-3 w-3" />
-                      : <ChevronRight className="h-3 w-3" />
-                    }
-                  </button>
+                  </>
                 ) : (
-                  <div className="h-px bg-border mx-1 my-2" />
-                )}
-
-                {(isOpen || collapsed) && (
-                  <div className={cn("space-y-1", !collapsed && "mt-1")}>
-                    {section.items.map(renderNavItem)}
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => {
+                      const isSelected = selectedModule === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            if (item.id === 'company-intelligence') ensureCompanyIntelHash();
+                            onModuleSelect(item.id);
+                          }}
+                          title={item.title}
+                          className={cn(
+                            'w-full flex items-center justify-center p-2 rounded-md transition-all duration-150',
+                            isSelected
+                              ? 'bg-[#6B4FEB]/25 text-[#a78bfa]'
+                              : 'text-white/35 hover:text-white/80 hover:bg-white/[0.07]',
+                          )}
+                        >
+                          <item.icon className="h-4 w-4" />
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -303,27 +371,40 @@ export function Sidebar({ selectedModule, onModuleSelect, collapsed, onToggleCol
           })}
         </div>
 
-        <Separator className="my-4" />
-
-        <div className="space-y-2">
-          {bottomItems.map((item) => (
-            <Button
-              key={item.id}
-              variant={selectedModule === item.id ? "default" : "ghost"}
-              className={cn(
-                "w-full justify-start rounded-2xl transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1",
-                collapsed ? "px-2" : "px-3 py-2.5",
-                selectedModule === item.id
-                  ? "bg-orange-500 text-white hover:bg-orange-600"
-                  : "bg-transparent text-foreground/70 hover:bg-orange-500/10 hover:text-orange-500"
-              )}
-              onClick={() => onModuleSelect(item.id)}
-              data-tour={item.id === 'settings' ? 'nav-settings' : undefined}
-            >
-              <item.icon className={cn("h-5 w-5", collapsed ? "" : "mr-2")} />
-              {!collapsed && <span className="font-medium text-base text-left">{item.title}</span>}
-            </Button>
-          ))}
+        {/* WORKSPACE */}
+        {!collapsed && (
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35 px-5 mt-4 mb-1">
+            Workspace
+          </p>
+        )}
+        {collapsed && <div className="mx-2 mt-3 mb-2 h-px bg-white/[0.08]" />}
+        <div className={cn('space-y-0.5 mt-1', collapsed ? 'px-2' : 'px-3')}>
+          {workspaceItems.map((item) => {
+            const isSelected = selectedModule === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onModuleSelect(item.id)}
+                title={collapsed ? item.title : undefined}
+                data-tour={item.id === 'settings' ? 'nav-settings' : undefined}
+                className={cn(
+                  'w-full flex items-center rounded-md transition-all duration-150 text-left',
+                  collapsed ? 'p-2 justify-center' : 'gap-2 px-2 py-1.5',
+                  isSelected
+                    ? 'bg-[#6B4FEB]/20 text-white'
+                    : 'text-white/45 hover:text-white/80 hover:bg-white/[0.07]',
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    'h-3.5 w-3.5 flex-shrink-0',
+                    isSelected ? 'text-[#a78bfa]' : 'text-white/30',
+                  )}
+                />
+                {!collapsed && <span className="text-sm truncate">{item.title}</span>}
+              </button>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
