@@ -2,6 +2,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { BRAND } from '@/lib/brand';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -130,6 +131,7 @@ export function Sidebar({
   activeConversationId,
   onConversationSelect,
 }: SidebarProps) {
+  const { user } = useAuth();
   const homeActive = !selectedModule || selectedModule === 'home';
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
@@ -470,6 +472,34 @@ export function Sidebar({
           })}
         </div>
       </ScrollArea>
+
+      {/* ── Bottom user row ──────────────────────────────────────── */}
+      <div className={cn(
+        'border-t border-white/[0.08] flex-shrink-0',
+        collapsed ? 'px-2 py-2 flex justify-center' : 'px-3 py-2',
+      )}>
+        {collapsed ? (
+          <button
+            onClick={() => onModuleSelect('settings')}
+            className="h-7 w-7 rounded-full bg-gradient-to-br from-[#F97316] to-violet-500 flex items-center justify-center text-white text-[10px] font-bold"
+          >
+            {(user?.email?.[0] ?? 'M').toUpperCase()}
+          </button>
+        ) : (
+          <button
+            onClick={() => onModuleSelect('settings')}
+            className="w-full flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-white/[0.06] transition-colors text-left"
+          >
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#F97316] to-violet-500 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+              {(user?.email?.[0] ?? 'M').toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-white/80 truncate">{user?.name || user?.email?.split('@')[0] || 'Account'}</p>
+              <p className="text-[10px] text-white/35 truncate">{user?.email ?? ''}</p>
+            </div>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

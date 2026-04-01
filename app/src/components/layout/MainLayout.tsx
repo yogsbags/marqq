@@ -41,8 +41,9 @@ export function MainLayout({
 }: MainLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Chat/channel view = home, main, performance-scorecard, channel-health
-  const isChatView = !selectedModule || selectedModule === 'home' || selectedModule === 'main';
+  // Chat/channel view = home, main (+ future channel pages use ChannelHeader)
+  const isChatView = !selectedModule || selectedModule === 'home' || selectedModule === 'main'
+    || selectedModule === 'performance-scorecard' || selectedModule === 'channel-health';
 
   const channelInfo = CHANNEL_NAMES[selectedModule ?? 'home'] ?? { name: selectedModule ?? 'main', description: '' };
 
