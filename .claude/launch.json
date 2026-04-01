@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Frontend (Vite dev — port 3007)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3007
+    },
+    {
+      "name": "Backend API (content-engine — port 3008)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:backend"],
+      "port": 3008
+    },
+    {
+      "name": "Full stack (frontend + backend)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:full"],
+      "port": 3007
+    },
+    {
+      "name": "Marketing site (Vite — port 3010)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "marketing-site", "run", "dev"],
+      "port": 3010
+    },
+    {
+      "name": "Production server (port 3007)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 3007
+    }
+  ]
+}
