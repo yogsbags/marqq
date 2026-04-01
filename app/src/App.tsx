@@ -1,4 +1,5 @@
 import { AgentDashboard } from '@/components/agents/AgentDashboard';
+import { ChatHome } from '@/components/chat/ChatHome';
 import { IntegrationsHub } from '@/components/integrations/IntegrationsHub';
 import { HomePostOnboardingTour } from '@/components/tour/HomePostOnboardingTour';
 import { InviteAccept } from '@/components/auth/InviteAccept';
@@ -188,12 +189,13 @@ function Dashboard() {
   }, [selectedModule, homeTourOpen]);
 
   const renderContent = () => {
-    // Home and default now show the goal-first HomeView
+    // Home and default now show the chat-first interface (Helena-style)
     if (!selectedModule || selectedModule === 'home') {
       return (
-        <HomeView
+        <ChatHome
           onModuleSelect={handleModuleSelect}
-          onOpenChat={() => setChatOpen(true)}
+          activeConversationId={activeConversationId}
+          onConversationsChange={handleConversationsChange}
         />
       );
     }
