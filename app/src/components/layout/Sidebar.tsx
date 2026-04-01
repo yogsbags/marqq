@@ -126,6 +126,9 @@ export function Sidebar({
   onModuleSelect,
   collapsed,
   onToggleCollapse,
+  conversations,
+  activeConversationId,
+  onConversationSelect,
 }: SidebarProps) {
   const homeActive = !selectedModule || selectedModule === 'home';
 
@@ -248,32 +251,92 @@ export function Sidebar({
         )}
         {collapsed && <div className="mx-2 mt-4 mb-2 h-px bg-white/[0.08]" />}
         <div className={cn('space-y-0.5 mt-1', collapsed ? 'px-2' : 'px-3')}>
-          <button
-            onClick={() => onModuleSelect('dashboard')}
-            data-tour="nav-dashboard"
-            className={cn(
-              'w-full flex items-center rounded-md transition-all duration-150 text-left',
-              collapsed ? 'p-2 justify-center' : 'gap-2.5 px-2 py-1.5',
-              selectedModule === 'dashboard'
-                ? 'bg-[#F97316]/20 text-white'
-                : 'text-white/50 hover:text-white/85 hover:bg-white/[0.07]',
-            )}
-          >
+          {/* Veena / Marqq AI DM row */}
+          <div className={cn('w-full rounded-md transition-all duration-150', collapsed ? '' : '')}>
             {collapsed ? (
-              <LayoutDashboard className="h-4 w-4" />
+              <button
+                onClick={() => onModuleSelect('dashboard')}
+                data-tour="nav-dashboard"
+                className={cn(
+                  'w-full flex items-center p-2 justify-center rounded-md transition-all duration-150',
+                  selectedModule === 'dashboard'
+                    ? 'bg-[#F97316]/20 text-white'
+                    : 'text-white/50 hover:text-white/85 hover:bg-white/[0.07]',
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+              </button>
             ) : (
-              <>
-                <div className="relative flex-shrink-0">
-                  <div className="h-5 w-5 rounded-full bg-gradient-to-br from-[#F97316] to-violet-500 flex items-center justify-center text-white text-[9px] font-bold">
-                    M
+              <div className={cn(
+                'flex items-center gap-2.5 px-2 py-1.5 rounded-md',
+                selectedModule === 'dashboard' ? 'bg-[#F97316]/20' : '',
+              )}>
+                <button
+                  onClick={() => onModuleSelect('dashboard')}
+                  data-tour="nav-dashboard"
+                  className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                >
+                  <div className="relative flex-shrink-0">
+                    <div className="h-6 w-6 rounded-full bg-gradient-to-br from-[#F97316] to-violet-500 flex items-center justify-center text-white text-[9px] font-bold">
+                      V
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 border-[1.5px] border-[#1A1A2E]" />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 border-[1.5px] border-[#1A1A2E]" />
-                </div>
-                <span className="text-sm font-medium truncate">Marqq AI</span>
-                <span className="ml-auto text-[10px] text-green-400 font-medium flex-shrink-0">online</span>
-              </>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className={cn('text-sm font-medium truncate', selectedModule === 'dashboard' ? 'text-white' : 'text-white/80')}>Veena</span>
+                    </div>
+                    <p className="text-[10px] text-white/35 truncate">AI Marketing OS</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => onModuleSelect(null)}
+                  title="New chat"
+                  className="flex-shrink-0 text-[10px] text-white/30 hover:text-white/70 transition-colors font-medium px-1.5 py-0.5 rounded hover:bg-white/[0.08]"
+                >
+                  + New
+                </button>
+              </div>
             )}
-          </button>
+          </div>
+
+          {/* Conversation previews (not collapsed) */}
+          {!collapsed && conversations && conversations.length > 0 && (
+            <>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/20 px-2 mt-3 mb-1">
+                Chat History
+              </p>
+              {conversations.slice(0, 2).map(conv => (
+                <button
+                  key={conv.id}
+                  onClick={() => {
+                    if (onConversationSelect) onConversationSelect(conv.id);
+                    onModuleSelect(null);
+                  }}
+                  className={cn(
+                    'w-full flex flex-col px-2 py-1.5 rounded-md text-left transition-all duration-150',
+                    activeConversationId === conv.id
+                      ? 'bg-white/[0.10] text-white'
+                      : 'text-white/45 hover:text-white/75 hover:bg-white/[0.06]',
+                  )}
+                >
+                  <span className="text-xs font-medium truncate text-white/70">{conv.name}</span>
+                  <span className="text-[10px] text-white/30 truncate mt-0.5">
+                    {conv.messages[conv.messages.length - 1]?.content?.slice(0, 38) ?? ''}
+                    {(conv.messages[conv.messages.length - 1]?.content?.length ?? 0) > 38 ? '...' : ''}
+                  </span>
+                </button>
+              ))}
+              {conversations.length > 2 && (
+                <button
+                  onClick={() => onModuleSelect(null)}
+                  className="w-full text-left px-2 py-1 text-[10px] text-white/30 hover:text-white/55 transition-colors"
+                >
+                  See all conversations
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* INTELLIGENCE sections */}
