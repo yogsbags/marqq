@@ -1,199 +1,318 @@
 import { useState } from 'react';
-import { TrendingUp, CheckSquare, BookOpen, Users, TrendingDown, Minus, ExternalLink, Circle } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, Minus, ExternalLink,
+  ChevronDown, ChevronRight, BookOpen, Users, Zap,
+  Calendar, PlusCircle, BarChart2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const TABS = [
-  { id: 'metrics', label: 'Metrics', icon: TrendingUp },
-  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { id: 'brand', label: 'Brand KB', icon: BookOpen },
-  { id: 'agents', label: 'Agents', icon: Users },
-] as const;
-
-type TabId = typeof TABS[number]['id'];
+// ── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_METRICS = [
-  { label: 'Organic Traffic', value: '14,280', change: '+12%', positive: true },
-  { label: 'Leads Generated', value: '382', change: '+8%', positive: true },
-  { label: 'Conversion Rate', value: '2.7%', change: '-0.3%', positive: false },
-  { label: 'Email Open Rate', value: '28.4%', change: '+4%', positive: true },
-  { label: 'Avg. Session', value: '3m 12s', change: '+0%', positive: null },
-  { label: 'Bounce Rate', value: '41%', change: '-2%', positive: true },
+  { label: 'Organic Traffic', value: '14,280', change: '+12%', positive: true as boolean | null },
+  { label: 'Leads Generated', value: '382',    change: '+8%',   positive: true },
+  { label: 'Conversion Rate', value: '2.7%',   change: '-0.3%', positive: false },
+  { label: 'Email Open Rate', value: '28.4%',  change: '+4%',   positive: true },
+  { label: 'Avg. Session',    value: '3m 12s', change: '+0%',   positive: null },
+  { label: 'Bounce Rate',     value: '41%',    change: '-2%',   positive: true },
 ];
 
 const MOCK_TASKS = [
-  { id: '1', label: 'Review Q2 campaign brief', done: false, priority: 'high' },
-  { id: '2', label: 'Publish 3 LinkedIn posts', done: false, priority: 'medium' },
-  { id: '3', label: 'Connect Google Analytics', done: false, priority: 'high' },
-  { id: '4', label: 'Update ICP document', done: true, priority: 'low' },
-  { id: '5', label: 'Run SEO gap analysis', done: true, priority: 'medium' },
+  { id: '1', label: 'Review Q2 campaign brief',   done: false, priority: 'high',   agent: 'Veena',  dueIn: 'in 2d' },
+  { id: '2', label: 'Publish 3 LinkedIn posts',   done: false, priority: 'medium', agent: 'Riya',   dueIn: 'in 4d' },
+  { id: '3', label: 'Connect Google Analytics',   done: false, priority: 'high',   agent: 'Dev',    dueIn: 'in 6d' },
+  { id: '4', label: 'Update ICP document',        done: true,  priority: 'low',    agent: 'Arjun',  dueIn: '' },
+  { id: '5', label: 'Run SEO gap analysis',       done: true,  priority: 'medium', agent: 'Maya',   dueIn: '' },
 ];
 
 const MOCK_BRAND_FILES = [
-  { name: 'brand_guidelines.md', size: '12 KB', updated: '2d ago' },
-  { name: 'business_profile.md', size: '8 KB', updated: '2d ago' },
-  { name: 'icp_document.md', size: '5 KB', updated: '5d ago' },
-  { name: 'messaging_framework.md', size: '9 KB', updated: '1w ago' },
+  { name: 'brand_guidelines.md',    date: '3/31/2026' },
+  { name: 'business_profile.md',    date: '3/31/2026' },
+  { name: 'marketing_strategy.md',  date: '3/31/2026' },
+  { name: 'market_research.md',     date: '3/31/2026' },
+  { name: 'seo_strategy.md',        date: '3/31/2026' },
 ];
 
 const MOCK_AGENTS = [
-  { name: 'Veena', role: 'Marketing OS', status: 'online', color: 'bg-orange-500' },
-  { name: 'Maya', role: 'SEO & LLMO', status: 'online', color: 'bg-green-500' },
-  { name: 'Arjun', role: 'Lead Intel', status: 'idle', color: 'bg-blue-500' },
-  { name: 'Riya', role: 'Content', status: 'working', color: 'bg-purple-500' },
-  { name: 'Zara', role: 'Campaigns', status: 'idle', color: 'bg-pink-500' },
-  { name: 'Dev', role: 'Analytics', status: 'idle', color: 'bg-amber-500' },
+  { name: 'Veena', role: 'Marketing OS',     status: 'online',   color: 'bg-orange-500' },
+  { name: 'Maya',  role: 'SEO & LLMO',       status: 'online',   color: 'bg-green-500' },
+  { name: 'Arjun', role: 'Lead Intelligence', status: 'idle',    color: 'bg-blue-500' },
+  { name: 'Riya',  role: 'Content',          status: 'working',  color: 'bg-purple-500' },
+  { name: 'Zara',  role: 'Campaigns',        status: 'idle',     color: 'bg-pink-500' },
+  { name: 'Dev',   role: 'Analytics',        status: 'idle',     color: 'bg-amber-500' },
 ];
 
-function MetricsTab() {
+// ── Collapsible section wrapper ───────────────────────────────────────────────
+
+function Section({
+  title,
+  action,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="p-3 space-y-2">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-3">Last 30 days</p>
-      {MOCK_METRICS.map(m => (
-        <div key={m.label} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
-          <span className="text-xs text-muted-foreground">{m.label}</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-foreground">{m.value}</span>
-            <span className={cn('text-[10px] font-medium flex items-center gap-0.5',
-              m.positive === true ? 'text-green-600 dark:text-green-400' :
-              m.positive === false ? 'text-red-500 dark:text-red-400' :
-              'text-muted-foreground'
-            )}>
-              {m.positive === true && <TrendingUp className="h-2.5 w-2.5" />}
-              {m.positive === false && <TrendingDown className="h-2.5 w-2.5" />}
-              {m.positive === null && <Minus className="h-2.5 w-2.5" />}
-              {m.change}
-            </span>
-          </div>
+    <div className="border-b border-border/50 last:border-b-0">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {title}
+        </span>
+        <div className="flex items-center gap-2">
+          {action && <span onClick={e => e.stopPropagation()}>{action}</span>}
+          {open
+            ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          }
         </div>
-      ))}
-      <p className="text-[10px] text-muted-foreground text-center pt-2">Connect GA4 for live data</p>
+      </button>
+      {open && <div className="pb-2">{children}</div>}
     </div>
   );
 }
 
-function TasksTab() {
+// ── Metrics section ───────────────────────────────────────────────────────────
+
+function MetricsSection() {
+  return (
+    <Section title="Metrics">
+      <div className="px-3 space-y-1.5">
+        {MOCK_METRICS.map(m => (
+          <div key={m.label} className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5">
+            <span className="text-xs text-muted-foreground">{m.label}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold tabular-nums">{m.value}</span>
+              <span className={cn(
+                'text-[10px] font-medium flex items-center gap-0.5',
+                m.positive === true  ? 'text-green-600 dark:text-green-400' :
+                m.positive === false ? 'text-red-500 dark:text-red-400' :
+                                       'text-muted-foreground',
+              )}>
+                {m.positive === true  && <TrendingUp className="h-2.5 w-2.5" />}
+                {m.positive === false && <TrendingDown className="h-2.5 w-2.5" />}
+                {m.positive === null  && <Minus className="h-2.5 w-2.5" />}
+                {m.change}
+              </span>
+            </div>
+          </div>
+        ))}
+        <p className="text-[10px] text-muted-foreground text-center pt-1">
+          Connect GA4 for live data ·{' '}
+          <button className="text-orange-500 hover:underline">Connect now</button>
+        </p>
+      </div>
+    </Section>
+  );
+}
+
+// ── Channels / Autopilot section ──────────────────────────────────────────────
+
+function ChannelsSection() {
+  const [autopilot, setAutopilot] = useState(false);
+  return (
+    <Section title="Channels" defaultOpen={true}>
+      <div className="px-3 space-y-2">
+        {/* Autopilot toggle */}
+        <div className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-2">
+          <div className="flex items-center gap-2">
+            <Zap className={cn('h-3.5 w-3.5', autopilot ? 'text-orange-500' : 'text-muted-foreground')} />
+            <div>
+              <p className="text-xs font-medium">Autopilot</p>
+              <p className="text-[10px] text-muted-foreground">Auto-post approved content</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setAutopilot(p => !p)}
+            className={cn(
+              'relative h-5 w-9 rounded-full transition-colors flex-shrink-0',
+              autopilot ? 'bg-orange-500' : 'bg-border',
+            )}
+          >
+            <span className={cn(
+              'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+              autopilot ? 'translate-x-4' : 'translate-x-0',
+            )} />
+          </button>
+        </div>
+        {/* Connect channels CTA */}
+        <p className="text-[10px] text-muted-foreground px-0.5">
+          Connect all channels to enable autopilot
+        </p>
+        <button className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/70 py-1.5 text-[11px] text-muted-foreground hover:border-orange-300 hover:text-orange-600 transition-colors">
+          <PlusCircle className="h-3 w-3" />
+          Add channel
+        </button>
+      </div>
+    </Section>
+  );
+}
+
+// ── Upcoming Tasks section ────────────────────────────────────────────────────
+
+function TasksSection() {
   const [tasks, setTasks] = useState(MOCK_TASKS);
   const pending = tasks.filter(t => !t.done);
-  const done = tasks.filter(t => t.done);
+  const done    = tasks.filter(t => t.done);
+
+  const viewAllAction = (
+    <button className="text-[10px] text-orange-500 hover:underline font-medium">View all</button>
+  );
+
   return (
-    <div className="p-3 space-y-1">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-2">{pending.length} pending</p>
-      {pending.map(t => (
-        <button key={t.id} onClick={() => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: true } : x))}
-          className="flex items-start gap-2 w-full rounded-lg px-2 py-2 hover:bg-muted/50 transition-colors text-left group">
-          <div className={cn('mt-0.5 h-4 w-4 rounded border-2 flex-shrink-0 transition-colors',
-            t.priority === 'high' ? 'border-orange-400' : t.priority === 'medium' ? 'border-blue-400' : 'border-border group-hover:border-muted-foreground'
-          )} />
-          <span className="text-xs text-foreground leading-relaxed">{t.label}</span>
-        </button>
-      ))}
-      {done.length > 0 && (
-        <>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mt-3 mb-1">{done.length} completed</p>
-          {done.map(t => (
-            <div key={t.id} className="flex items-start gap-2 px-2 py-2 opacity-50">
-              <div className="mt-0.5 h-4 w-4 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center">
-                <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
-              <span className="text-xs text-muted-foreground line-through leading-relaxed">{t.label}</span>
+    <Section
+      title="Upcoming Tasks"
+      action={viewAllAction}
+      defaultOpen={true}
+    >
+      <div className="px-3 space-y-0.5">
+        {pending.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: true } : x))}
+            className="flex items-start gap-2 w-full rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors text-left group"
+          >
+            <div className={cn(
+              'mt-0.5 h-3.5 w-3.5 rounded border-[1.5px] flex-shrink-0',
+              t.priority === 'high'   ? 'border-orange-400' :
+              t.priority === 'medium' ? 'border-blue-400'   : 'border-border',
+            )} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-foreground leading-snug">{t.label}</p>
+              <p className="text-[10px] text-muted-foreground">{t.agent}{t.dueIn ? ` · ${t.dueIn}` : ''}</p>
             </div>
-          ))}
-        </>
-      )}
-    </div>
+          </button>
+        ))}
+        {done.length > 0 && (
+          <div className="mt-1 space-y-0.5 opacity-50">
+            {done.map(t => (
+              <div key={t.id} className="flex items-start gap-2 px-2 py-1.5">
+                <div className="mt-0.5 h-3.5 w-3.5 rounded border-[1.5px] border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center">
+                  <svg className="h-2 w-2 text-white" viewBox="0 0 10 10" fill="none">
+                    <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <p className="text-xs text-muted-foreground line-through leading-snug">{t.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }
 
-function BrandKBTab() {
+// ── Brand KB section ──────────────────────────────────────────────────────────
+
+function BrandKBSection() {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? MOCK_BRAND_FILES : MOCK_BRAND_FILES.slice(0, 2);
+  const hidden  = MOCK_BRAND_FILES.length - 2;
+
   return (
-    <div className="p-3 space-y-1">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-2">Brand Files</p>
-      {MOCK_BRAND_FILES.map(f => (
-        <div key={f.name} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/50 transition-colors cursor-pointer group">
-          <div className="h-7 w-7 rounded bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0">
-            <BookOpen className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+    <Section title="Brand Knowledge Base" defaultOpen={true}>
+      <div className="px-3 space-y-0.5">
+        {visible.map(f => (
+          <div
+            key={f.name}
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors cursor-pointer group"
+          >
+            <div className="h-6 w-6 rounded bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0">
+              <BookOpen className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium truncate">{f.name}</p>
+              <p className="text-[10px] text-muted-foreground">{f.date}</p>
+            </div>
+            <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-foreground truncate">{f.name}</p>
-            <p className="text-[10px] text-muted-foreground">{f.size} · {f.updated}</p>
-          </div>
-          <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-        </div>
-      ))}
-      <button className="w-full mt-2 rounded-lg border-2 border-dashed border-border/60 py-2 text-[11px] text-muted-foreground hover:border-orange-300 hover:text-orange-600 transition-colors">
-        + Upload file
-      </button>
-    </div>
+        ))}
+        {!showAll && hidden > 0 && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="w-full text-left text-[10px] text-orange-500 hover:underline px-2 py-1"
+          >
+            View all ({hidden} more)
+          </button>
+        )}
+      </div>
+    </Section>
   );
 }
 
-function AgentsTab() {
-  const statusColor = (s: string) => s === 'online' ? 'bg-green-500' : s === 'working' ? 'bg-orange-400' : 'bg-gray-400';
-  const statusLabel = (s: string) => s === 'online' ? 'Ready' : s === 'working' ? 'Working...' : 'Idle';
+// ── Agents section ────────────────────────────────────────────────────────────
+
+function AgentsSection() {
+  const statusColor = (s: string) =>
+    s === 'online'  ? 'bg-green-500'  :
+    s === 'working' ? 'bg-orange-400' : 'bg-gray-400';
+  const statusLabel = (s: string) =>
+    s === 'online'  ? 'Ready'      :
+    s === 'working' ? 'Working...' : 'Idle';
+
   return (
-    <div className="p-3 space-y-1">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-2">Your AI Team</p>
-      {MOCK_AGENTS.map(a => (
-        <div key={a.name} className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/50 transition-colors">
-          <div className={cn('h-7 w-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0', a.color)}>
-            {a.name[0]}
+    <Section title="Your AI Team" defaultOpen={false}>
+      <div className="px-3 space-y-0.5">
+        {MOCK_AGENTS.map(a => (
+          <div key={a.name} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors">
+            <div className={cn('h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0', a.color)}>
+              {a.name[0]}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">{a.name}</p>
+              <p className="text-[10px] text-muted-foreground">{a.role}</p>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <div className={cn('h-1.5 w-1.5 rounded-full', statusColor(a.status))} />
+              <span className="text-[10px] text-muted-foreground">{statusLabel(a.status)}</span>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-foreground">{a.name}</p>
-            <p className="text-[10px] text-muted-foreground">{a.role}</p>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <div className={cn('h-1.5 w-1.5 rounded-full', statusColor(a.status))} />
-            <span className="text-[10px] text-muted-foreground">{statusLabel(a.status)}</span>
-          </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </Section>
   );
 }
+
+// ── Root export ───────────────────────────────────────────────────────────────
 
 interface RightPanelProps {
   className?: string;
 }
 
 export function RightPanel({ className }: RightPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('metrics');
-
   return (
     <div className={cn(
-      "w-72 flex-shrink-0 border-l border-border/60 bg-background/50 flex flex-col overflow-hidden",
-      className
+      'w-[380px] flex-shrink-0 border-l border-border/60 bg-background/50 flex flex-col overflow-hidden',
+      className,
     )}>
-      {/* Tab bar */}
-      <div className="flex border-b border-border/60 bg-background px-2 pt-2 gap-0.5 flex-shrink-0">
-        {TABS.map(tab => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex items-center gap-1 px-2.5 py-1.5 rounded-t-md text-[11px] font-medium transition-colors border-b-2 -mb-px',
-                active
-                  ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-50/60 dark:bg-orange-900/10'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              )}
-            >
-              <Icon className="h-3 w-3" />
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Panel header */}
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/60 flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          <BarChart2 className="h-3.5 w-3.5 text-orange-500" />
+          <span className="text-xs font-semibold text-foreground">Overview</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-0.5">
+            <Calendar className="h-3 w-3" />
+            <span>Last 30 days</span>
+          </button>
+        </div>
       </div>
 
-      {/* Tab content */}
+      {/* Scrollable sections */}
       <ScrollArea className="flex-1">
-        {activeTab === 'metrics' && <MetricsTab />}
-        {activeTab === 'tasks' && <TasksTab />}
-        {activeTab === 'brand' && <BrandKBTab />}
-        {activeTab === 'agents' && <AgentsTab />}
+        <MetricsSection />
+        <ChannelsSection />
+        <TasksSection />
+        <BrandKBSection />
+        <AgentsSection />
       </ScrollArea>
     </div>
   );
