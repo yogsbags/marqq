@@ -595,6 +595,84 @@ const AGENT_COLORS: Record<string, { bg: string; border: string; label: string; 
 };
 const DEFAULT_AGENT_COLORS = { bg: 'bg-zinc-50/80 dark:bg-zinc-900/30', border: 'border-zinc-200/70 dark:border-zinc-800/40', label: 'text-zinc-700 dark:text-zinc-300', avatar: 'bg-zinc-500' };
 
+// ── Autonomous agent sequence helpers ────────────────────────────────────────
+
+type SequenceAgent = {
+  name: string;
+  displayName: string;
+  role: string;
+  query: string;
+};
+
+const URL_RE = /https?:\/\/[^\s)>"]+/i;
+
+function buildUrlAnalysisSequence(url: string): SequenceAgent[] {
+  return [
+    {
+      name: 'maya',
+      displayName: 'Maya',
+      role: 'SEO & LLMO Monitor',
+      query: `Analyse the SEO and AI answer engine (LLMO) presence for ${url}. Surface the top keyword opportunities, ranking gaps, and visibility in AI summaries. Use any connected Google Search Console or Ahrefs data if available via Composio.`,
+    },
+    {
+      name: 'arjun',
+      displayName: 'Arjun',
+      role: 'Lead Intelligence',
+      query: `Based on the business at ${url}, define the ideal customer profile. Identify the top 3 target segments, key buying signals, and recommended outreach approach. Use Apollo or LinkedIn data if available via Composio.`,
+    },
+    {
+      name: 'dev',
+      displayName: 'Dev',
+      role: 'Performance Analyst',
+      query: `Analyse the estimated performance and analytics footprint for ${url}. What are the traffic trends, funnel drop-offs, and top 3 conversion improvements to prioritise? Use GA4 or PostHog data if connected via Composio.`,
+    },
+    {
+      name: 'riya',
+      displayName: 'Riya',
+      role: 'Content Producer',
+      query: `Review the content strategy visible at ${url}. What content gaps exist, which formats are underused, and what are the top 3 content pieces to publish next for maximum impact?`,
+    },
+    {
+      name: 'zara',
+      displayName: 'Zara',
+      role: 'Campaign Strategist',
+      query: `Based on the website ${url} and its market position, what campaign strategy would you recommend? Which paid and organic channels, messaging angles, and campaign formats should we prioritise for Q2?`,
+    },
+  ];
+}
+
+function buildBroadQuerySequence(query: string): SequenceAgent[] | null {
+  if (!/audit|full.?analysis|analyse (my|our)|analyze (my|our)|review (my|our)|(marketing|growth) strategy|go.?to.?market|gtm plan/i.test(query)) {
+    return null;
+  }
+  return [
+    {
+      name: 'maya',
+      displayName: 'Maya',
+      role: 'SEO & LLMO Monitor',
+      query: `${query} — give your SEO and LLMO perspective: keyword opportunities, ranking position, and AI answer engine visibility.`,
+    },
+    {
+      name: 'arjun',
+      displayName: 'Arjun',
+      role: 'Lead Intelligence',
+      query: `${query} — from a lead intelligence angle: ICP definition, top segments, and outreach priorities.`,
+    },
+    {
+      name: 'dev',
+      displayName: 'Dev',
+      role: 'Performance Analyst',
+      query: `${query} — identify the key performance metrics, funnel gaps, and top 3 growth levers.`,
+    },
+    {
+      name: 'riya',
+      displayName: 'Riya',
+      role: 'Content Producer',
+      query: `${query} — what content strategy and specific content pieces do you recommend for the next 30 days?`,
+    },
+  ];
+}
+
 function SubagentMessageCard({ message, onModuleSelect }: { message: Message; onModuleSelect?: (id: string) => void }) {
   const colors = (message.agentId ? AGENT_COLORS[message.agentId] : null) ?? DEFAULT_AGENT_COLORS;
   const initial = (message.agentName ?? 'A').charAt(0).toUpperCase();
@@ -653,6 +731,7 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
   const [mkgContext, setMkgContext] = useState<string>('');
   const [reasoningStreamingId, setReasoningStreamingId] = useState<string | null>(null);
   const [typingLabelIdx, setTypingLabelIdx] = useState(0);
+  const [activeTypingAgent, setActiveTypingAgent] = useState<SequenceAgent | null>(null);
 
   useEffect(() => {
     if (!isTyping) { setTypingLabelIdx(0); return; }
@@ -1118,6 +1197,116 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
     }
   };
 
+  // -- Autonomous agent sequence — streams each agent card in order
+  const runAgentSequence = async (agents: SequenceAgent[], introText: string) => {
+    // Post Veena orchestration message
+    const introMsg: Message = {
+      id: Date.now().toString(),
+      content: introText,
+      sender: 'ai',
+      timestamp: new Date(),
+    };
+    onMessagesChange(prev => [...prev, introMsg]);
+
+    for (const agent of agents) {
+      setActiveTypingAgent(agent);
+      setIsTyping(true);
+
+      // Brief pause so user sees the typing indicator per agent
+      await new Promise(r => setTimeout(r, 400));
+
+      try {
+        const res = await fetch(`/api/agents/${agent.name}/run`, {
+          method: 'POST',
+          headers: buildAgentHeaders(),
+          body: JSON.stringify(buildAgentRunPayload({ query: agent.query })),
+        });
+
+        if (!res.ok) {
+          setIsTyping(false);
+          const errMsg: Message = {
+            id: (Date.now() + Math.random()).toString(),
+            content: 'Agent offline — skipping this step.',
+            sender: 'ai',
+            timestamp: new Date(),
+            agentName: agent.displayName,
+            agentRole: agent.role,
+            agentId: agent.name,
+          };
+          onMessagesChange(prev => [...prev, errMsg]);
+          continue;
+        }
+
+        const reader = res.body?.getReader();
+        const dec = new TextDecoder();
+        let accumulated = '';
+
+        // Create streaming placeholder card
+        const placeholderId = `seq-${agent.name}-${Date.now()}`;
+        const placeholder: Message = {
+          id: placeholderId,
+          content: '',
+          sender: 'ai',
+          timestamp: new Date(),
+          agentName: agent.displayName,
+          agentRole: agent.role,
+          agentId: agent.name,
+        };
+        // Add placeholder and hide typing indicator once the card is live
+        setMessages(prev => [...prev, placeholder]);
+        setIsTyping(false);
+        setActiveTypingAgent(null);
+
+        if (reader) {
+          outer: while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            for (const line of dec.decode(value).split('\n')) {
+              if (!line.startsWith('data: ')) continue;
+              const payload = line.slice(6).trim();
+              if (payload === '[DONE]') break outer;
+              try {
+                const parsed = JSON.parse(payload);
+                if (parsed.contract || parsed.contractError || parsed.details) continue;
+                if (parsed.text) {
+                  accumulated += parsed.text;
+                  setMessages(prev => prev.map(m =>
+                    m.id === placeholderId ? { ...m, content: accumulated } : m,
+                  ));
+                }
+                if (parsed.error) throw new Error(parsed.error);
+              } catch { /* ignore partial chunks */ }
+            }
+          }
+        }
+
+        const finalContent = sanitizeAgentStreamText(accumulated) || 'Analysis complete.';
+        // Persist the final content via onMessagesChange so it's saved
+        onMessagesChange(prev => prev.map(m =>
+          m.id === placeholderId ? { ...m, content: finalContent } : m,
+        ));
+      } catch {
+        setIsTyping(false);
+        const errMsg: Message = {
+          id: (Date.now() + Math.random()).toString(),
+          content: 'Could not reach this agent right now.',
+          sender: 'ai',
+          timestamp: new Date(),
+          agentName: agent.displayName,
+          agentRole: agent.role,
+          agentId: agent.name,
+        };
+        onMessagesChange(prev => [...prev, errMsg]);
+      }
+
+      // Pause between agents for readability
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    setActiveTypingAgent(null);
+    setIsTyping(false);
+  };
+
   const createAgentTaskPlan = async () => {
     if (!taskAgent) return;
     const nextRequest = taskDraft.trim();
@@ -1282,6 +1471,19 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
     setInputValue('');
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+
+    // ── URL fast-path: skip Veena routing and immediately orchestrate full team
+    if (!currentFile) {
+      const urlMatch = currentInput.match(URL_RE);
+      if (urlMatch) {
+        await runAgentSequence(
+          buildUrlAnalysisSequence(urlMatch[0]),
+          `Ingesting ${urlMatch[0]} — pulling your full team together. Each specialist will brief you in sequence.`,
+        );
+        return;
+      }
+    }
+
     setIsTyping(true);
 
     try {
@@ -1332,8 +1534,28 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
 
       if (veena.route === 'agent') {
         setMessages(prev => prev.filter(m => m.id !== placeholderId));
-        addMessage(`On it — routing this to ${veena.label}.`);
         setIsTyping(false);
+
+        // Check if we should orchestrate a full sequence
+        const urlInMessage = currentInput.match(URL_RE)?.[0];
+        if (urlInMessage) {
+          await runAgentSequence(
+            buildUrlAnalysisSequence(urlInMessage),
+            `Ingesting ${urlInMessage} — I'm pulling your full team together. Each specialist will brief you in order.`,
+          );
+          return;
+        }
+        const broadSequence = buildBroadQuerySequence(currentInput);
+        if (broadSequence) {
+          await runAgentSequence(
+            broadSequence,
+            `On it — I'm orchestrating a full read on this across your team. Stand by for each brief.`,
+          );
+          return;
+        }
+
+        // Single-agent path
+        addMessage(`On it — routing this to ${veena.label}.`);
         await runAgentSlashCommand(
           { name: veena.agentName, label: veena.label, defaultQuery: veena.query },
           veena.query,
@@ -1596,20 +1818,38 @@ export function ChatHome({ onClose, onModuleSelect, activeConversationId, onConv
             {/* Typing / tool-use indicator */}
             {isTyping && (
               <div className="flex items-start space-x-3 justify-start">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-orange-100 text-orange-600">
-                    <Bot className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <Card className="rounded-2xl border border-border/70 bg-background/90 p-3 text-left">
+                {activeTypingAgent ? (
+                  // Agent-branded typing indicator during sequence
+                  <div className={cn(
+                    'h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0',
+                    (AGENT_COLORS[activeTypingAgent.name] ?? DEFAULT_AGENT_COLORS).avatar,
+                  )}>
+                    {activeTypingAgent.displayName.charAt(0)}
+                  </div>
+                ) : (
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-orange-100 text-orange-600">
+                      <Bot className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <Card className={cn(
+                  'rounded-2xl border p-3 text-left',
+                  activeTypingAgent
+                    ? cn((AGENT_COLORS[activeTypingAgent.name] ?? DEFAULT_AGENT_COLORS).border,
+                        (AGENT_COLORS[activeTypingAgent.name] ?? DEFAULT_AGENT_COLORS).bg)
+                    : 'border-border/70 bg-background/90',
+                )}>
                   <div className="flex items-center gap-2">
                     <div className="flex space-x-1">
-                      <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce" />
-                      <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                      <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                      <div className={cn('w-1.5 h-1.5 rounded-full animate-bounce', activeTypingAgent ? (AGENT_COLORS[activeTypingAgent.name] ?? DEFAULT_AGENT_COLORS).avatar : 'bg-orange-400')} />
+                      <div className={cn('w-1.5 h-1.5 rounded-full animate-bounce', activeTypingAgent ? (AGENT_COLORS[activeTypingAgent.name] ?? DEFAULT_AGENT_COLORS).avatar : 'bg-orange-400')} style={{ animationDelay: '0.15s' }} />
+                      <div className={cn('w-1.5 h-1.5 rounded-full animate-bounce', activeTypingAgent ? (AGENT_COLORS[activeTypingAgent.name] ?? DEFAULT_AGENT_COLORS).avatar : 'bg-orange-400')} style={{ animationDelay: '0.3s' }} />
                     </div>
-                    <span className="text-[11px] text-muted-foreground transition-all duration-500">
-                      {TOOL_USE_LABELS[typingLabelIdx]}
+                    <span className={cn('text-[11px] transition-all duration-500', activeTypingAgent ? (AGENT_COLORS[activeTypingAgent.name] ?? DEFAULT_AGENT_COLORS).label : 'text-muted-foreground')}>
+                      {activeTypingAgent
+                        ? `${activeTypingAgent.displayName} is analysing...`
+                        : TOOL_USE_LABELS[typingLabelIdx]}
                     </span>
                   </div>
                 </Card>
