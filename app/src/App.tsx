@@ -294,20 +294,33 @@ function Dashboard() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [isOnboarded, setIsOnboarded] = useState(() => localStorage.getItem('marqq_onboarded') === '1');
 
-  // On login with empty localStorage: skip onboarding for existing users.
-  // Only fresh signups (sessionStorage flag set by AuthContext.signup) should see onboarding.
+  // Sync state with user metadata if they completed onboarding on another device/browser
   useEffect(() => {
-    if (!isAuthenticated || isOnboarded) return;
+    if (user?.onboarded && !isOnboarded) {
+      localStorage.setItem('marqq_onboarded', '1');
+      setIsOnboarded(true);
+    }
+  }, [user, isOnboarded]);
+
+  // On login with empty localStorage: skip onboarding for existing users.
+  // Only fresh signups (sessionStorage flag set by AuthContext.signup) or users
+  // who haven't completed onboarding in their database metadata should see onboarding.
+  useEffect(() => {
+    if (!isAuthenticated || isOnboarded || isLoading) return;
     const isFreshSignup = sessionStorage.getItem('marqq_just_signed_up') === '1';
-    if (isFreshSignup) return; // let the onboarding flow handle it
-    // Existing user logging in — mark as onboarded without showing the flow
+    const hasOnboardedInDb = !!user?.onboarded;
+
+    if (isFreshSignup || !hasOnboardedInDb) {
+      return; // let the onboarding flow handle it
+    }
+
+    // Existing user logging in who has already onboarded in DB — mark as onboarded locally
     localStorage.setItem('marqq_onboarded', '1');
-    supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => {});
     setIsOnboarded(true);
-  }, [isAuthenticated, isOnboarded]);
+  }, [isAuthenticated, isOnboarded, isLoading, user]);
 
   // Invite token from URL (?invite=<token>) or session (stored before login)
   const [inviteToken, setInviteToken] = useState<string | null>(() => {

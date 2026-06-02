@@ -4,6 +4,7 @@ export interface User {
   name: string;
   avatar?: string;
   role: 'admin' | 'user' | 'manager';
+  onboarded?: boolean;
 }
 
 export interface AuthState {

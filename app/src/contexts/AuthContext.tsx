@@ -26,6 +26,7 @@ function mapSupabaseUser(supabaseUser: any): User | null {
     avatar: supabaseUser.user_metadata?.avatar_url ||
             `https://api.dicebear.com/7.x/avataaars/svg?seed=${supabaseUser.email}`,
     role: (supabaseUser.user_metadata?.role as 'admin' | 'user' | 'manager') || 'user',
+    onboarded: !!supabaseUser.user_metadata?.onboarded,
   };
 }
 
