@@ -2274,6 +2274,54 @@ export function ChatHome({
           return fallbacks[agent.name.toLowerCase()] || 'Analysis in progress. Try a more specific query.';
         })();
 
+        // Robust client-side fallbacks for follow-up questions in case backend fails or hits rate limits
+        const fallbackFollowUps: Record<string, string[]> = {
+          maya: [
+            'Identify my top 3 search competitors',
+            'What are the highest value keywords to target?',
+            'Show my most urgent SEO ranking gaps'
+          ],
+          arjun: [
+            'Define my ideal customer profile (ICP)',
+            'What are the top outreach segments to prioritize?',
+            'Draft a personalized outreach template'
+          ],
+          dev: [
+            'What are the top conversion rate fixes to make?',
+            'Identify missing conversion tracking events',
+            'Run a performance & Core Web Vitals audit'
+          ],
+          riya: [
+            'Generate 5 blog topics for my website',
+            'Draft a LinkedIn post explaining our value proposition',
+            'Create a content calendar layout'
+          ],
+          zara: [
+            'What marketing channels should we focus on first?',
+            'Draft a 90-day multi-channel campaign plan',
+            'Suggest high-impact social media ad angles'
+          ],
+          priya: [
+            'Draft a comprehensive brand positioning brief',
+            'Optimize our current core value proposition',
+            'Determine our brand voice guidelines'
+          ],
+          kiran: [
+            'Audit our social media content performance',
+            'Compare performance across platforms',
+            'Generate a social media engagement strategy'
+          ],
+          sam: [
+            'Analyze our email delivery rates & health',
+            'Draft a customer welcome/nurture sequence',
+            'Identify key audience segments to target'
+          ]
+        };
+
+        const finalFollowUps = seqFollowUps.length
+          ? seqFollowUps
+          : (fallbackFollowUps[agent.name.toLowerCase()] || []);
+
         // Persist the final content + follow-up suggestions via onMessagesChange (clear toolStatus)
         onMessagesChange(prev => prev.map(m =>
           m.id === placeholderId ? {
@@ -2281,7 +2329,7 @@ export function ChatHome({
             content: displayContent,
             reasoning: streamedReasoning || undefined,
             toolStatus: undefined,
-            ...(seqFollowUps.length && { follow_ups: seqFollowUps }),
+            ...(finalFollowUps.length && { follow_ups: finalFollowUps }),
           } : m,
         ));
       } catch (error) {
