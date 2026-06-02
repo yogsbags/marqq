@@ -4278,8 +4278,18 @@ app.get("/health", (_req, res) => {
 app.post("/api/chat/completions", express.json(), async (req, res) => {
   try {
     const body = req.body || {};
-    // Force the model to the server-side resolved model if client sends none.
-    if (!body.model) body.model = LLM_MODEL;
+    
+    // Resolve the active provider, taking into account any server-side key fallbacks.
+    const isFallingBackToGroq = (LLM_PROVIDER === 'claude' || LLM_PROVIDER === 'anthropic')
+      && !process.env.ANTHROPIC_API_KEY;
+    const resolvedProvider = isFallingBackToGroq ? 'groq' : LLM_PROVIDER;
+
+    // Check if the requested model matches the resolved provider.
+    // If mismatch, or if model is missing, force server-side resolved model.
+    const requestedProvider = inferProviderForModel(body.model);
+    if (!body.model || requestedProvider !== resolvedProvider) {
+      body.model = getLLMModel('default');
+    }
 
     const isStream = Boolean(body.stream);
 
