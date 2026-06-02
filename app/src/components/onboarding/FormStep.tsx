@@ -2,6 +2,9 @@ import { useState } from 'react';
 import OnboardingContainer from './OnboardingContainer';
 import ProgressBar from './ProgressBar';
 import { FormData, OnboardingStep } from './types';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { connectComposioConnector } from '@/lib/composio';
 
 interface Integration {
   id: string;
@@ -41,6 +44,8 @@ function IntegrationsGrid({
 }) {
   const connected = new Set(value ? value.split(',').filter(Boolean) : []);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const { activeWorkspace } = useWorkspace();
+  const { user } = useAuth();
 
   const toggle = async (id: string) => {
     if (connected.has(id)) {
@@ -49,13 +54,42 @@ function IntegrationsGrid({
       onChange([...next].join(','));
       return;
     }
-    // Simulate OAuth connect flow
+
+    if (!activeWorkspace?.id) {
+      alert('Select a workspace to connect integrations');
+      return;
+    }
+
+    // Map onboarding integration IDs to Composio connector IDs
+    const mapping: Record<string, string> = {
+      'google-analytics': 'ga4',
+      'google-ads': 'google_ads',
+      'meta-ads': 'meta_ads',
+      'hubspot': 'hubspot',
+      'linkedin-ads': 'linkedin_ads',
+      'mailchimp': 'mailchimp',
+    };
+    const connectorId = mapping[id] || id;
+
     setConnecting(id);
-    await new Promise(r => setTimeout(r, 900));
-    setConnecting(null);
-    const next = new Set(connected);
-    next.add(id);
-    onChange([...next].join(','));
+    try {
+      const result = await connectComposioConnector({
+        companyId: activeWorkspace.id,
+        connectorId,
+        userEmail: user?.email,
+        userName: user?.name,
+      });
+
+      if (result.status === 'connected') {
+        const next = new Set(connected);
+        next.add(id);
+        onChange([...next].join(','));
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Connection failed');
+    } finally {
+      setConnecting(null);
+    }
   };
 
   return (
