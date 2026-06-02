@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isAuthenticated: false,
             isLoading: false,
           });
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        } else if ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session?.user) {
           const user = mapSupabaseUser(session.user);
           persistActiveUserId(session.user.id);
           setState(prev => ({

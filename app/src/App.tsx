@@ -310,6 +310,8 @@ function AppContent() {
     });
   }, [isAuthenticated, isLoading, user, isOnboarded]);
 
+  const hasCheckedLeftoverRef = useRef(false);
+
   // Sync state with user metadata if they completed onboarding on another device/browser
   // and reset any leftover localStorage state for new/non-onboarded users.
   useEffect(() => {
@@ -324,12 +326,14 @@ function AppContent() {
     } else {
       // User has NOT onboarded in DB, so we must force onboarding state (false)
       // and clear any leftover 'marqq_onboarded = 1' in localStorage from a previous login.
-      if (isOnboarded) {
+      // We ONLY do this cleanup check ONCE on initial profile load to prevent race conditions during onboarding.
+      if (isOnboarded && !hasCheckedLeftoverRef.current) {
         console.log('[Auth Debug] Resetting leftover onboarding local storage for non-onboarded user.');
         localStorage.removeItem('marqq_onboarded');
         setIsOnboarded(false);
       }
     }
+    hasCheckedLeftoverRef.current = true;
   }, [user, isOnboarded, isAuthenticated, isLoading]);
 
   // On login with empty localStorage: skip onboarding for existing users.
