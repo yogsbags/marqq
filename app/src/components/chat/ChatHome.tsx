@@ -993,6 +993,7 @@ const AGENT_COLORS: Record<string, { bg: string; border: string; label: string; 
   isha:  { bg: 'bg-rose-50/80 dark:bg-rose-950/20',     border: 'border-rose-200/70 dark:border-rose-900/40',     label: 'text-rose-700 dark:text-rose-400',     avatar: 'bg-rose-500' },
   neel:  { bg: 'bg-slate-50/80 dark:bg-slate-950/20',   border: 'border-slate-200/70 dark:border-slate-900/40',   label: 'text-slate-700 dark:text-slate-400',   avatar: 'bg-slate-500' },
   tara:  { bg: 'bg-orange-50/80 dark:bg-orange-950/20', border: 'border-orange-200/70 dark:border-orange-900/40', label: 'text-orange-700 dark:text-orange-400', avatar: 'bg-orange-500' },
+  veena: { bg: 'bg-teal-50/80 dark:bg-teal-950/20',     border: 'border-teal-200/70 dark:border-teal-900/40',     label: 'text-teal-700 dark:text-teal-400',     avatar: 'bg-teal-500' },
 };
 const DEFAULT_AGENT_COLORS = { bg: 'bg-zinc-50/80 dark:bg-zinc-900/30', border: 'border-zinc-200/70 dark:border-zinc-800/40', label: 'text-zinc-700 dark:text-zinc-300', avatar: 'bg-zinc-500' };
 
@@ -1011,7 +1012,7 @@ const AGENT_RUN_TIMEOUT_MS = 45_000;
 async function fetchAgentRun(
   agentName: string,
   query: string,
-  headers: Record<string, string>,
+  headers: HeadersInit,
   timeoutMs = AGENT_RUN_TIMEOUT_MS,
 ) {
   const controller = new AbortController();
@@ -2056,7 +2057,7 @@ export function ChatHome({
             if (parsed.contractError || parsed.details) return;
             if (parsed.contract) {
               // Pull follow_ups out of the backend-generated contract
-              const fups = parsed.contract?.follow_ups;
+              const fups = (parsed.contract as any)?.follow_ups;
               if (Array.isArray(fups) && fups.length) agentFollowUps = fups as string[];
               return;
             }
@@ -2154,6 +2155,9 @@ export function ChatHome({
       content: introText,
       sender: 'ai',
       timestamp: new Date(),
+      agentId: 'veena',
+      agentName: 'Veena',
+      agentRole: 'Company Intelligence',
     };
     onMessagesChange(prev => [...prev, introMsg]);
 
@@ -2219,7 +2223,7 @@ export function ChatHome({
               if (parsed.contractError || parsed.details) return;
               if (parsed.contract) {
                 // Extract follow_ups from contract payload
-                const fups = parsed.contract?.follow_ups;
+                const fups = (parsed.contract as any)?.follow_ups;
                 if (Array.isArray(fups) && fups.length) seqFollowUps = fups as string[];
                 return;
               }
@@ -2310,6 +2314,20 @@ export function ChatHome({
   // CRITICAL: Waits for conversation hydration (useEffect above) before checking.
   useEffect(() => {
     const url = (activeWorkspace?.website_url ?? '').trim();
+    const key = activeWorkspace?.id ? `marqq_welcomed_${activeWorkspace.id}` : '';
+
+    console.log('[Helena Debug] Checking welcome sequence conditions:', {
+      url,
+      workspaceId: activeWorkspace?.id,
+      activeConversationId,
+      currentConvId: currentConvIdRef.current,
+      hasHydratedConversation: hasHydratedConversationRef.current,
+      scope,
+      hasExistingConversations: activeWorkspace?.id ? loadConversations(activeWorkspace.id, scope).length > 0 : false,
+      alreadyWelcomed: key ? !!localStorage.getItem(key) : false,
+      hasRunWelcome: hasRunWelcomeRef.current
+    });
+
     if (!url || !activeWorkspace?.id) return;
     if (activeConversationId) return; // don't override an already-open conversation
     if (currentConvIdRef.current) return;
@@ -2322,8 +2340,7 @@ export function ChatHome({
     if (scope !== 'main') return;
     if (loadConversations(activeWorkspace?.id, scope).length > 0) return;
 
-    const key = `marqq_welcomed_${activeWorkspace.id}`;
-    if (localStorage.getItem(key)) return;
+    if (!key || localStorage.getItem(key)) return;
     if (hasRunWelcomeRef.current) return;
 
     // Do NOT set hasRunWelcomeRef / localStorage here: React Strict Mode runs
@@ -2350,6 +2367,9 @@ export function ChatHome({
         content: `I've got ${companyLabel}${industryHint} — briefing your team across SEO, leads, performance, content, and campaigns now.`,
         sender: 'ai' as const,
         timestamp: new Date(),
+        agentId: 'veena',
+        agentName: 'Veena',
+        agentRole: 'Company Intelligence',
       }]);
       runAgentSequence(
         buildOnboardingWelcomeSequence(url, ctx),
@@ -2453,7 +2473,7 @@ export function ChatHome({
             if (parsed.contractError || parsed.details) return;
             if (parsed.contract) {
               // Pull follow_ups from the backend contract event
-              const fups = parsed.contract?.follow_ups;
+              const fups = (parsed.contract as any)?.follow_ups;
               if (Array.isArray(fups) && fups.length) planFollowUps = fups as string[];
               return;
             }
