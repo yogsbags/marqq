@@ -330,7 +330,11 @@ export async function initiateConnection(userId, connectorId, extraFields = {}) 
     const data = await res.json()
     if (!res.ok) {
       console.error('[initiateConnection] Composio v3 error:', JSON.stringify(data))
-      return { error: data?.message || data?.error || JSON.stringify(data) }
+      const rawError = data?.message || data?.error || JSON.stringify(data)
+      const errorMsg = typeof rawError === 'object' && rawError !== null
+        ? (rawError.message || rawError.error || JSON.stringify(rawError))
+        : String(rawError)
+      return { error: errorMsg }
     }
     // v3 returns { link: "https://..." } or { redirectUrl: "..." }
     const redirectUrl = data.link || data.redirectUrl || data.redirect_url

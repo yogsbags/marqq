@@ -71,7 +71,11 @@ export async function connectComposioConnector({
   })
   const json = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw new Error(json?.error || 'connect failed')
+    const rawError = json?.error
+    const errorMsg = typeof rawError === 'object' && rawError !== null
+      ? (rawError.message || rawError.error || JSON.stringify(rawError))
+      : (typeof rawError === 'string' ? rawError : 'connect failed')
+    throw new Error(errorMsg)
   }
 
   const finalize = async (resolvedConnectorId: string) => {
