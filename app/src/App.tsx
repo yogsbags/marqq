@@ -297,13 +297,40 @@ function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [isOnboarded, setIsOnboarded] = useState(() => localStorage.getItem('marqq_onboarded') === '1');
 
-  // Sync state with user metadata if they completed onboarding on another device/browser
+  // Diagnostic logging
   useEffect(() => {
-    if (user?.onboarded && !isOnboarded) {
-      localStorage.setItem('marqq_onboarded', '1');
-      setIsOnboarded(true);
+    console.log('[Auth Debug] AppContent rendering:', {
+      isAuthenticated,
+      isLoading,
+      userEmail: user?.email,
+      userOnboardedInDb: user?.onboarded,
+      isOnboardedState: isOnboarded,
+      localStorageOnboarded: localStorage.getItem('marqq_onboarded'),
+      sessionStorageJustSignedUp: sessionStorage.getItem('marqq_just_signed_up')
+    });
+  }, [isAuthenticated, isLoading, user, isOnboarded]);
+
+  // Sync state with user metadata if they completed onboarding on another device/browser
+  // and reset any leftover localStorage state for new/non-onboarded users.
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+
+    if (user?.onboarded) {
+      if (!isOnboarded) {
+        console.log('[Auth Debug] Syncing onboarding status to true: user is onboarded in DB.');
+        localStorage.setItem('marqq_onboarded', '1');
+        setIsOnboarded(true);
+      }
+    } else {
+      // User has NOT onboarded in DB, so we must force onboarding state (false)
+      // and clear any leftover 'marqq_onboarded = 1' in localStorage from a previous login.
+      if (isOnboarded) {
+        console.log('[Auth Debug] Resetting leftover onboarding local storage for non-onboarded user.');
+        localStorage.removeItem('marqq_onboarded');
+        setIsOnboarded(false);
+      }
     }
-  }, [user, isOnboarded]);
+  }, [user, isOnboarded, isAuthenticated, isLoading]);
 
   // On login with empty localStorage: skip onboarding for existing users.
   // Only fresh signups (sessionStorage flag set by AuthContext.signup) or users
@@ -313,11 +340,18 @@ function AppContent() {
     const isFreshSignup = sessionStorage.getItem('marqq_just_signed_up') === '1';
     const hasOnboardedInDb = !!user?.onboarded;
 
+    console.log('[Auth Debug] Checking onboarding flow activation criteria:', {
+      isFreshSignup,
+      hasOnboardedInDb
+    });
+
     if (isFreshSignup || !hasOnboardedInDb) {
+      console.log('[Auth Debug] Directing to OnboardingFlow (either fresh signup or not onboarded in DB)');
       return; // let the onboarding flow handle it
     }
 
     // Existing user logging in who has already onboarded in DB — mark as onboarded locally
+    console.log('[Auth Debug] Existing user already onboarded in DB. Bypassing onboarding flow.');
     localStorage.setItem('marqq_onboarded', '1');
     setIsOnboarded(true);
   }, [isAuthenticated, isOnboarded, isLoading, user]);
